@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Take Five · Care coordination for families</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --teal-900: #04342C; --teal-800: #085041; --teal-600: #0F6E56;
+    --teal-500: #1D9E75; --teal-300: #5DCAA5; --teal-100: #9FE1CB;
+    --teal-50: #E1F5EE; --amber: #FAC775; --amber-dk: #633806;
+    --cream: #F9F6F0; --white: #FFFFFF; --gray-200: #E8E5DF;
+    --gray-400: #B0ADA6; --gray-600: #6B6763; --text: #1A1A18;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--cream); color: var(--text); overflow-x: hidden; }
+
+  /* NAV */
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 2.5rem; background: rgba(249,246,240,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--gray-200); }
+  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .nav-logo { width: 32px; height: 32px; }
+  .nav-name { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--teal-800); letter-spacing: -0.02em; }
+  .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; }
+  .nav-links a { font-size: 0.85rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-600); text-decoration: none; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--teal-500); }
+  .nav-cta { background: var(--teal-500) !important; color: var(--white) !important; padding: 0.5rem 1.25rem; border-radius: 100px; font-weight: 700 !important; }
+  .nav-cta:hover { background: var(--teal-600) !important; }
+
+  /* HERO */
+  .hero { min-height: 100vh; background: var(--teal-800); display: grid; grid-template-columns: 1fr 1fr; align-items: center; position: relative; overflow: hidden; padding-top: 5rem; }
+  .hero-bg { position: absolute; border-radius: 50%; opacity: 0.06; background: var(--teal-300); }
+  .hero-bg.c1 { width: 600px; height: 600px; top: -200px; right: -100px; }
+  .hero-bg.c2 { width: 300px; height: 300px; bottom: 50px; left: 100px; }
+  .hero-content { padding: 5rem 4rem 5rem 5rem; position: relative; z-index: 2; animation: fadeUp 0.8s ease both; }
+  .eyebrow { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal-300); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+  .eyebrow::before { content: ''; display: block; width: 32px; height: 1px; background: var(--teal-300); }
+  .eyebrow.light { color: var(--teal-500); }
+  .eyebrow.light::before { background: var(--teal-500); }
+  .hero-headline { font-family: 'Playfair Display', serif; font-size: clamp(3rem, 5vw, 4.5rem); font-weight: 400; line-height: 1.1; color: var(--white); margin-bottom: 1rem; letter-spacing: -0.02em; }
+  .hero-headline em { font-style: italic; color: var(--teal-300); }
+  .hero-sub { font-size: 1.1rem; font-weight: 300; line-height: 1.7; color: var(--teal-100); max-width: 460px; margin-bottom: 2.5rem; }
+  .actions { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 0.9rem 2rem; border-radius: 100px; font-family: 'Lato', sans-serif; font-size: 0.9rem; font-weight: 700; text-decoration: none; cursor: pointer; border: none; transition: background 0.2s, transform 0.15s; }
+  .btn-primary { background: var(--teal-300); color: var(--teal-900); }
+  .btn-primary:hover { background: var(--white); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--teal-100); padding: 0; font-weight: 400; letter-spacing: 0.04em; }
+  .btn-ghost::after { content: ' →'; }
+  .btn-ghost:hover { color: var(--white); }
+  .hero-visual { padding: 4rem 4rem 4rem 2rem; position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; animation: fadeUp 0.8s 0.2s ease both; }
+  .care-circle { width: 380px; height: 380px; }
+  .care-circle svg { width: 100%; height: 100%; }
+
+  /* PROOF BAR */
+  .proof-bar { background: var(--teal-900); padding: 1.25rem 5rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; border-top: 1px solid rgba(93,202,165,0.15); }
+  .proof-item { display: flex; align-items: center; gap: 0.75rem; }
+  .proof-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal-300); flex-shrink: 0; }
+  .proof-text { font-size: 0.85rem; font-weight: 300; color: var(--teal-100); }
+
+  /* GENERAL SECTION */
+  section { padding: 6rem 5rem; }
+  .sec-title { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 400; line-height: 1.2; color: var(--teal-800); margin-bottom: 1.25rem; letter-spacing: -0.02em; }
+  .sec-title em { font-style: italic; color: var(--teal-500); }
+  .sec-title.light { color: var(--white); }
+  .sec-title.light em { color: var(--teal-300); }
+  .sec-body { font-size: 1.05rem; line-height: 1.75; color: var(--gray-600); max-width: 560px; }
+  .sec-body.light { color: var(--teal-100); }
+
+  /* SCIENCE */
+  .science { background: var(--teal-800); position: relative; overflow: hidden; }
+  .science::before { content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%; background: var(--teal-600); opacity: 0.12; top: -200px; right: -100px; }
+  .science-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2.5rem 0; position: relative; z-index: 2; }
+  .stat { background: rgba(255,255,255,0.06); border: 1px solid rgba(93,202,165,0.2); border-radius: 16px; padding: 1.5rem; }
+  .stat-num { font-family: 'Playfair Display', serif; font-size: 2.8rem; font-weight: 700; color: var(--teal-300); line-height: 1; margin-bottom: 0.5rem; }
+  .stat-label { font-size: 0.88rem; line-height: 1.5; color: var(--teal-100); }
+  .sci-quote { background: rgba(255,255,255,0.05); border-left: 3px solid var(--teal-300); padding: 1.5rem 2rem; border-radius: 0 12px 12px 0; max-width: 800px; position: relative; z-index: 2; }
+  .sci-quote p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.05rem; line-height: 1.7; color: var(--white); }
+  .sci-quote cite { display: block; margin-top: 0.6rem; font-family: 'Lato', sans-serif; font-size: 0.8rem; font-style: normal; color: var(--teal-300); }
+
+  /* ORIGIN */
+  .origin { background: var(--white); display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+  .pull-quote { background: var(--teal-50); border-left: 3px solid var(--teal-500); padding: 2rem 2.5rem; border-radius: 0 12px 12px 0; margin-top: 2rem; }
+  .pull-quote p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.1rem; line-height: 1.7; color: var(--teal-800); }
+  .pull-quote cite { display: block; margin-top: 0.75rem; font-family: 'Lato', sans-serif; font-size: 0.85rem; color: var(--teal-500); font-style: normal; }
+  .siblings { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
+  .sibling { width: 64px; height: 64px; border-radius: 50%; background: var(--teal-50); border: 2px solid var(--teal-100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--teal-800); transition: transform 0.2s; }
+  .sibling.founder { background: var(--teal-500); border-color: var(--teal-300); color: var(--white); }
+  .sibling:hover { transform: translateY(-3px); }
+
+  /* PROBLEM */
+  .problem { background: var(--cream); text-align: center; }
+  .problem .eyebrow { justify-content: center; }
+  .problem .eyebrow::before { display: none; }
+  .problem .sec-title, .problem .sec-body { margin: 0 auto; }
+  .problem .sec-body { margin-bottom: 3rem; text-align: left; }
+  .cards-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; text-align: left; margin-top: 0; }
+  .prob-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.75rem; border-top: 3px solid var(--teal-500); transition: transform 0.2s; }
+  .prob-card:hover { transform: translateY(-4px); }
+  .prob-num { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 700; color: var(--teal-50); line-height: 1; margin-bottom: 0.75rem; }
+  .prob-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.5rem; }
+  .prob-body { font-size: 0.9rem; line-height: 1.6; color: var(--gray-600); }
+
+  /* HOW */
+  .how { background: var(--teal-800); position: relative; overflow: hidden; }
+  .how::before { content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%; background: var(--teal-600); opacity: 0.15; top: -200px; right: -100px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 3.5rem; position: relative; z-index: 2; }
+  .step { background: rgba(255,255,255,0.06); border: 1px solid rgba(93,202,165,0.2); border-radius: 16px; padding: 2rem; transition: background 0.2s; }
+  .step:hover { background: rgba(255,255,255,0.1); }
+  .step-num { width: 36px; height: 36px; border-radius: 50%; background: var(--teal-500); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--white); margin-bottom: 1.25rem; }
+  .step-title { font-size: 1rem; font-weight: 700; color: var(--white); margin-bottom: 0.6rem; }
+  .step-body { font-size: 0.9rem; line-height: 1.65; color: var(--teal-100); }
+
+  /* FEATURES */
+  .features { background: var(--white); }
+  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 3rem; }
+  .feat { border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.75rem; position: relative; overflow: hidden; transition: border-color 0.2s, transform 0.2s; }
+  .feat:hover { border-color: var(--teal-300); transform: translateY(-3px); }
+  .feat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--teal-500); transform: scaleX(0); transform-origin: left; transition: transform 0.3s; }
+  .feat:hover::before, .feat.sig::before { transform: scaleX(1); }
+  .feat.sig { border-color: var(--teal-300); border-width: 1.5px; }
+  .feat-badge { display: inline-block; background: var(--teal-50); color: var(--teal-800); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 100px; margin-bottom: 0.75rem; }
+  .feat-icon { width: 44px; height: 44px; background: var(--teal-50); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+  .feat-icon svg { width: 20px; height: 20px; }
+  .feat-title { font-size: 1rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.5rem; }
+  .feat-body { font-size: 0.88rem; line-height: 1.65; color: var(--gray-600); }
+
+  /* LIFE LOG */
+  .lifelog { background: var(--teal-50); display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; }
+  .ll-items { display: flex; flex-direction: column; gap: 1rem; margin-top: 2rem; }
+  .ll-item { background: var(--white); border: 1px solid var(--gray-200); border-radius: 12px; padding: 1.1rem 1.25rem; display: flex; align-items: flex-start; gap: 1rem; transition: transform 0.2s; }
+  .ll-item:hover { transform: translateX(4px); }
+  .ll-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--teal-50); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ll-icon svg { width: 18px; height: 18px; }
+  .ll-title { font-size: 0.9rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.2rem; }
+  .ll-body { font-size: 0.85rem; line-height: 1.5; color: var(--gray-600); }
+  .feed { background: var(--teal-800); border-radius: 16px; padding: 2rem; }
+  .feed-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--teal-300); margin-bottom: 1.25rem; }
+  .feed-item { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 1rem 1.1rem; margin-bottom: 0.75rem; border-left: 2px solid var(--teal-300); }
+  .feed-item:last-child { margin-bottom: 0; }
+  .feed-time { font-size: 0.72rem; color: var(--teal-300); margin-bottom: 0.3rem; }
+  .feed-text { font-size: 0.88rem; line-height: 1.55; color: var(--white); }
+  .feed-text em { font-style: italic; color: var(--teal-100); }
+
+  /* STORY */
+  .story-sec { background: var(--teal-900); padding: 6rem 5rem; position: relative; overflow: hidden; }
+  .story-sec::before { content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%; background: var(--teal-700); opacity: 0.1; bottom: -300px; right: -150px; }
+  .story-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; position: relative; z-index: 2; }
+  .story-qs { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 2rem; }
+  .story-q { background: rgba(255,255,255,0.06); border: 1px solid rgba(93,202,165,0.2); border-radius: 10px; padding: 1rem 1.25rem; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.95rem; line-height: 1.5; color: var(--white); transition: background 0.2s; }
+  .story-q:hover { background: rgba(255,255,255,0.1); }
+  .story-q::before { content: '"'; color: var(--teal-300); }
+  .story-q::after { content: '"'; color: var(--teal-300); }
+  .story-book { background: rgba(255,255,255,0.05); border: 1px solid rgba(93,202,165,0.3); border-radius: 16px; padding: 2rem; }
+  .story-book-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--teal-300); margin-bottom: 0.3rem; font-style: italic; }
+  .story-book-sub { font-size: 0.8rem; color: var(--teal-100); margin-bottom: 1.5rem; }
+  .story-ch { padding: 0.9rem 0; border-bottom: 1px solid rgba(93,202,165,0.1); display: flex; align-items: center; justify-content: space-between; }
+  .story-ch:last-of-type { border-bottom: none; }
+  .story-ch-name { font-size: 0.9rem; color: var(--white); }
+  .story-ch-count { font-size: 0.8rem; color: var(--teal-300); }
+  .story-insight { margin-top: 1.5rem; background: rgba(93,202,165,0.1); border-radius: 10px; padding: 1rem 1.25rem; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.95rem; line-height: 1.6; color: var(--teal-100); }
+
+  /* DIGNITY */
+  .dignity { background: var(--teal-50); display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+  .dig-quote { font-family: 'Playfair Display', serif; font-size: clamp(1.75rem, 2.5vw, 2.25rem); font-style: italic; font-weight: 400; line-height: 1.4; color: var(--teal-800); position: relative; padding-left: 2rem; }
+  .dig-quote::before { content: '"'; position: absolute; left: -0.5rem; top: -0.5rem; font-size: 5rem; color: var(--teal-300); line-height: 1; font-family: 'Playfair Display', serif; }
+  .dig-cite { display: block; margin-top: 1rem; font-family: 'Lato', sans-serif; font-style: normal; font-size: 0.9rem; color: var(--teal-500); padding-left: 2rem; }
+  .pillars { display: flex; flex-direction: column; gap: 1.25rem; }
+  .pillar { display: flex; gap: 1rem; align-items: flex-start; }
+  .pillar-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal-500); margin-top: 0.4rem; flex-shrink: 0; }
+  .pillar-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.2rem; }
+  .pillar-body { font-size: 0.88rem; line-height: 1.6; color: var(--gray-600); }
+
+  /* PRICING */
+  .pricing { background: var(--cream); text-align: center; }
+  .pricing .eyebrow { justify-content: center; }
+  .pricing .eyebrow::before { display: none; }
+  .pricing .sec-title, .pricing .sec-body { margin: 0 auto; }
+  .pricing .sec-body { margin-bottom: 3rem; }
+  .price-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; max-width: 900px; margin: 0 auto; text-align: left; }
+  .price-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 20px; padding: 2rem; transition: transform 0.2s; }
+  .price-card:hover { transform: translateY(-4px); }
+  .price-card.feat { background: var(--teal-800); border-color: var(--teal-800); position: relative; }
+  .price-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--teal-300); color: var(--teal-900); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3rem 0.9rem; border-radius: 100px; white-space: nowrap; }
+  .price-tier { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--teal-500); margin-bottom: 0.5rem; }
+  .price-card.feat .price-tier { color: var(--teal-300); }
+  .price-num { font-family: 'Playfair Display', serif; font-size: 2.25rem; font-weight: 700; color: var(--teal-800); line-height: 1; margin-bottom: 0.25rem; }
+  .price-card.feat .price-num { color: var(--white); }
+  .price-unit { font-size: 0.85rem; color: var(--gray-400); margin-bottom: 1.25rem; }
+  .price-card.feat .price-unit { color: var(--teal-100); }
+  .price-desc { font-size: 0.88rem; line-height: 1.6; color: var(--gray-600); margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--gray-200); }
+  .price-card.feat .price-desc { color: var(--teal-100); border-color: rgba(93,202,165,0.2); }
+  .price-feats { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+  .price-feats li { font-size: 0.88rem; color: var(--gray-600); display: flex; align-items: center; gap: 0.6rem; }
+  .price-card.feat .price-feats li { color: var(--teal-100); }
+  .price-feats li::before { content: ''; width: 16px; height: 16px; border-radius: 50%; background: var(--teal-50) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 5l2 2 4-4' stroke='%231D9E75' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center; flex-shrink: 0; }
+  .price-card.feat .price-feats li::before { background-color: rgba(93,202,165,0.2); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 5l2 2 4-4' stroke='%235DCAA5' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+
+  /* CTA */
+  .cta { background: var(--teal-800); text-align: center; padding: 7rem 5rem; position: relative; overflow: hidden; }
+  .cta::before { content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%; background: var(--teal-600); opacity: 0.2; bottom: -300px; left: 50%; transform: translateX(-50%); }
+  .cta-title { font-family: 'Playfair Display', serif; font-size: clamp(2.5rem, 4vw, 3.5rem); font-weight: 400; color: var(--white); line-height: 1.2; margin-bottom: 1.25rem; position: relative; z-index: 2; }
+  .cta-title em { font-style: italic; color: var(--teal-300); }
+  .cta-sub { font-size: 1.1rem; color: var(--teal-100); margin-bottom: 2.5rem; position: relative; z-index: 2; }
+  .cta-form { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; position: relative; z-index: 2; }
+  .cta-input { padding: 0.9rem 1.5rem; border-radius: 100px; border: 1px solid rgba(93,202,165,0.3); background: rgba(255,255,255,0.08); color: var(--white); font-family: 'Lato', sans-serif; font-size: 0.95rem; width: 300px; outline: none; transition: border-color 0.2s; }
+  .cta-input::placeholder { color: var(--teal-100); opacity: 0.6; }
+  .cta-input:focus { border-color: var(--teal-300); }
+  .cta-btn { padding: 0.9rem 2rem; border-radius: 100px; border: none; background: var(--teal-300); color: var(--teal-900); font-family: 'Lato', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.15s; }
+  .cta-btn:hover { background: var(--white); transform: translateY(-1px); }
+  .cta-note { margin-top: 1rem; font-size: 0.8rem; color: var(--teal-100); opacity: 0.6; position: relative; z-index: 2; }
+
+  /* FOOTER */
+  footer { background: var(--teal-900); padding: 3rem 5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; border-top: 1px solid rgba(93,202,165,0.1); }
+  .footer-brand { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--teal-300); }
+  .footer-tagline { font-size: 0.85rem; font-style: italic; color: var(--teal-100); opacity: 0.7; }
+  .footer-links { display: flex; gap: 1.5rem; list-style: none; }
+  .footer-links a { font-size: 0.82rem; color: var(--teal-100); opacity: 0.6; text-decoration: none; transition: opacity 0.2s; }
+  .footer-links a:hover { opacity: 1; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 900px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+    section, .story-sec { padding: 4rem 1.75rem; }
+    .hero { grid-template-columns: 1fr; padding: 6rem 1.75rem 3rem; }
+    .hero-visual { display: none; }
+    .proof-bar { padding: 1.25rem 1.75rem; flex-direction: column; align-items: flex-start; }
+    .origin, .dignity, .lifelog { grid-template-columns: 1fr; gap: 2.5rem; }
+    .story-inner { grid-template-columns: 1fr; gap: 2.5rem; }
+    .cards-4, .steps, .feat-grid { grid-template-columns: 1fr 1fr; }
+    .science-grid { grid-template-columns: 1fr 1fr; }
+    .price-cards { grid-template-columns: 1fr; max-width: 420px; }
+    .cta { padding: 4rem 1.75rem; }
+    .cta-input { width: 100%; }
+    footer { padding: 2rem 1.75rem; flex-direction: column; align-items: flex-start; }
+  }
+  @media (max-width: 600px) {
+    .cards-4, .steps, .feat-grid, .science-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-brand">
+    <svg class="nav-logo" viewBox="0 0 56 56" fill="none">
+      <g stroke="#1D9E75" stroke-width="1.5" fill="none">
+        <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
+        <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
+        <line x1="6" y1="21" x2="28" y2="6"/>
+      </g>
+      <circle cx="28" cy="6" r="5" fill="#5DCAA5"/>
+      <circle cx="50" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="42" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="14" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
+    </svg>
+    <span class="nav-name">Take Five</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#science">The science</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#story">The Story</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#waitlist" class="nav-cta">Join waitlist</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg c1"></div>
+  <div class="hero-bg c2"></div>
+  <div class="hero-content">
+    <p class="eyebrow">takefive.care</p>
+    <h1 class="hero-headline">Take five.<br><em>We've got<br>the rest.</em></h1>
+    <p class="hero-sub">An AI care agent that coordinates your family, keeps your parent connected and living fully, and preserves their story — so they can stay home, with dignity, surrounded by the people they love.</p>
+    <div class="actions">
+      <a href="#waitlist" class="btn btn-primary">Join the waitlist</a>
+      <a href="#science" class="btn btn-ghost">See the science</a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="care-circle">
+      <svg viewBox="0 0 380 380" fill="none">
+        <g stroke="rgba(93,202,165,0.3)" stroke-width="1" fill="none">
+          <line x1="190" y1="48" x2="318" y2="134"/><line x1="318" y1="134" x2="272" y2="285"/>
+          <line x1="272" y1="285" x2="108" y2="285"/><line x1="108" y1="285" x2="62" y2="134"/>
+          <line x1="62" y1="134" x2="190" y2="48"/>
+          <line x1="190" y1="48" x2="190" y2="175"/><line x1="318" y1="134" x2="190" y2="175"/>
+          <line x1="272" y1="285" x2="190" y2="175"/><line x1="108" y1="285" x2="190" y2="175"/>
+          <line x1="62" y1="134" x2="190" y2="175"/>
+        </g>
+        <circle cx="190" cy="48" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
+        <text x="190" y="42" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Adult</text>
+        <text x="190" y="56" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">child</text>
+        <circle cx="318" cy="134" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
+        <text x="318" y="138" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Sibling</text>
+        <circle cx="272" cy="285" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
+        <text x="272" y="279" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Home</text>
+        <text x="272" y="293" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">aide</text>
+        <circle cx="108" cy="285" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
+        <text x="108" y="289" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Neighbor</text>
+        <circle cx="62" cy="134" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
+        <text x="62" y="138" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Nurse</text>
+        <circle cx="190" cy="175" r="46" fill="#1D9E75" stroke="#5DCAA5" stroke-width="2"/>
+        <text x="190" y="170" font-family="serif" font-style="italic" font-size="14" fill="white" text-anchor="middle">Home</text>
+        <text x="190" y="188" font-family="serif" font-style="italic" font-size="13" fill="rgba(255,255,255,0.8)" text-anchor="middle">Mom &amp; Dad</text>
+        <circle cx="190" cy="175" r="58" stroke="rgba(93,202,165,0.15)" stroke-width="1" fill="none"/>
+        <circle cx="190" cy="175" r="72" stroke="rgba(93,202,165,0.08)" stroke-width="1" fill="none"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- PROOF BAR -->
+<div class="proof-bar">
+  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Coordination · connection · story</span></div>
+  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">SMS-first — no app required</span></div>
+  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Built by a family that lived it</span></div>
+  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Backed by the science of connection</span></div>
+  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">A Dignitas Studio venture</span></div>
+</div>
+
+<!-- SCIENCE -->
+<section class="science" id="science">
+  <p class="eyebrow">The science</p>
+  <h2 class="sec-title light">Social connection<br><em>is healthcare.</em></h2>
+  <p class="sec-body light" style="margin-bottom:0; max-width:640px;">The research is unambiguous. Keeping your parent connected — to family, to stories, to life — is one of the most powerful health interventions available. Take Five is built on this science.</p>
+  <div class="science-grid">
+    <div class="stat"><div class="stat-num">29%</div><p class="stat-label">Increased risk of premature death from social isolation — comparable to smoking or obesity (National Academies, 2020)</p></div>
+    <div class="stat"><div class="stat-num">50%</div><p class="stat-label">Increased risk of dementia among older adults experiencing chronic loneliness or isolation (HHS, 2023)</p></div>
+    <div class="stat"><div class="stat-num">15</div><p class="stat-label">Cigarettes per day — the equivalent mortality impact of being socially disconnected (U.S. Surgeon General, 2023)</p></div>
+    <div class="stat"><div class="stat-num">1 in 2</div><p class="stat-label">U.S. adults report measurable loneliness — declared a public health epidemic (Surgeon General's Advisory, 2023)</p></div>
+  </div>
+  <blockquote class="sci-quote">
+    <p>"Social connection is a significant predictor of longevity and better physical, cognitive, and mental health, while social isolation and loneliness are significant predictors of premature death and poor health."</p>
+    <cite>U.S. Surgeon General's Advisory on the Epidemic of Loneliness and Isolation (2023) · National Academies of Sciences, Engineering &amp; Medicine · World Health Organization Commission on Social Connection</cite>
+  </blockquote>
+</section>
+
+<!-- ORIGIN -->
+<section class="origin">
+  <div>
+    <p class="eyebrow light">The origin story</p>
+    <h2 class="sec-title">Five siblings.<br>Two parents.<br><em>One system.</em></h2>
+    <p class="sec-body">Take Five was born from lived experience — not a market analysis. As five siblings coordinating care for aging parents, we lived the coordination chaos firsthand. The scattered texts, the missed handoffs, the one person carrying too much.</p>
+    <div class="siblings">
+      <div class="sibling">#1</div><div class="sibling">#2</div>
+      <div class="sibling founder">#3</div>
+      <div class="sibling">#4</div><div class="sibling">#5</div>
+    </div>
+  </div>
+  <div>
+    <blockquote class="pull-quote">
+      <p>"We built what we needed. We named it after what made it matter — the five of us, showing up."</p>
+      <cite>— Eric Landry, Founder &amp; #3</cite>
+    </blockquote>
+    <p class="sec-body" style="margin-top:2rem;">Every family has their number — the people who showed up when it mattered. Take Five is built for all of them.</p>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="problem">
+  <p class="eyebrow">The problem</p>
+  <h2 class="sec-title">Coordination collapse forces people<br>out of their homes.</h2>
+  <p class="sec-body" style="margin-bottom:3rem;">People end up in managed care not because they have to — but because the logistics became unmanageable, and the connections that keep them healthy were allowed to fade.</p>
+  <div class="cards-4">
+    <div class="prob-card"><div class="prob-num">01</div><div class="prob-title">One person carries everything</div><p class="prob-body">One exhausted adult child manages schedules, meds, and decisions — often from a distance, alongside siblings with varying involvement.</p></div>
+    <div class="prob-card"><div class="prob-num">02</div><div class="prob-title">Tasks fall through the cracks</div><p class="prob-body">No shared visibility means no shared accountability. Things get missed. Crises happen that didn't have to.</p></div>
+    <div class="prob-card"><div class="prob-num">03</div><div class="prob-title">Connection slowly fades</div><p class="prob-body">As logistics take over, the human relationship suffers. The visits get shorter. The isolation grows — quietly, dangerously, with real health consequences.</p></div>
+    <div class="prob-card"><div class="prob-num">04</div><div class="prob-title">Stories are lost forever</div><p class="prob-body">Every person over 80 is a living archive. Without someone asking the questions, those stories disappear when they do.</p></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <p class="eyebrow">How it works</p>
+  <h2 class="sec-title light">Simple for everyone.<br><em>Powerful for families.</em></h2>
+  <p class="sec-body light">No apps. No training. No friction. Just a phone number and a calm, intelligent presence holding everything together.</p>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-title">Set up your care circle</div><p class="step-body">Invite family, professional caregivers, and anyone in your parent's support network. Each person gets role-appropriate visibility.</p></div>
+    <div class="step"><div class="step-num">2</div><div class="step-title">Caregivers check in by text</div><p class="step-body">After every visit, caregivers text naturally — "She ate well, loved her book, seemed happy today." No app. No form. Just a message.</p></div>
+    <div class="step"><div class="step-num">3</div><div class="step-title">The agent holds it all</div><p class="step-body">Take Five parses every update, maintains the care log and life log, assigns tasks, and surfaces what matters — before it becomes a crisis.</p></div>
+    <div class="step"><div class="step-num">4</div><div class="step-title">Family gets a daily digest</div><p class="step-body">Every morning: what happened, what she's reading, what needs a decision. One tap to respond. The child in Denver feels present.</p></div>
+    <div class="step"><div class="step-num">5</div><div class="step-title">The Story grows over time</div><p class="step-body">Each week the agent asks one gentle question. The answers build into a memoir — her life, in her own words, preserved forever.</p></div>
+    <div class="step"><div class="step-num">6</div><div class="step-title">Hard decisions, made together</div><p class="step-body">When the hardest question comes, the agent gives your whole family the same data, the same guidance, and a way to decide together with dignity.</p></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <p class="eyebrow light">Features</p>
+  <h2 class="sec-title">Three pillars.<br><em>One platform.</em></h2>
+  <div class="feat-grid">
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 6v4.5l2.5 2"/></svg></div><div class="feat-title">AI care agent</div><p class="feat-body">Parses caregiver check-ins, maintains the care log, and surfaces what matters — automatically, around the clock.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h12M4 10h8M4 14h5"/><rect x="2" y="3" width="16" height="14" rx="2"/></svg></div><div class="feat-title">Daily family digest</div><p class="feat-body">One warm morning summary — what happened, what she's reading, what needs action. The child in Denver stays close.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3l2.5 5 5.5.8-4 3.9.9 5.5L10 16l-4.9 2.2.9-5.5L2 8.8l5.5-.8z"/></svg></div><div class="feat-title">Proactive alerts</div><p class="feat-body">Missed check-ins, medication gaps, and pattern changes surface before they become crises.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="3"/><circle cx="14" cy="7" r="3"/><path d="M2 17c0-3 2-4.5 5-4.5s3.5 1.5 5 1.5 3.5-1.5 5-1.5 5 1.5 5 4.5"/></svg></div><div class="feat-title">Sibling equity</div><p class="feat-body">Tasks visible, assigned, and tracked. No one carries the invisible load. The agent redistributes and follows through.</p></div>
+    <div class="feat sig"><div class="feat-badge">New</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4zM4 8h12M8 8v8"/></svg></div><div class="feat-title">Life Log</div><p class="feat-body">Books read, shows watched, walks taken. A living record of a life still being lived — because staying engaged is staying healthy.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3v4M10 13v4M3 10h4M13 10h4"/><circle cx="10" cy="10" r="3"/></svg></div><div class="feat-title">Decision support</div><p class="feat-body">Trend data, professional guidance, and family alignment tools for the hardest questions — like whether it's time to move.</p></div>
+  </div>
+</section>
+
+<!-- LIFE LOG -->
+<section class="lifelog">
+  <div>
+    <p class="eyebrow light">The Life Log</p>
+    <h2 class="sec-title">Not just what she needs.<br><em>What she loves.</em></h2>
+    <p class="sec-body">Most care apps track what's wrong. Take Five tracks what's alive. Research shows that engagement in daily life — books, shows, conversations, movement — is one of the most powerful protections against cognitive decline and premature mortality.</p>
+    <div class="ll-items">
+      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M3 3h12v12H3z"/><path d="M3 7h12M7 7v8"/></svg></div><div><div class="ll-title">Books &amp; reading</div><p class="ll-body">Currently reading, just finished, loved or didn't — the reading life tracked naturally through caregiver check-ins.</p></div></div>
+      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="14" height="11" rx="2"/><path d="M7 14v2M11 14v2M5 16h8"/></svg></div><div><div class="ll-title">Shows &amp; films</div><p class="ll-body">What she's watching, what made her laugh — so the next caregiver already has something to talk about.</p></div></div>
+      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.5 2"/></svg></div><div><div class="ll-title">Activities &amp; movement</div><p class="ll-body">Walks, garden time, phone calls with grandkids. Small signals of vitality — and early warnings when they stop.</p></div></div>
+      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M9 2l2 4 4.5.7-3.2 3.1.8 4.5L9 12.2l-4 2.1.8-4.5L2.5 6.7 7 6z"/></svg></div><div><div class="ll-title">Mood &amp; good days</div><p class="ll-body">A simple daily signal. One tap from the caregiver. Over time the most valuable dataset in the product.</p></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="feed">
+      <div class="feed-label">Today's care circle feed</div>
+      <div class="feed-item"><div class="feed-time">Rosa · 9:14am</div><div class="feed-text">Good morning. She finished her mystery novel — <em>seemed really satisfied.</em> Started the next one already. Good appetite, all meds taken.</div></div>
+      <div class="feed-item"><div class="feed-time">Take Five · 11:00am</div><div class="feed-text"><em>Milestone:</em> Mom has finished 8 books since joining Take Five — averaging one every 3 weeks.</div></div>
+      <div class="feed-item"><div class="feed-time">Rosa · 2:30pm</div><div class="feed-text">Afternoon walk — made it to the corner and back. She talked about the garden the whole way. <em>Good energy today.</em></div></div>
+      <div class="feed-item"><div class="feed-time">Take Five · 8:00am tomorrow</div><div class="feed-text"><em>Daily digest:</em> Great day. Book finished, walk completed, good mood. One item needs attention — Thursday aide visit unconfirmed.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- THE STORY -->
+<section class="story-sec" id="story">
+  <div class="story-inner">
+    <div>
+      <p class="eyebrow">The Story</p>
+      <h2 class="sec-title light">Every person is<br>a living archive.<br><em>Ask the questions.</em></h2>
+      <p class="sec-body light" style="margin-bottom:1rem;">Take Five conducts an ongoing, gentle interview — one question a week — that builds into a memoir over time. Her life, in her own words. The stories that would otherwise disappear.</p>
+      <p class="sec-body light">Research on reminiscence therapy shows that life review is clinically beneficial for aging adults — reducing depression, increasing sense of purpose, and strengthening family bonds. The Story is therapy, legacy, and connection in a single feature.</p>
+      <div class="story-qs">
+        <div class="story-q">What do you remember about the house you grew up in — what did it smell like?</div>
+        <div class="story-q">What was the moment you knew he was the one?</div>
+        <div class="story-q">What do you want the grandchildren to know about who you really are?</div>
+        <div class="story-q">What's something you believed at 30 that you no longer believe now?</div>
+      </div>
+    </div>
+    <div>
+      <div class="story-book">
+        <div class="story-book-title">Dorothy's Story</div>
+        <div class="story-book-sub">47 answers · Growing since March 2025</div>
+        <div class="story-ch"><span class="story-ch-name">Childhood &amp; roots</span><span class="story-ch-count">12 stories</span></div>
+        <div class="story-ch"><span class="story-ch-name">Coming of age</span><span class="story-ch-count">8 stories</span></div>
+        <div class="story-ch"><span class="story-ch-name">Love &amp; family</span><span class="story-ch-count">11 stories</span></div>
+        <div class="story-ch"><span class="story-ch-name">Work &amp; purpose</span><span class="story-ch-count">9 stories</span></div>
+        <div class="story-ch"><span class="story-ch-name">History lived through</span><span class="story-ch-count">5 stories</span></div>
+        <div class="story-ch"><span class="story-ch-name">Wisdom &amp; legacy</span><span class="story-ch-count">2 stories · in progress</span></div>
+        <div class="story-insight">"She said she knew on the second date — not the first. 'The first date he was nervous. The second date, he made me laugh.'"</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DIGNITY -->
+<section class="dignity">
+  <div>
+    <blockquote class="dig-quote">Dignity is the difference between being cared for and being managed.<cite>— Eric Landry, Founder</cite></blockquote>
+  </div>
+  <div>
+    <p class="eyebrow light">Built on dignity</p>
+    <h2 class="sec-title">Mom is at the<br><em>center of this.</em></h2>
+    <div class="pillars">
+      <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Agency, not surveillance</div><p class="pillar-body">The senior controls what family sees. Their preferences guide care. Their voice is in every major decision.</p></div></div>
+      <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Connection as healthcare</div><p class="pillar-body">Social connection is clinically proven to reduce dementia risk, heart disease, and premature mortality. Take Five treats it as a health intervention, not a nice-to-have.</p></div></div>
+      <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Story as legacy</div><p class="pillar-body">The memoir feature treats the senior as narrator of their own life — not a subject of care. Their story matters. Take Five preserves it.</p></div></div>
+      <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Accessible to everyone</div><p class="pillar-body">SMS-first means no app, no training, no barrier. Works for the 78-year-old aide who only texts and the 45-year-old daughter who uses everything.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <p class="eyebrow">Pricing</p>
+  <h2 class="sec-title">Start free. Stay as long as you need.</h2>
+  <p class="sec-body" style="margin-bottom:3rem;">Less than a dinner out. More peace of mind than you can put a price on.</p>
+  <div class="price-cards">
+    <div class="price-card">
+      <div class="price-tier">Family</div>
+      <div class="price-num">$49</div>
+      <div class="price-unit">per month</div>
+      <p class="price-desc">Full care coordination — AI agent, care circle, daily digest, alerts, and task management.</p>
+      <ul class="price-feats">
+        <li>Full AI care agent</li><li>Shared care circle</li><li>Daily family digest</li>
+        <li>Proactive alerts</li><li>Task coordination</li><li>Decision support</li>
+      </ul>
+    </div>
+    <div class="price-card feat">
+      <div class="price-badge">Most popular</div>
+      <div class="price-tier">Family Plus</div>
+      <div class="price-num">$79</div>
+      <div class="price-unit">per month</div>
+      <p class="price-desc">Everything in Family, plus the Life Log, The Story memoir, and monthly trend reports.</p>
+      <ul class="price-feats">
+        <li>Everything in Family</li><li>Life Log — books, shows, activities</li>
+        <li>The Story — ongoing memoir</li><li>Monthly trend reports</li>
+        <li>Medical appointment prep</li><li>Concierge onboarding call</li>
+      </ul>
+    </div>
+    <div class="price-card">
+      <div class="price-tier">Agency</div>
+      <div class="price-num">$25</div>
+      <div class="price-unit">per client / month</div>
+      <p class="price-desc">For home care agencies offering Take Five as a premium service differentiator.</p>
+      <ul class="price-feats">
+        <li>Agency dashboard</li><li>Aide check-in management</li>
+        <li>Client family portals</li><li>Shift handoff notes</li>
+        <li>Compliance documentation</li><li>Volume pricing available</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="waitlist">
+  <h2 class="cta-title">Ready to <em>take five?</em></h2>
+  <p class="cta-sub">Join the waitlist. We're launching with a small group of families first.</p>
+  <div class="cta-form">
+    <input class="cta-input" type="email" placeholder="Your email address"/>
+    <button class="cta-btn">Join waitlist</button>
+  </div>
+  <p class="cta-note">No credit card. No commitment. Just a spot in line.</p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="footer-brand">Take Five</div>
+    <div class="footer-tagline">For everyone who showed up.</div>
+  </div>
+  <ul class="footer-links">
+    <li><a href="#">About</a></li><li><a href="#">The science</a></li>
+    <li><a href="#">Privacy</a></li><li><a href="#">Contact</a></li>
+    <li><a href="#">Dignitas Studio</a></li>
+  </ul>
+  <div style="font-size:0.8rem;color:rgba(159,225,203,0.4);">© 2026 Take Five · takefive.care</div>
+</footer>
+
+</body>
+</html>
