@@ -26,6 +26,8 @@ async def groupme_webhook(request: Request):
         logging.info("Bot message ignored")
         return {"status": "ignored"}
     
+    logging.info(f"Processing message: {data}")
+    
     # store raw, then classify async
     #await store_message(data)
     #background_tasks.add_task(classify_and_extract, data)
