@@ -22,7 +22,8 @@ create table people (
 -- One circle per senior. senior_id references the person at the center.
 create table care_circles (
     id          uuid primary key default gen_random_uuid(),
-    senior_id   uuid not null references people (id),
+    external_id text unique, -- e.g. GroupMe user ID for correlation
+    external_type text,       -- e.g. 'groupme'
     name        text not null,
     -- status: 'active' | 'paused' | 'archived'
     status      text not null default 'active' check (status in ('active', 'paused', 'archived')),
