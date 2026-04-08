@@ -1,4 +1,5 @@
 from take_five.repository import TakeFiveRepository
+from take_five.summaries import format_conversation, fetch_prompt
 import sys
 
 
@@ -26,7 +27,23 @@ def main():
         'port': 5432
     }) 
 
-    test_repository(repo)
+    #test_repository(repo)
+
+    # 1. Fetch recent messages for a test circle
+    circle_ext_id = "114182896"
+    messages = repo.get_recent_messages(circle_ext_id)
+
+    # 2. Format conversation for the model
+    conversation = format_conversation(messages)
+ 
+    # 3. Build chain (prompt pulled from LangSmith | Claude Haiku)
+    chain = fetch_prompt(conversation)
+ 
+    # 4. Invoke and return the digest text
+    response = chain.invoke({"CONVERSATION_TEXT": conversation})
+
+    print("Generated Digest:")
+    print(response.content)
 
     return 0
 

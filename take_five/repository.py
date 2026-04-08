@@ -1,7 +1,8 @@
 import psycopg2
-import json
 from psycopg2.extras import RealDictCursor, Json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
+from datetime import datetime
+
 
 class TakeFiveRepository:
     def __init__(self, db_config: Dict[str, str]):
@@ -90,13 +91,37 @@ class TakeFiveRepository:
             Json(raw_data) if raw_data else None
         ))
 
-    def get_recent_messages(self, circle_ext_id: str, limit: int = 50) -> List[Dict]:
+    def get_recent_messages(self, circle_ext_id: str) -> List[Dict]:
         query = """
             SELECT m.*, p.name as author_name 
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
             WHERE m.circle_id = (SELECT id FROM care_circles WHERE external_id = %s)
-            ORDER BY m.sent_at DESC LIMIT %s;
+            ORDER BY m.sent_at DESC;
         """
-        return self._execute(query, (str(circle_ext_id), limit), fetch='all')
+        # Fix: Add a comma after the ID to make it a tuple: (value,)
+        return self._execute(query, (str(circle_ext_id),), fetch='all')
 
+
+    def get_messages_in_date_range(
+        self, 
+        circle_ext_id: str, 
+        start_date: datetime, 
+        end_date: datetime, 
+        limit: int = 100
+    ) -> List[Dict]:
+        query = """
+            SELECT m.*, p.name as author_name 
+            FROM messages m
+            LEFT JOIN people p ON m.person_id = p.id
+            WHERE m.circle_id = (SELECT id FROM care_circles WHERE external_id = %s)
+            AND m.sent_at >= %s 
+            AND m.sent_at <= %s
+            ORDER BY m.sent_at DESC 
+            LIMIT %s;
+        """
+        return self._execute(
+            query, 
+            (str(circle_ext_id), start_date, end_date, limit), 
+            fetch='all'
+        )
