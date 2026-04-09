@@ -1,5 +1,5 @@
 from take_five.repository import TakeFiveRepository
-from take_five.summaries import format_conversation, fetch_prompt
+from take_five.summaries import format_conversation, fetch_prompt, generate_weekly_digest
 import sys
 from dotenv import load_dotenv
 
@@ -20,31 +20,13 @@ def test_repository(repo=None):
     print(message)
 
 def main():
-    repo = TakeFiveRepository({
-        'dbname': 'takefive',
-        'user': 'jeric',
-        'password': 'M7CzRtB67FcmZj6kwBv04zYy5eDwv7xN',
-        'host': 'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
-        'port': 5432
-    }) 
-
-    #test_repository(repo)
-
-    # 1. Fetch recent messages for a test circle
+    
     circle_ext_id = "114182896"
-    messages = repo.get_recent_messages(circle_ext_id)
-
-    # 2. Format conversation for the model
-    conversation = format_conversation(messages)
- 
-    # 3. Build chain (prompt pulled from LangSmith | Claude Haiku)
-    chain = fetch_prompt(conversation)
- 
-    # 4. Invoke and return the digest text
-    response = chain.invoke({"CONVERSATION_TEXT": conversation})
+    
+    digest = generate_weekly_digest(circle_ext_id)
 
     print("Generated Digest:")
-    print(response.content)
+    print(digest)
 
     return 0
 

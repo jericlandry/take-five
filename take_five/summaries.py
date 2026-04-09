@@ -12,6 +12,8 @@ ANTHROPIC_MODEL       = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"
 ANTHROPIC_MAX_TOKENS  = int(os.getenv("ANTHROPIC_MAX_TOKENS", "600"))
 ANTHROPIC_API_KEY     = os.getenv("ANTHROPIC_API_KEY")
 
+# 1. Fetch messages from Supabase
+repo = TakeFiveRepository() 
  
 def format_conversation(messages: List[Dict]) -> str:
     """
@@ -70,8 +72,8 @@ def fetch_prompt(conversation: str):
  
 def generate_weekly_digest(
     circle_ext_id: str,
-    start_date: datetime | None = None,
-    end_date: datetime | None = None,
+    start_date: datetime=datetime.utcnow() - timedelta(days=7),
+    end_date: datetime=datetime.utcnow(),
 ) -> str:
     """
     Fetch the past week of messages for a care circle, run them through
@@ -90,15 +92,23 @@ def generate_weekly_digest(
         end_date = datetime.utcnow()
     if start_date is None:
         start_date = end_date - timedelta(days=7)
- 
-    # 1. Fetch messages from Supabase
-    repo = TakeFiveRepository()
+
     messages = repo.get_messages_in_date_range(
         circle_ext_id=circle_ext_id,
         start_date=start_date,
-        end_date=end_date,
-        limit=100,
+        end_date=end_date
     )
- 
+
     if not messages:
         return "No messages found for this period — nothing to summarise."
+    
+    # 2. Format conversation for the model
+    conversation = format_conversation(messages)
+ 
+    # 3. Build chain (prompt pulled from LangSmith | Claude Haiku)
+    chain = fetch_prompt(conversation)
+ 
+    # 4. Invoke and return the digest text
+    response = chain.invoke({"CONVERSATION_TEXT": conversation})
+    
+    return response.content

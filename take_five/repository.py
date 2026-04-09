@@ -2,11 +2,20 @@ import psycopg2
 from psycopg2.extras import RealDictCursor, Json
 from typing import List, Dict, Optional
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
+load_dotenv()  # Load environment variables from .env file
 
 class TakeFiveRepository:
-    def __init__(self, db_config: Dict[str, str]):
-        self.db_config = db_config
+    def __init__(self):
+        self.db_config = {
+                'dbname': 'takefive',
+                'user': os.getenv('DB_USER'),
+                'password': os.getenv('DB_PASSWORD'),
+                'host': 'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
+                'port': 5432
+            }
 
     def _execute(self, query: str, params: tuple = (), fetch: str = 'one'):
         with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
