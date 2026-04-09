@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import logging
 import httpx
+import os
 
 from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
@@ -16,8 +17,10 @@ app = FastAPI()
 
 repo = TakeFiveRepository() 
 
+GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_ACCESS_TOKEN")
 GROUP_NAME = "Take Five Ensemble"
 GROUPME_BOT_ID = "f7a1dcd219899a79f3d01dec91"
+GROUPME_URL = "https://api.groupme.com/v3/bots/post"
 
 @app.get("/health")
 async def health():
@@ -74,18 +77,26 @@ async def groupme_webhook(request: Request):
             logging.info("Summary command detected, generating digest...")
             digest = generate_weekly_digest(circle_ext_id)
             
-            # --- SEND RESPONSE TO GROUPME ---
+            # Define headers to match what worked in curl
+            headers = {
+                "User-Agent": "curl/7.68.0", # Mimics the successful curl request
+                "Content-Type": "application/json"
+            }
+            
             async with httpx.AsyncClient() as client:
                 payload = {
                     "bot_id": GROUPME_BOT_ID,
                     "text": digest
                 }
-                response = await client.post("https://groupme.com", json=payload)
+                
+                # We add 'params' to the request to authenticate
+                response = await client.post(GROUPME_URL, json=payload, headers=headers)
                 
                 if response.status_code == 202:
                     logging.info("Digest sent successfully to GroupMe")
                 else:
-                    logging.error(f"Failed to send to GroupMe: {response.text}")
+                    # GroupMe errors often contain helpful JSON in response.text
+                    logging.error(f"Failed to send to GroupMe: {response.status_code} - {response.text}")
             # --------------------------------
         
         logging.info(f"Message stored. Internal ID: {new_msg['id']}")
