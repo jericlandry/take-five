@@ -3,25 +3,21 @@ from fastapi.responses import FileResponse
 
 from dotenv import load_dotenv
 import logging
-import os
+import httpx
 
 from take_five.repository import TakeFiveRepository
+from take_five.summaries import generate_weekly_digest
 
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()  # Load environment variables from .env file
 
-repo = TakeFiveRepository({
-    'dbname': 'takefive',
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD'),
-    'host': 'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
-    'port': 5432
-}) 
-
 app = FastAPI()
 
+repo = TakeFiveRepository() 
+
 GROUP_NAME = "Take Five Ensemble"
+GROUPME_BOT_ID = "f7a1dcd219899a79f3d01dec91"
 
 @app.get("/health")
 async def health():
@@ -32,6 +28,14 @@ async def health():
 async def read_index():
     logging.info("Index page requested")
     return FileResponse('website/index.html')
+
+@app.post("/digest")
+async def summary(circle_id: str):
+    logging.info("Summary request received")
+
+    digest = generate_weekly_digest(circle_id)
+
+    return {"digest": digest}
 
 @app.post("/groupme/webhook")
 async def groupme_webhook(request: Request):
@@ -65,6 +69,24 @@ async def groupme_webhook(request: Request):
             body=text,
             raw_data=data  # Full JSON goes into the 'raw' column
         )
+
+        if text.strip().lower() == 't5summary':
+            logging.info("Summary command detected, generating digest...")
+            digest = generate_weekly_digest(circle_ext_id)
+            
+            # --- SEND RESPONSE TO GROUPME ---
+            async with httpx.AsyncClient() as client:
+                payload = {
+                    "bot_id": GROUPME_BOT_ID,
+                    "text": digest
+                }
+                response = await client.post("https://groupme.com", json=payload)
+                
+                if response.status_code == 202:
+                    logging.info("Digest sent successfully to GroupMe")
+                else:
+                    logging.error(f"Failed to send to GroupMe: {response.text}")
+            # --------------------------------
         
         logging.info(f"Message stored. Internal ID: {new_msg['id']}")
 
