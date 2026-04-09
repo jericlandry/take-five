@@ -1,16 +1,20 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 
+from dotenv import load_dotenv
 import logging
+import os
 
 from take_five.repository import TakeFiveRepository
 
 logging.basicConfig(level=logging.INFO)
 
+load_dotenv()  # Load environment variables from .env file
+
 repo = TakeFiveRepository({
     'dbname': 'takefive',
-    'user': 'jeric',
-    'password': 'M7CzRtB67FcmZj6kwBv04zYy5eDwv7xN',
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASSWORD'),
     'host': 'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
     'port': 5432
 }) 

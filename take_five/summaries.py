@@ -2,18 +2,16 @@ import os
 from datetime import datetime, timedelta
 from typing import List, Dict
  
-from dotenv import load_dotenv
 from langsmith import Client
 from langchain_anthropic import ChatAnthropic
  
 from take_five.repository import TakeFiveRepository
 
-LANGSMITH_PROMPT_NAME = os.getenv("LANGSMITH_PROMPT_NAME", "t5-week-summary")
+SUMMARY_PROMPT_NAME   = os.getenv("LANGSMITH_PROMPT_NAME", "t5-week-summary")
 ANTHROPIC_MODEL       = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 ANTHROPIC_MAX_TOKENS  = int(os.getenv("ANTHROPIC_MAX_TOKENS", "600"))
-ANTHROPIC_API_KEY     = os.getenv("ANTHROPIC_API_KEY", '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')
+ANTHROPIC_API_KEY     = os.getenv("ANTHROPIC_API_KEY")
 
-os.environ["LANGSMITH_API_KEY"] = "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"
  
 def format_conversation(messages: List[Dict]) -> str:
     """
@@ -56,12 +54,11 @@ def fetch_prompt(conversation: str):
     ready to invoke with Claude Haiku.
     """
     ls_client = Client()
-    prompt_template = ls_client.pull_prompt(LANGSMITH_PROMPT_NAME)
+    prompt_template = ls_client.pull_prompt(SUMMARY_PROMPT_NAME)
  
     llm = ChatAnthropic(
         model=ANTHROPIC_MODEL,
-        max_tokens=ANTHROPIC_MAX_TOKENS,
-        anthropic_api_key=ANTHROPIC_API_KEY,
+        max_tokens=ANTHROPIC_MAX_TOKENS
     )
  
     return prompt_template | llm

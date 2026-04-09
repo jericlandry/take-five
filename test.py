@@ -1,8 +1,9 @@
 from take_five.repository import TakeFiveRepository
 from take_five.summaries import format_conversation, fetch_prompt
 import sys
+from dotenv import load_dotenv
 
-
+load_dotenv()  # Load environment variables from .env file
 
 def test_repository(repo=None):
     if repo is None:
