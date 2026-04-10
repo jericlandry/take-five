@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form, Response
 from fastapi.responses import FileResponse
 
 from dotenv import load_dotenv
 import logging
 import httpx
 import os
+
+from twilio.twiml.messaging_response import MessagingResponse
 
 from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
@@ -73,7 +75,7 @@ async def groupme_webhook(request: Request):
             raw_data=data  # Full JSON goes into the 'raw' column
         )
 
-        if text.strip().lower() == 't5summary':
+        if '@T5' in text:
             logging.info("Summary command detected, generating digest...")
             digest = generate_weekly_digest(circle_ext_id)
             
@@ -109,3 +111,17 @@ async def groupme_webhook(request: Request):
     logging.info("Webhook processed successfully")
 
     return {"status": "ok"}
+
+@app.post("/twilio/sms")
+async def receive_sms(From: str = Form(...), Body: str = Form(...)):
+    # 1. Start TwiML response
+    response = MessagingResponse()
+    
+    # 2. Logic: Print the message and reply
+    logging.info(f"Twilio SMS received from {From}: {Body}")
+    
+    response.message(f"Hey! I got your message: '{Body}'")
+
+    # 3. Return as XML
+    return Response(content=str(response), media_type="application/xml")
+
