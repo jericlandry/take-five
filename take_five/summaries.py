@@ -72,8 +72,8 @@ def fetch_prompt(conversation: str):
  
 def generate_weekly_digest(
     circle_ext_id: str,
-    start_date: datetime=datetime.utcnow() - timedelta(days=7),
-    end_date: datetime=datetime.utcnow(),
+    start_date: datetime=datetime.now() - timedelta(days=7),
+    end_date: datetime=datetime.now() + timedelta(days=1),
 ) -> str:
     """
     Fetch the past week of messages for a care circle, run them through
@@ -98,7 +98,7 @@ def generate_weekly_digest(
         start_date=start_date,
         end_date=end_date
     )
-
+    print(f"Fetched {len(messages)} messages for circle {circle_ext_id} from {start_date} to {end_date}")
     if not messages:
         return "No messages found for this period — nothing to summarise."
     
