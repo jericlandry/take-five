@@ -49,3 +49,7 @@ langchain
 langchain-core
 langchain-anthropic
 langsmith
+
+# Twilio
+twilio
+python-multipart
