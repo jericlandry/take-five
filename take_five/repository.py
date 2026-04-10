@@ -45,6 +45,16 @@ class TakeFiveRepository:
 
     def get_person_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM people WHERE external_id = %s;", (str(external_id),))
+    
+    def find_person_by_phone(self, phone: str) -> Optional[Dict]:
+        """Finds a person by their phone number."""
+        query = """
+            SELECT * FROM people 
+            WHERE phone = %(phone)s 
+            LIMIT 1;
+        """
+        params = {'phone': phone}
+        return self._execute(query, params)
 
     # --- CARE CIRCLES ---
     def upsert_circle(self, external_id: str, name: str) -> Dict:
@@ -60,6 +70,19 @@ class TakeFiveRepository:
 
     def get_circle_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),))
+    
+    def find_circles_by_person(self, person_external_id: str) -> List[Dict]:
+        """Returns all circles associated with a specific person's external_id."""
+        query = """
+            SELECT c.*, m.role 
+            FROM care_circles c
+            JOIN circle_memberships m ON c.id = m.circle_id
+            JOIN people p ON m.person_id = p.id
+            WHERE p.external_id = %(ext_id)s;
+        """
+        params = {'ext_id': str(person_external_id)}
+        return self._execute(query, params)
+
 
     # --- MEMBERSHIPS ---
     def add_to_circle(self, circle_ext_id: str, person_ext_id: str, role: str) -> Dict:

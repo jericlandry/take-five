@@ -117,10 +117,34 @@ async def receive_sms(From: str = Form(...), Body: str = Form(...)):
     # 1. Start TwiML response
     response = MessagingResponse()
     
+    person = repo.find_person_by_phone(From)
+
+    if person:
+        logging.info(f"SMS received from known person: {person['name']} ({From})")
+        circles = repo.find_circles_by_person(person['external_id']) if person else []
+        if circles:
+            person_ext_id = person['external_id']
+            circle_ext_id = circles['external_id']  # Assuming one circle per person for simplicity
+            # 4. Log the message with the raw GroupMe payload
+            new_msg = repo.log_message(
+                circle_ext_id=circle_ext_id,
+                person_ext_id=person_ext_id,
+                body=Body,
+                raw_data=Body
+            )
+        else:
+            logging.warning(f"No circles found for person {person['name']} ({From})")
+            response.message("Sorry, I couldn't find your care circle. Please contact support.")
+            return Response(content=str(response), media_type="application/xml")
+    else:
+        logging.info(f"SMS received from unknown number: {From}")
+        response.message("Sorry, I don't recognize your number. Please contact support to be added to the system.")
+        return Response(content=str(response), media_type="application/xml")
+    
     # 2. Logic: Print the message and reply
     logging.info(f"Twilio SMS received from {From}: {Body}")
-    
-    response.message(f"Hey! I got your message: '{Body}'")
+
+    response.message(f"Hey! {person['name']} I got your message: '{Body}'")
 
     # 3. Return as XML
     return Response(content=str(response), media_type="application/xml")
