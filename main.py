@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import FastAPI, Request, Form, Response
 from fastapi.responses import FileResponse
 
@@ -8,6 +10,7 @@ import os
 
 from twilio.twiml.messaging_response import MessagingResponse
 
+from take_five.memory import process_message_for_memory
 from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
 
@@ -74,6 +77,16 @@ async def groupme_webhook(request: Request):
             body=text,
             raw_data=data  # Full JSON goes into the 'raw' column
         )
+
+        asyncio.create_task(process_message_for_memory(
+            message_id=str(new_msg['id']),
+            circle_id=str(new_msg['circle_id']),
+            person_id=str(new_msg['person_id']),
+            body=text,
+            sender=person_name,
+            sent_at=new_msg['sent_at'],
+            repo=repo
+        ))
 
         if '@T5' in text:
             logging.info("Summary command detected, generating digest...")

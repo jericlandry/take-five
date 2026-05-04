@@ -33,8 +33,6 @@ embeddings_model = HuggingFaceEndpointEmbeddings(
     # Note: Remote API handles normalization and instructions differently
 )
 
-repo = TakeFiveRepository() 
-
 def chunk_message(body: str) -> list[str]:
     if len(body) <= CHUNK_THRESHOLD:
         return [body]
@@ -75,7 +73,8 @@ async def process_message_for_memory(
     circle_id: str,
     body: str,
     sender: str,
-    sent_at: datetime
+    sent_at: datetime,
+    repo: TakeFiveRepository,
 ):
     """Chunks + embeds + extracts entities. Fire-and-forget from webhook."""
     try:
