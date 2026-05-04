@@ -50,7 +50,7 @@ def format_conversation(messages: List[Dict]) -> str:
  
     return "\n\n".join(lines)
 
-def fetch_prompt(conversation: str):
+def fetch_prompt():
     """
     Pull the named prompt from LangSmith Hub and return a runnable chain
     ready to invoke with Claude Haiku.
@@ -106,7 +106,7 @@ def generate_weekly_digest(
     conversation = format_conversation(messages)
  
     # 3. Build chain (prompt pulled from LangSmith | Claude Haiku)
-    chain = fetch_prompt(conversation)
+    chain = fetch_prompt()
  
     # 4. Invoke and return the digest text
     response = chain.invoke({"CONVERSATION_TEXT": conversation})

@@ -48,7 +48,11 @@ psycopg2-binary==2.9.11
 langchain
 langchain-core
 langchain-anthropic
+langchain-community
+langchain-huggingface
 langsmith
+
+sentence-transformers
 
 # Twilio
 twilio

@@ -157,3 +157,32 @@ class TakeFiveRepository:
             (str(circle_ext_id), start_date, end_date, limit), 
             fetch='all'
         )
+    
+    def upsert_message_chunk(
+        self,
+        message_id: str,
+        circle_id: str,
+        chunk_index: int,
+        body: str,
+        context_header: str,
+        context_summary: str,
+        embedded_text: str,
+        embedding: list,
+        sent_at
+    ) -> Dict:
+        query = """
+            INSERT INTO message_chunks
+                (message_id, circle_id, chunk_index, body,
+                context_header, context_summary, embedded_text, embedding, sent_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector, %s)
+            ON CONFLICT (message_id, chunk_index) DO UPDATE SET
+                context_summary = EXCLUDED.context_summary,
+                embedded_text   = EXCLUDED.embedded_text,
+                embedding       = EXCLUDED.embedding
+            RETURNING *;
+        """
+        return self._execute(query, (
+            message_id, circle_id, chunk_index, body,
+            context_header, context_summary, embedded_text,
+            str(embedding), sent_at
+        ))
