@@ -76,6 +76,25 @@ create table messages (
     sent_at         timestamptz not null default now()
 );
 
+CREATE TABLE message_chunks (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id       uuid NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  circle_id        uuid NOT NULL REFERENCES care_circles(id),
+  chunk_index      int NOT NULL,
+  body             text NOT NULL,
+  context_header   text NOT NULL,
+  context_summary  text NOT NULL,
+  embedded_text    text NOT NULL,
+  embedding        vector(384),
+  sent_at          timestamptz NOT NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_message_chunk UNIQUE (message_id, chunk_index)
+);
+
+CREATE INDEX ON message_chunks 
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 10);
+
 -- ── indexes ────────────────────────────────────────────────────────────────
 -- Everything the weekly digest query will need.
 create index on messages (circle_id, sent_at desc);
