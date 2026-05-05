@@ -102,17 +102,17 @@ class TakeFiveRepository:
     # --- MESSAGES ---
     def log_message(self, circle_ext_id: str, person_ext_id: Optional[str], 
                     body: str, msg_type: str = 'inbound', 
-                    direction: str = 'inbound', raw_data: Optional[Dict] = None) -> Dict:
+                    direction: str = 'inbound', raw_data: Optional[Dict] = None, channel: str = 'groupme') -> Dict:
         """
         Logs a message. person_ext_id can be None for system/agent notes.
         parsed_data should be a Python dict (mood_score, meds_taken, etc.)
         """
         query = """
-            INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw)
+            INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
             VALUES (
                 (SELECT id FROM care_circles WHERE external_id = %s),
                 (SELECT id FROM people WHERE external_id = %s),
-                %s, %s, %s, %s
+                %s, %s, %s, %s, %s
             ) RETURNING *;
         """
         # Json() wrapper from psycopg2.extras handles the dict-to-jsonb conversion
@@ -120,7 +120,8 @@ class TakeFiveRepository:
             str(circle_ext_id), 
             str(person_ext_id) if person_ext_id else None, 
             msg_type, direction, body, 
-            Json(raw_data) if raw_data else None
+            Json(raw_data) if raw_data else None,
+            channel
         ))
 
     def get_recent_messages(self, circle_ext_id: str) -> List[Dict]:

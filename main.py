@@ -75,13 +75,13 @@ async def groupme_webhook(request: Request):
             circle_ext_id=circle_ext_id,
             person_ext_id=person_ext_id,
             body=text,
-            raw_data=data  # Full JSON goes into the 'raw' column
+            raw_data=data,  # Full JSON goes into the 'raw' column
+            channel="groupme"
         )
 
         asyncio.create_task(process_message_for_memory(
             message_id=str(new_msg['id']),
             circle_id=str(new_msg['circle_id']),
-            person_id=str(new_msg['person_id']),
             body=text,
             sender=person_name,
             sent_at=new_msg['sent_at'],
@@ -143,8 +143,18 @@ async def receive_sms(From: str = Form(...), Body: str = Form(...)):
                 circle_ext_id=circle_ext_id,
                 person_ext_id=person_ext_id,
                 body=Body,
-                raw_data=Body
+                raw_data=Body,
+                channel="sms"
             )
+
+            asyncio.create_task(process_message_for_memory(
+                message_id=str(new_msg['id']),
+                circle_id=str(new_msg['circle_id']),
+                body=Body,
+                sender=person['name'],
+                sent_at=new_msg['sent_at'],
+                repo=repo
+            ))
         else:
             logging.warning(f"No circles found for person {person['name']} ({From})")
             response.message("Sorry, I couldn't find your care circle. Please contact support.")
