@@ -19,7 +19,6 @@ from take_five.repository import TakeFiveRepository
 load_dotenv()  # Load environment variables from the .env file
 
 SUMMARY_MODEL = os.getenv("SUMMARY_MODEL", "claude-haiku-4-5-20251001")
-EMBEDDINGS_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 CHUNK_THRESHOLD = 300
 MAX_CHUNK_SIZE = 600
 
