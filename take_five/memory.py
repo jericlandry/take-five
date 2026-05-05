@@ -29,7 +29,6 @@ summary_llm = ChatAnthropic(model=SUMMARY_MODEL, max_tokens=150)
 embeddings_model = HuggingFaceEndpointEmbeddings(
     model="BAAI/bge-small-en-v1.5",
     task="feature-extraction",
-    huggingfacehub_api_token="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" 
     # Note: Remote API handles normalization and instructions differently
 )
 
