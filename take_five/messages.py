@@ -136,6 +136,7 @@ async def main():
     #print(ctxb.get_recent_messages())
     #print(ctxb.get_full_context())
     print(await ask("who is bringing sausage grinders?", circle_id))
+    
     return 0
 
 if __name__ == "__main__":

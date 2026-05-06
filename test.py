@@ -13,20 +13,20 @@ def test_repository(repo=None):
     circle_ext_id = "groupme_1234"
     person_ext_id = "groupme_456" 
 
-    circle = repo.upsert_circle(circle_ext_id, "Yet Another Test Circle")
-    person = repo.upsert_person(person_ext_id, "Test Person", "family")
-    membership = repo.add_to_circle(circle_ext_id, person_ext_id, "member")
-    message = repo.log_message(circle_ext_id, person_ext_id, "This is a test message.")
-    print(message)
+    #circle = repo.upsert_circle(circle_ext_id, "Yet Another Test Circle")
+    #person = repo.upsert_person(person_ext_id, "Test Person", "family")
+    #membership = repo.add_to_circle(circle_ext_id, person_ext_id, "member")
+    #message = repo.log_message(circle_ext_id, person_ext_id, "This is a test message.")
+
+    print(repo.get_circle_by_external_id('114182896')['id'])
 
 def main():
     
     circle_ext_id = "114182896"
     
-    digest = generate_weekly_digest(circle_ext_id)
-
-    print("Generated Digest:")
-    print(digest)
+    #digest = generate_weekly_digest(circle_ext_id)
+    #print(digest)
+    test_repository(TakeFiveRepository())
 
     return 0
 

@@ -96,8 +96,18 @@ async def groupme_webhook(request: Request):
         ))
 
         if '@T5' in text:
-            logging.info("Summary command detected, generating digest...")
-            digest = generate_weekly_digest(circle_ext_id)
+            question = text.split('@T5', 1)[1].strip()
+            circle_id = repo.get_circle_by_external_id(circle_ext_id)['id']
+            
+            if not question:
+                logging.warning("T5 command detected but no question found.")
+                return {"status": "ok"}
+            if not circle_id:
+                logging.error(f"Circle with external_id {circle_ext_id} not found in database.")
+                return {"status": "ok"}
+            
+            logging.info(f"T5 question command detected, generating digest...")
+            bot_response = await ask(circle_ext_id, question)
             
             # Define headers to match what worked in curl
             headers = {
@@ -108,7 +118,7 @@ async def groupme_webhook(request: Request):
             async with httpx.AsyncClient() as client:
                 payload = {
                     "bot_id": GROUPME_BOT_ID,
-                    "text": digest
+                    "text": bot_response
                 }
                 
                 # We add 'params' to the request to authenticate
