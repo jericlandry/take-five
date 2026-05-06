@@ -47,9 +47,9 @@ async def summary(circle_id: str):
     return {"digest": digest}
 
 @app.post("/messages")
-async def chat(circle_id: str, message: str):
+async def chat(circle_id: str, message: str, response_format: str = "markdown"):
     logging.info("Chat message received")
-    response = await ask(message, circle_id)
+    response = await ask(message, circle_id, response_format=response_format)
     return {"response": response}
 
 @app.post("/groupme/webhook")
@@ -107,7 +107,7 @@ async def groupme_webhook(request: Request):
                 return {"status": "ok"}
             
             logging.info(f"T5 question command detected, generating digest...")
-            bot_response = await ask(question, circle_id)
+            bot_response = await ask(question, circle_id, response_format="text")
             
             # Define headers to match what worked in curl
             headers = {

@@ -9,6 +9,11 @@ from take_five.utils import fetch_prompt
 
 ANTHROPIC_MODEL       = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 conversation_chain = fetch_prompt("t5-ask") | ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
+RESPONSE_FORMATS = {
+    "markdown": "Format your response using markdown — headers, bold, bullet points where appropriate.",
+    "text":     "Format your response as plain text only. No markdown, no asterisks, no headers. Use simple line breaks.",
+    "json":     "Format your response as a JSON object with keys: 'summary' (string), 'details' (list of strings), 'flags' (list of any concerns worth raising).",
+}
 
 class ContextBuilder:
     def __init__(self, circle_id: str, question: str):
@@ -115,7 +120,7 @@ class ContextBuilder:
     def get_full_context(self) -> str:
         return "\n\n".join([self._roster, self._circle_context, self._recent, self._semantic])
 
-async def ask(question: str, circle_id: str) -> str:
+async def ask(question: str, circle_id: str, response_format: str = "markdown") -> str:
     ctx   = await ContextBuilder.create(circle_id, question)  # sync for now
     response = conversation_chain.invoke({
         "today":           datetime.now().strftime("%B %d, %Y"),
@@ -123,23 +128,8 @@ async def ask(question: str, circle_id: str) -> str:
         "roster":          ctx.get_roster(),
         "recent_messages": ctx.get_recent_messages(),
         "semantic_chunks": ctx.get_semantic(),
+        "response_format": RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"]),
         "question":        question,
     })
     
-    return response.content
-
-async def main():
-    circle_id = "6efcc887-98a2-4ce0-b5cb-719a62a80cfd"
-    #ctxb = await ContextBuilder.create(circle_id, "who is brining sausage grinders?")
-    #print(ctxb.get_roster())
-    #print(ctxb.get_circle_context())
-    #print(ctxb.get_recent_messages())
-    #print(ctxb.get_full_context())
-    print(await ask("who is bringing sausage grinders?", circle_id))
-    
-    return 0
-
-if __name__ == "__main__":
-    import sys
-    import asyncio
-    sys.exit(asyncio.run(main()))
+    return response.content.strip()
