@@ -59,6 +59,12 @@ async def get_ensembles():
     ensembles = repo.list_ensembles()
     return {"ensembles": row_list_to_dict_list(ensembles)}
 
+@app.get("/ensembles/{ensemble_id}/people")
+async def get_ensemble_people(ensemble_id: str):
+    logging.info(f"Get people for ensemble {ensemble_id}")
+    people = repo.list_people_by_ensemble(ensemble_id)
+    return {"people": [row_to_dict(row) for row in people]}
+
 @app.post("/messages")
 async def chat(circle_id: str, message: str, response_format: str = "markdown"):
     logging.info("Chat message received")
