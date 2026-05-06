@@ -13,6 +13,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from take_five.memory import process_message_for_memory
 from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
+from take_five.messages import ask
 
 logging.basicConfig(level=logging.INFO)
 
@@ -44,6 +45,12 @@ async def summary(circle_id: str):
     digest = generate_weekly_digest(circle_id)
 
     return {"digest": digest}
+
+@app.post("/messages")
+async def chat(circle_id: str, message: str):
+    logging.info("Chat message received")
+    response = await ask(message, circle_id)
+    return {"response": response}
 
 @app.post("/groupme/webhook")
 async def groupme_webhook(request: Request):

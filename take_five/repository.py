@@ -124,16 +124,16 @@ class TakeFiveRepository:
             channel
         ))
 
-    def get_recent_messages(self, circle_ext_id: str) -> List[Dict]:
+    def get_recent_messages(self, circle_id: str) -> List[Dict]:
         query = """
             SELECT m.*, p.name as author_name 
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
-            WHERE m.circle_id = (SELECT id FROM care_circles WHERE external_id = %s)
+            WHERE m.circle_id = (SELECT id FROM care_circles WHERE id = %s)
             ORDER BY m.sent_at DESC;
         """
         # Fix: Add a comma after the ID to make it a tuple: (value,)
-        return self._execute(query, (str(circle_ext_id),), fetch='all')
+        return self._execute(query, (str(circle_id),), fetch='all')
 
 
     def get_messages_in_date_range(
@@ -187,3 +187,46 @@ class TakeFiveRepository:
             context_header, context_summary, embedded_text,
             str(embedding), sent_at
         ))
+    
+    def fetch_circle_roster(self, circle_id: str) -> list:
+        """Fetch all circle members with aliases, notes, and role."""
+        query = """
+            SELECT
+                c.name    AS circle_name,
+                p.name    AS member_name,
+                p.aliases AS person_aliases,
+                p.notes   AS person_notes,
+                cm.role   AS person_role
+            FROM care_circles c
+            JOIN circle_memberships cm ON c.id = cm.circle_id
+            JOIN people p ON cm.person_id = p.id
+            WHERE c.id = %(circle_id)s
+            ORDER BY cm.role, p.name
+        """
+        return self._execute(query, {"circle_id": circle_id}, fetch="all")
+    
+    def fetch_semantic_chunks(
+        self,
+        circle_id: str,
+        question_embedding: list[float],
+        limit: int=10,
+    ) -> list:
+        """Retrieve top-k message chunks by cosine similarity."""
+        query = """
+            SELECT
+                mc.body,
+                mc.context_header,
+                mc.context_summary,
+                mc.sent_at,
+                1 - (mc.embedding <=> %(embedding)s::vector) AS similarity
+            FROM message_chunks mc
+            JOIN care_circles c ON mc.circle_id = c.id
+            WHERE c.id = %(circle_id)s
+            ORDER BY mc.embedding <=> %(embedding)s::vector
+            LIMIT %(limit)s
+        """
+        return self._execute(
+            query,
+            {"embedding": str(question_embedding), "circle_id": circle_id, "limit": limit},
+            fetch="all",
+        )
