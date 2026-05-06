@@ -14,6 +14,7 @@ from take_five.memory import process_message_for_memory
 from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
 from take_five.messages import ask
+from take_five.utils import row_to_dict, row_list_to_dict_list
 
 logging.basicConfig(level=logging.INFO)
 
@@ -45,6 +46,18 @@ async def summary(circle_id: str):
     digest = generate_weekly_digest(circle_id)
 
     return {"digest": digest}
+
+@app.post("/ensembles")
+async def create_ensemble(name: str, plan: str, status: str = "trial"):
+    logging.info("Create ensemble request received")
+    ensemble = repo.create_ensemble(name, plan, status)
+    return {"ensemble": row_to_dict(ensemble)}
+
+@app.get("/ensembles")
+async def get_ensembles():
+    logging.info("Get ensembles request received")
+    ensembles = repo.list_ensembles()
+    return {"ensembles": row_list_to_dict_list(ensembles)}
 
 @app.post("/messages")
 async def chat(circle_id: str, message: str, response_format: str = "markdown"):

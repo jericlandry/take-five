@@ -83,6 +83,22 @@ class TakeFiveRepository:
         params = {'ext_id': str(person_external_id)}
         return self._execute(query, params)
 
+    def fetch_circle_roster(self, circle_id: str) -> list:
+        """Fetch all circle members with aliases, notes, and role."""
+        query = """
+            SELECT
+                c.name    AS circle_name,
+                p.name    AS member_name,
+                p.aliases AS person_aliases,
+                p.notes   AS person_notes,
+                cm.role   AS person_role
+            FROM care_circles c
+            JOIN circle_memberships cm ON c.id = cm.circle_id
+            JOIN people p ON cm.person_id = p.id
+            WHERE c.id = %(circle_id)s
+            ORDER BY cm.role, p.name
+        """
+        return self._execute(query, {"circle_id": circle_id}, fetch="all")
 
     # --- MEMBERSHIPS ---
     def add_to_circle(self, circle_ext_id: str, person_ext_id: str, role: str) -> Dict:
@@ -115,7 +131,6 @@ class TakeFiveRepository:
                 %s, %s, %s, %s, %s
             ) RETURNING *;
         """
-        # Json() wrapper from psycopg2.extras handles the dict-to-jsonb conversion
         return self._execute(query, (
             str(circle_ext_id), 
             str(person_ext_id) if person_ext_id else None, 
@@ -188,23 +203,6 @@ class TakeFiveRepository:
             str(embedding), sent_at
         ))
     
-    def fetch_circle_roster(self, circle_id: str) -> list:
-        """Fetch all circle members with aliases, notes, and role."""
-        query = """
-            SELECT
-                c.name    AS circle_name,
-                p.name    AS member_name,
-                p.aliases AS person_aliases,
-                p.notes   AS person_notes,
-                cm.role   AS person_role
-            FROM care_circles c
-            JOIN circle_memberships cm ON c.id = cm.circle_id
-            JOIN people p ON cm.person_id = p.id
-            WHERE c.id = %(circle_id)s
-            ORDER BY cm.role, p.name
-        """
-        return self._execute(query, {"circle_id": circle_id}, fetch="all")
-    
     def fetch_semantic_chunks(
         self,
         circle_id: str,
@@ -229,4 +227,44 @@ class TakeFiveRepository:
             query,
             {"embedding": str(question_embedding), "circle_id": circle_id, "limit": limit},
             fetch="all",
+        )
+    
+    # --- ENSEMBLES ---
+    def create_ensemble(self, name: str, plan: str = 'family_plus', status: str = 'trial') -> Dict:
+        """Creates a new ensemble (family account)."""
+        query = """
+            INSERT INTO ensembles (name, plan, status)
+            VALUES (%(name)s, %(plan)s, %(status)s)
+            RETURNING *;
+        """
+        params = {'name': name, 'plan': plan, 'status': status}
+        return self._execute(query, params)
+
+    def get_ensemble(self, ensemble_id: str) -> Optional[Dict]:
+        """Fetch an ensemble by id."""
+        return self._execute(
+            "SELECT * FROM ensembles WHERE id = %s;", 
+            (ensemble_id,)
+        )
+
+    def get_ensemble_by_name(self, name: str) -> Optional[Dict]:
+        """Fetch an ensemble by name."""
+        return self._execute(
+            "SELECT * FROM ensembles WHERE name = %s;", 
+            (name,)
+        )
+
+    def list_ensembles(self) -> List[Dict]:
+        """Returns all ensembles."""
+        return self._execute(
+            "SELECT * FROM ensembles ORDER BY created_at DESC;", 
+            fetch='all'
+        )
+
+    def list_people_by_ensemble(self, ensemble_id: str) -> List[Dict]:
+        """Returns all people belonging to an ensemble."""
+        return self._execute(
+            "SELECT * FROM people WHERE ensemble_id = %s ORDER BY name;",
+            (ensemble_id,),
+            fetch='all'
         )
