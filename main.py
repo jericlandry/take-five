@@ -107,7 +107,7 @@ async def groupme_webhook(request: Request):
                 return {"status": "ok"}
             
             logging.info(f"T5 question command detected, generating digest...")
-            bot_response = await ask(circle_ext_id, question)
+            bot_response = await ask(question, circle_id)
             
             # Define headers to match what worked in curl
             headers = {
