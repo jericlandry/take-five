@@ -1,6 +1,7 @@
 import asyncio
 
-from fastapi import FastAPI, Request, Form, Response
+from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter,  Request, Form, Response
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse
 
 from dotenv import load_dotenv
@@ -22,7 +23,20 @@ logging.basicConfig(level=logging.INFO)
 
 load_dotenv()  # Load environment variables from .env file
 
+security = HTTPBearer()
+
+TAKE_FIVE_ADMIN_API_KEY = os.getenv("TAKE_FIVE_ADMIN_API_KEY")
+if not TAKE_FIVE_ADMIN_API_KEY:
+    logging.warning("TAKE_FIVE_ADMIN_API_KEY not set in environment variables. Admin endpoints will be unsecured.")
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    if credentials.credentials != TAKE_FIVE_ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return credentials.credentials
+
 app = FastAPI()
+open_router = APIRouter()
+secure_router = APIRouter(dependencies=[Depends(verify_token)])
 
 repo = TakeFiveRepository() 
 
@@ -50,17 +64,7 @@ class CreateCareCircleRequest(BaseModel):
 class CreateCircleMembershipRequest(BaseModel):
     role: str  # senior | family | caregiver | professional
 
-@app.get("/health")
-async def health():
-    logging.info("Health check requested")
-    return {"status": "ok"}
-
-@app.get("/")
-async def read_index():
-    logging.info("Index page requested")
-    return FileResponse('website/index.html')
-
-@app.post("/digest")
+@secure_router.post("/digest")
 async def summary(circle_id: str):
     logging.info("Summary request received")
 
@@ -68,25 +72,25 @@ async def summary(circle_id: str):
 
     return {"digest": digest}
 
-@app.post("/ensembles")
+@secure_router.post("/ensembles")
 async def create_ensemble(name: str, plan: str, status: str = "trial"):
     logging.info("Create ensemble request received")
     ensemble = repo.create_ensemble(name, plan, status)
     return {"ensemble": row_to_dict(ensemble)}
 
-@app.get("/ensembles")
+@secure_router.get("/ensembles")
 async def get_ensembles():
     logging.info("Get ensembles request received")
     ensembles = repo.list_ensembles()
     return {"ensembles": row_list_to_dict_list(ensembles)}
 
-@app.get("/ensembles/{ensemble_id}/people")
+@secure_router.get("/ensembles/{ensemble_id}/people")
 async def get_ensemble_people(ensemble_id: str):
     logging.info(f"Get people for ensemble {ensemble_id}")
     people = repo.list_people_by_ensemble(ensemble_id)
     return {"people": [row_to_dict(row) for row in people]}
 
-@app.post("/ensembles/{ensemble_id}/people")
+@secure_router.post("/ensembles/{ensemble_id}/people")
 async def create_person(ensemble_id: str, body: CreatePersonRequest):
     person = repo.add_person_to_ensemble(
         ensemble_id=ensemble_id,
@@ -99,12 +103,12 @@ async def create_person(ensemble_id: str, body: CreatePersonRequest):
     )
     return {"person": row_to_dict(person)}
 
-@app.get("/ensembles/{ensemble_id}/circles")
+@secure_router.get("/ensembles/{ensemble_id}/circles")
 async def get_care_circles(ensemble_id: str):
     circles = repo.list_care_circles(ensemble_id=ensemble_id)
     return {"circles": [row_to_dict(row) for row in circles]}
 
-@app.post("/ensembles/{ensemble_id}/circles")
+@secure_router.post("/ensembles/{ensemble_id}/circles")
 async def create_care_circle(ensemble_id: str, body: CreateCareCircleRequest):
     circle = repo.create_care_circle(
         ensemble_id=ensemble_id,
@@ -115,17 +119,17 @@ async def create_care_circle(ensemble_id: str, body: CreateCareCircleRequest):
     )
     return {"circle": row_to_dict(circle)}
 
-@app.get("/circles/{circle_id}")
+@secure_router.get("/circles/{circle_id}")
 async def get_circle_by_id(circle_id: str):
     circle = repo.get_circle_by_id(circle_id)
     return {"people": row_to_dict(circle)}
 
-@app.get("/circles/{circle_id}/people")
+@secure_router.get("/circles/{circle_id}/people")
 async def get_circle_people(circle_id: str):
     people = repo.fetch_circle_roster(circle_id)
     return {"people": [row_to_dict(row) for row in people]}
 
-@app.post("/circles/{circle_id}/people/{person_id}")
+@secure_router.post("/circles/{circle_id}/people/{person_id}")
 async def add_person_to_circle(circle_id: str, person_id: str,
                                 body: CreateCircleMembershipRequest):
     membership = repo.add_person_to_circle(
@@ -135,18 +139,19 @@ async def add_person_to_circle(circle_id: str, person_id: str,
     )
     return {"membership": row_to_dict(membership)}
 
-@app.get("/circles/{circle_id}/people")
+@secure_router.get("/circles/{circle_id}/people")
 async def get_circle_people(circle_id: str):
     people = repo.fetch_circle_roster(circle_id)
     return {"people": [row_to_dict(row) for row in people]}
 
-@app.post("/messages")
+@secure_router.post("/messages")
 async def chat(circle_id: str, message: str, response_format: str = "markdown"):
     logging.info("Chat message received")
     response = await ask(message, circle_id, response_format=response_format)
     return {"response": response}
 
-@app.post("/groupme/webhook")
+#--- Open endpoints for external integrations (e.g. GroupMe, Twilio) ---
+@open_router.post("/groupme/webhook")
 async def groupme_webhook(request: Request):
     data = await request.json()
     logging.info("GroupMe webhook received")
@@ -230,7 +235,7 @@ async def groupme_webhook(request: Request):
 
     return {"status": "ok"}
 
-@app.post("/twilio/sms")
+@open_router.post("/twilio/sms")
 async def receive_sms(From: str = Form(...), Body: str = Form(...)):
     # 1. Start TwiML response
     response = MessagingResponse()
@@ -277,3 +282,15 @@ async def receive_sms(From: str = Form(...), Body: str = Form(...)):
     # 3. Return as XML
     return Response(content=str(response), media_type="application/xml")
 
+app.include_router(secure_router)
+
+@open_router.get("/health")
+async def health():
+    logging.info("Health check requested")
+    return {"status": "ok"}
+
+@open_router.get("/{file_name}")
+async def read_page(file_name: str = "index.html"):
+    return FileResponse(f'website/{file_name}')
+
+app.include_router(open_router)
