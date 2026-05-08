@@ -55,6 +55,25 @@ class TakeFiveRepository:
         """
         params = {'phone': phone}
         return self._execute(query, params)
+    
+    def add_person_to_ensemble(self, ensemble_id: str, name: str, p_type: str, **kwargs) -> Dict:
+        """Creates a person and associates them with an ensemble."""
+        query = """
+            INSERT INTO people (ensemble_id, name, type, phone, email, timezone, aliases, notes)
+            VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s)
+            RETURNING *;
+        """
+        params = {
+            'ensemble_id': ensemble_id,
+            'name': name,
+            'type': p_type,
+            'phone': kwargs.get('phone'),
+            'email': kwargs.get('email'),
+            'tz': kwargs.get('timezone', 'America/Chicago'),
+            'aliases': kwargs.get('aliases', []),   # default to empty list not None
+            'notes': kwargs.get('notes')            # string, None is fine
+        }
+        return self._execute(query, params)
 
     # --- CARE CIRCLES ---
     def upsert_circle(self, external_id: str, name: str) -> Dict:
@@ -67,10 +86,29 @@ class TakeFiveRepository:
             RETURNING *;
         """
         return self._execute(query, (str(external_id), name))
+    
+    def create_care_circle(self, ensemble_id: str, name: str, status: str = 'active',
+                        external_id: Optional[str] = None, external_type: str = 'groupme') -> Dict:
+        """Creates a care circle under an ensemble."""
+        query = """
+            INSERT INTO care_circles (ensemble_id, name, status, external_id, external_type)
+            VALUES (%(ensemble_id)s, %(name)s, %(status)s, %(external_id)s, %(external_type)s)
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'ensemble_id': ensemble_id,
+            'name': name,
+            'status': status,
+            'external_id': external_id,
+            'external_type': external_type
+        })
 
     def get_circle_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),))
     
+    def get_circle_by_id(self, circle_id: str) -> Optional[Dict]:
+        return self._execute("SELECT * FROM care_circles WHERE id = %s;", (str(circle_id),))
+
     def find_circles_by_person(self, person_external_id: str) -> List[Dict]:
         """Returns all circles associated with a specific person's external_id."""
         query = """
@@ -101,6 +139,28 @@ class TakeFiveRepository:
         return self._execute(query, {"circle_id": circle_id}, fetch="all")
 
     # --- MEMBERSHIPS ---
+    def list_care_circles(self, ensemble_id: str) -> List[Dict]:
+        """Returns all care circles belonging to an ensemble."""
+        return self._execute(
+            "SELECT * FROM care_circles WHERE ensemble_id = %s ORDER BY name;",
+            (ensemble_id,),
+            fetch='all'
+        )
+    
+    def add_person_to_circle(self, circle_id: str, person_id: str, role: str) -> Dict:
+        """Adds a person to a care circle with a role."""
+        query = """
+            INSERT INTO circle_memberships (circle_id, person_id, role)
+            VALUES (%(circle_id)s, %(person_id)s, %(role)s)
+            ON CONFLICT (circle_id, person_id) DO UPDATE SET role = EXCLUDED.role
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'circle_id': circle_id,
+            'person_id': person_id,
+            'role': role
+        })
+
     def add_to_circle(self, circle_ext_id: str, person_ext_id: str, role: str) -> Dict:
         """Links person to circle using external IDs."""
         query = """

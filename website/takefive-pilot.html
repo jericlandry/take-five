@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Take Five · What is Take Five</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --teal-900: #04342C; --teal-800: #085041; --teal-600: #0F6E56;
+    --teal-500: #1D9E75; --teal-300: #5DCAA5; --teal-100: #9FE1CB;
+    --teal-50: #E1F5EE; --cream: #F9F6F0; --white: #FFFFFF;
+    --gray-200: #E8E5DF; --gray-400: #8A8780; --gray-600: #3D3C3A; --text: #111110;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--cream); color: var(--text); overflow-x: hidden; max-width: 680px; margin: 0 auto; padding: 0 1.5rem 5rem; }
+
+  .top-bar { display: flex; align-items: center; gap: 10px; padding: 1.75rem 0 2rem; border-bottom: 1px solid var(--gray-200); margin-bottom: 3rem; }
+  .nav-logo { width: 28px; height: 28px; }
+  .nav-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--teal-800); letter-spacing: -0.02em; }
+  .nav-tag { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal-500); background: var(--teal-50); padding: 0.2rem 0.6rem; border-radius: 100px; margin-left: 0.25rem; }
+
+  h1 { font-family: 'Playfair Display', serif; font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 400; color: var(--teal-800); line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 1.75rem; }
+  h1 em { font-style: italic; color: var(--teal-500); }
+  h2 { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 400; color: var(--teal-800); margin: 2.5rem 0 0.75rem; }
+  p { font-size: 1rem; line-height: 1.8; color: var(--gray-600); margin-bottom: 1.1rem; }
+  p:last-child { margin-bottom: 0; }
+  p strong { color: var(--teal-800); font-weight: 700; }
+  a { color: var(--teal-500); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  hr { border: none; border-top: 1px solid var(--gray-200); margin: 2.5rem 0; }
+
+  .callout { background: var(--teal-50); border-left: 3px solid var(--teal-500); border-radius: 0 10px 10px 0; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+  .callout p { font-size: 0.95rem; color: var(--teal-800); margin: 0; }
+  .callout p + p { margin-top: 0.6rem; }
+
+  .digest { background: var(--teal-800); border-radius: 14px; padding: 1.5rem; margin: 1.5rem 0; }
+  .digest-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--teal-300); margin-bottom: 1rem; }
+  .digest-body { font-size: 0.9rem; line-height: 1.7; color: var(--white); }
+  .digest-body em { color: var(--teal-100); font-style: italic; }
+
+  .plain-list { display: flex; flex-direction: column; gap: 0.75rem; margin: 1rem 0 1.25rem; }
+  .plain-item { display: flex; gap: 0.85rem; align-items: flex-start; font-size: 0.95rem; line-height: 1.65; color: var(--gray-600); }
+  .plain-item::before { content: '—'; color: var(--teal-300); flex-shrink: 0; margin-top: 0.05rem; }
+  .plain-item strong { color: var(--teal-800); font-weight: 700; }
+
+  .pill { display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.15rem 0.55rem; border-radius: 100px; vertical-align: middle; margin-left: 0.35rem; }
+  .pill.live { background: var(--teal-500); color: var(--white); }
+  .pill.soon { background: var(--gray-200); color: var(--gray-600); }
+
+  .signoff { margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid var(--gray-200); }
+  .signoff p { font-size: 0.95rem; }
+  .signoff-name { font-family: 'Playfair Display', serif; font-size: 1rem; font-style: italic; color: var(--teal-800); margin-top: 1rem; display: block; }
+  .signoff-contact { font-size: 0.85rem; color: var(--gray-400); margin-top: 0.15rem; display: block; }
+
+  .footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center; }
+  .footer-brand { font-family: 'Playfair Display', serif; font-size: 0.95rem; color: var(--teal-300); }
+  .footer-note { font-size: 0.78rem; color: var(--gray-400); }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <svg class="nav-logo" viewBox="0 0 56 56" fill="none">
+    <g stroke="#1D9E75" stroke-width="1.5" fill="none">
+      <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
+      <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
+      <line x1="6" y1="21" x2="28" y2="6"/>
+    </g>
+    <circle cx="28" cy="6" r="5" fill="#5DCAA5"/>
+    <circle cx="50" cy="21" r="5" fill="#5DCAA5"/>
+    <circle cx="42" cy="47" r="5" fill="#5DCAA5"/>
+    <circle cx="14" cy="47" r="5" fill="#5DCAA5"/>
+    <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
+    <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
+  </svg>
+  <span class="nav-name">Take Five</span>
+  <span class="nav-tag">Pilot</span>
+</div>
+
+
+<h1>What is <em>Take Five?</em></h1>
+
+<p>I'm Eric. My brother or sister connected us. I'm one of five siblings who spent the last few years coordinating care for our parents — lots of group texts, emails and some things missed or misunderstood. I built Take Five because I couldn't find anything that actually helped with all of it.</p>
+
+<p>You're one of the first families trying it. I want to be straight with you about what it is right now, what I'm asking, and where I'm hoping to take it.</p>
+
+<hr>
+
+<h2>So what is it?</h2>
+
+<p>At its core, Take Five is built around a simple belief: our parents should be able to age at home, with dignity, and with some say in how that looks. Not just managed from a distance, but genuinely supported — by family, by caregivers, by people who actually know them. This isn't only about making sure medications get taken or appointments get tracked. It's about making sure they still feel loved, connected, and like their life is still theirs.</p>
+
+<p>The coordination side of things — the logistics, the schedules, the handoffs — is what gets in the way of that. When one person is carrying all of it, they stop being a son or daughter and start being a project manager. Take Five tries to take that load off so everyone can show up as family again.</p>
+
+<p>The simplest version: Take Five sits in your family's group chat, reads what people share, and sends a weekly summary of how things are going. It also has an agent right there in the chat you can ask questions — things like "what medications is Dad on?" or "when was the last time the aide came?" — and it'll answer based on everything that's been shared. No digging through old messages.</p>
+
+<p>No new app. No forms. Your caregiver texts after a visit like they normally would. A sibling says how the phone call went. Take Five reads all of it and puts together a digest at the end of the week so everyone stays on the same page.</p>
+
+<p>It also builds a knowledgebase from everything that gets shared — so things like medications, appointments, and health notes don't just disappear into the chat history. You can ask it later and it actually knows. Think of it as a memory for the whole care circle that nobody has to maintain manually.</p>
+
+<p>I'm also working on a <strong>Google Calendar integration</strong> so visits, appointments, and aide schedules can live in one place the whole family can see — no more "wait, who's going on Thursday?" I'll roll that out during the pilot.</p>
+
+<p>The whole point is to meet people where they already are. I've built the integration for <strong>GroupMe</strong> first — that's what my family uses. <strong>WhatsApp</strong> and regular SMS are next. If your family uses something else, tell me — that's exactly the kind of thing I want to know.</p>
+
+<div class="callout">
+  <p>What's live right now: the <strong>GroupMe bot</strong> <span class="pill live">live</span> and the <strong>weekly digest</strong> <span class="pill live">live</span>. The bot reads the group chat and picks up on what's happening — meals, medications, mood, activities. The digest goes out once a week and pulls it all together.</p>
+  <p>The bot also builds a running knowledgebase from conversations — so medications, appointments, and care notes are stored and searchable, not just buried in the chat.</p>
+</div>
+
+<h2>Here's what a digest looks like:</h2>
+
+<div class="digest">
+  <div class="digest-label">Weekly digest · example</div>
+  <div style="font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:0.3rem;">This week with Mom and Dad ❤️</div>
+  <div style="font-size:0.88rem;font-style:italic;color:#9FE1CB;margin-bottom:1.25rem;line-height:1.6;">It's been a busy one with appointments, some outings, and a few things worth keeping an eye on — good thing the family's staying connected.</div>
+
+  <div style="margin-top:1.25rem;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#5DCAA5;margin-bottom:0.5rem;">What happened</div>
+    <div class="digest-body">Dad had appointments mid-week and the caregiver was there for a stretch — Mom got out shopping, picked up a few things she was happy about, and visited a friend. One sibling is working on getting down there soon. On the tech side, the TV stopped working after an accidental download knocked out some channels — the WiFi situation is sorted, but the streaming service still needs a look. <em>That one's on the list for the next visit.</em></div>
+  </div>
+
+  <div style="margin-top:1.25rem;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#5DCAA5;margin-bottom:0.5rem;">How Mom is doing</div>
+    <div class="digest-body">She's in good spirits when she's engaged — the outing clearly lifted her. But she's running out of steam more quickly, and she's been expressing some anxiety about feeling unsteady when she's out. She's not ready to consider a wheelchair yet, and that's her call. She's also still asking about sleep medication and wants to follow up with her doctor — <em>worth monitoring if it keeps coming up.</em></div>
+  </div>
+
+  <div style="margin-top:1.25rem;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#5DCAA5;margin-bottom:0.5rem;">How Dad is doing</div>
+    <div class="digest-body">Dad had a full week with back-to-back appointments, and he handled it well. Energy was steady, and he seemed engaged during visits. He's been cooperative with the caregiver schedule, which is a good sign. One thing to note: he's been sleeping later into the morning than usual — probably just fatigue from the appointment week, but worth keeping an eye on if it continues into next week. <em>Overall, a solid week for him.</em></div>
+  </div>
+
+  <div style="margin-top:1.25rem;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#5DCAA5;margin-bottom:0.5rem;">What needs attention</div>
+    <ul style="list-style:none;display:flex;flex-direction:column;gap:0.5rem;margin-top:0.25rem;">
+      <li style="font-size:0.9rem;line-height:1.65;color:#fff;display:flex;gap:0.6rem;"><span style="color:#5DCAA5;flex-shrink:0;">—</span><span><strong>Tech:</strong> Streaming/TV troubleshooting — next sibling visiting, this one's yours</span></li>
+      <li style="font-size:0.9rem;line-height:1.65;color:#fff;display:flex;gap:0.6rem;"><span style="color:#5DCAA5;flex-shrink:0;">—</span><span><strong>Bedding:</strong> Mom needs a new mattress pad and an extra set of sheets</span></li>
+      <li style="font-size:0.9rem;line-height:1.65;color:#fff;display:flex;gap:0.6rem;"><span style="color:#5DCAA5;flex-shrink:0;">—</span><span><strong>Sleep meds:</strong> She keeps asking — worth watching if it persists or settles</span></li>
+      <li style="font-size:0.9rem;line-height:1.65;color:#fff;display:flex;gap:0.6rem;"><span style="color:#5DCAA5;flex-shrink:0;">—</span><span><strong>Shopping list:</strong> A few clothing items still outstanding from last week</span></li>
+    </ul>
+  </div>
+
+  <div style="margin-top:1.25rem;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#5DCAA5;margin-bottom:0.75rem;">Coming up this week</div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Mon 5/12</div>
+        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Caregiver visit · 9am–1pm</div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Tue 5/13</div>
+        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Dad — follow-up with Dr. Fawlty · 2:30pm</div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Thu 5/15</div>
+        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Sibling visit · <em>confirm still on?</em></div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Fri 5/16</div>
+        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Mom — call with Dr. Dadburnit re: sleep meds · 10am</div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Sat 5/17</div>
+        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Caregiver visit · 10am–2pm</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:1.25rem;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#5DCAA5;margin-bottom:0.5rem;">The good part</div>
+    <div class="digest-body">Despite the anxiety about going out, she was game for the adventure. Came home with things she's happy about. <em>That willingness to try, even when it's hard, says something.</em></div>
+  </div>
+
+  <hr style="border:none;border-top:1px solid rgba(93,202,165,0.15);margin:1.25rem 0 0;">
+  <div style="font-size:0.82rem;color:#9FE1CB;opacity:0.7;margin-top:1rem;font-style:italic;">— Take Five</div>
+</div>
+
+<h2>The group chat, in action</h2>
+
+<p>The digest is one side of Take Five. The other is the agent — sitting right there in your family's group chat, ready when someone has a question. Here's a real exchange from a live pilot family, with names changed.</p>
+
+<div style="background:var(--white);border:1px solid var(--gray-200);border-radius:14px;overflow:hidden;margin:1.5rem 0;">
+
+  <!-- Sibling asks the agent -->
+  <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--gray-200);">
+    <div style="display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.4rem;">
+      <span style="font-size:0.78rem;font-weight:700;color:var(--teal-800);">Alex</span>
+      <span style="font-size:0.72rem;color:var(--gray-400);">9:48 AM</span>
+    </div>
+    <p style="font-size:0.9rem;line-height:1.6;color:var(--text);margin:0;"><span style="color:var(--teal-500);font-weight:700;">@TakeFive</span> do any of Dad's medications have an effect on his sleep?</p>
+  </div>
+
+  <!-- Agent response -->
+  <div style="padding:1.25rem;background:var(--teal-50);border-bottom:1px solid var(--gray-200);">
+    <div style="display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.75rem;">
+      <span style="font-size:0.78rem;font-weight:700;color:var(--teal-600);">Take Five</span>
+      <span style="font-size:0.72rem;color:var(--gray-400);">9:48 AM</span>
+    </div>
+    <p style="font-size:0.88rem;font-weight:700;color:var(--teal-800);margin:0 0 0.75rem;">Dad's Medications & Sleep Effects</p>
+    <p style="font-size:0.88rem;color:var(--gray-600);margin:0 0 0.75rem;line-height:1.6;">Yes — several of his medications can meaningfully affect sleep. Here's a breakdown:</p>
+
+    <div style="margin-bottom:0.75rem;">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--teal-600);margin-bottom:0.4rem;">✅ Supports sleep</div>
+      <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:0.75rem 1rem;">
+        <p style="font-size:0.88rem;color:var(--text);margin:0;line-height:1.6;"><strong>Mirtazapine 15 mg</strong> (evening) — strongly sedating, likely intentional. Prescribed partly for sleep and anxiety. The most sleep-promoting medication he takes.</p>
+      </div>
+    </div>
+
+    <div style="margin-bottom:0.75rem;">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#B45309;margin-bottom:0.4rem;">⚠️ May disrupt sleep</div>
+      <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:0.75rem 1rem;display:flex;flex-direction:column;gap:0.6rem;">
+        <p style="font-size:0.88rem;color:var(--text);margin:0;line-height:1.6;"><strong>Duloxetine 30 mg</strong> (morning) — SNRIs can cause insomnia or lighter sleep in some people, especially if timing shifts.</p>
+        <p style="font-size:0.88rem;color:var(--text);margin:0;line-height:1.6;"><strong>Metoprolol Succinate 25 mg</strong> (evening) — beta-blockers are known to suppress melatonin and can cause insomnia or unusual dreams. Evening dosing may amplify this.</p>
+      </div>
+    </div>
+
+    <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:0.75rem 1rem;margin-bottom:0.75rem;">
+      <p style="font-size:0.78rem;font-weight:700;color:var(--gray-600);margin:0 0 0.35rem;text-transform:uppercase;letter-spacing:0.08em;">Bottom line</p>
+      <p style="font-size:0.88rem;color:var(--text);margin:0;line-height:1.6;">The mirtazapine is the heavy hitter for sleep support. But the <strong>metoprolol</strong> (evening dosing) and <strong>duloxetine</strong> are both worth flagging with his doctors if he's reporting poor sleep quality or unusual dreams.</p>
+    </div>
+
+    <p style="font-size:0.85rem;color:var(--teal-600);margin:0;font-style:italic;">Is there a specific sleep concern you're looking into? That might help narrow this down further.</p>
+  </div>
+
+  <!-- Sibling 2 reacts -->
+  <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--gray-200);">
+    <div style="display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.4rem;">
+      <span style="font-size:0.78rem;font-weight:700;color:var(--teal-800);">Brian</span>
+      <span style="font-size:0.72rem;color:var(--gray-400);">1:34 PM</span>
+    </div>
+    <p style="font-size:0.9rem;line-height:1.6;color:var(--text);margin:0 0 0.5rem;">Alex, what time will you be around tomorrow? I will let you know when i head over there.</p>
+  </div>
+
+  <!-- Sibling 1 replies -->
+  <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--gray-200);">
+    <div style="display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.4rem;">
+      <span style="font-size:0.78rem;font-weight:700;color:var(--teal-800);">Alex</span>
+      <span style="font-size:0.72rem;color:var(--gray-400);">1:39 PM</span>
+    </div>
+    <p style="font-size:0.9rem;line-height:1.6;color:var(--text);margin:0;">Probably leaving in the morning — should be there before 11.</p>
+  </div>
+
+  <!-- Sibling 2 with update from doctor visit -->
+  <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--gray-200);">
+    <div style="display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.4rem;">
+      <span style="font-size:0.78rem;font-weight:700;color:var(--teal-800);">Brian</span>
+      <span style="font-size:0.72rem;color:var(--gray-400);">4:06 PM</span>
+    </div>
+    <p style="font-size:0.9rem;line-height:1.6;color:var(--text);margin:0 0 0.5rem;">I'll be at an event with the kids at 10, then head over to Mom and Dad's after — unless you want some one-on-one time with them first. I know Dad has a list for you.</p>
+    <p style="font-size:0.9rem;line-height:1.6;color:var(--text);margin:0;">Just got back from his appointment with the doctor. <strong>Really good news</strong> — doctor says he's doing very well. He even went downstairs on his own and walked on the treadmill. Doctor wants him to cut back on soda. He's at 176 lbs.</p>
+  </div>
+
+  <!-- Sibling 3 -->
+  <div style="padding:1.1rem 1.25rem;">
+    <div style="display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.4rem;">
+      <span style="font-size:0.78rem;font-weight:700;color:var(--teal-800);">Sara</span>
+      <span style="font-size:0.72rem;color:var(--gray-400);">4:09 PM</span>
+    </div>
+    <p style="font-size:0.9rem;line-height:1.6;color:var(--text);margin:0;">I'm going Friday morning — Mom and I are doing a tea and fashion show at the senior center. I think it's an early Mother's Day event. 🌸</p>
+  </div>
+
+</div>
+
+<p>Take Five is reading all of this. The medication question gets answered in seconds. The doctor visit update — Dad's doing well, walked the treadmill, watching the soda — goes into the care log automatically. Sara's Friday visit lands on the calendar. None of it requires anyone to remember to file it somewhere.</p>
+
+<hr>
+
+<h2>What I'm asking of you</h2>
+
+<p>Not much. This should add almost nothing to your week if it's working right.</p>
+
+<div class="plain-list">
+  <div class="plain-item"><strong>Use the group chat like you normally would.</strong> Share updates, notes from visits, how a call went. The more people put in, the more useful the digest is.</div>
+  <div class="plain-item"><strong>Read the digest when it comes and notice how it feels.</strong> Accurate? Did it miss something? Tone off? Those reactions are what I need.</div>
+  <div class="plain-item"><strong>Tell me when something doesn't work.</strong> Too long, too short, wrong vibe, missing the point — I want the honest version, not the polite one.</div>
+  <div class="plain-item"><strong>Check in with me once in a while.</strong> A text is totally fine. No formal feedback process, just a real conversation.</div>
+</div>
+
+<p>The pilot is free. If and when I start charging, I'll give you real notice well in advance and take care of you on pricing. You're doing me the favor here.</p>
+
+<hr>
+
+<h2>What's coming</h2>
+
+<p>The digest is just the foundation. The stuff I'm most excited about is the features that help keep your parent <em>engaged</em> — not just monitored. There's a lot of research on how much daily engagement and social connection actually matter for cognitive health and longevity, and I want Take Five to help with that, not just log what's happening.</p>
+
+<div class="plain-list">
+  <div class="plain-item"><strong>Google Calendar integration.</strong> <span class="pill soon">coming</span> Visits, appointments, and aide schedules in a shared calendar the whole family can see. Should take "wait, who's going Thursday?" off the table permanently.</div>
+  <div class="plain-item"><strong>Life Log.</strong> <span class="pill soon">coming</span> A running record of what she's reading, watching, doing — not just health updates. Books finished, shows she loved, walks taken. A picture of a life still being lived, and a quiet signal when engagement starts to slip.</div>
+  <div class="plain-item"><strong>Conversation starters.</strong> <span class="pill soon">coming</span> Based on what she's been into lately, Take Five could suggest things to bring up on your next call. Small prompts that make it easier to connect — and help her feel like people are actually paying attention.</div>
+  <div class="plain-item"><strong>Appointment prep.</strong> <span class="pill soon">coming</span> Before a doctor visit, a quick summary of recent patterns — sleep, mood, medications, activity — so you're not scrambling to remember what happened last month.</div>
+  <div class="plain-item"><strong>The Story.</strong> <span class="pill soon">coming</span> A gentle, ongoing interview — one question a week — that builds into something like a memoir over time. Her life, in her own words. I think this one is going to matter a lot. Still a ways out, but it's coming.</div>
+  <div class="plain-item"><strong>Decision support.</strong> <span class="pill soon">coming</span> When the hard questions come up — do we need to bring in a home care aide, is it time to look at a memory care facility — Take Five will help the family think it through together. Trend data, context from the care history, and a way to have that conversation without everyone operating off different information.</div>
+</div>
+
+<p>If any of those land differently than the others, say so. That helps me figure out what to build first.</p>
+
+<hr>
+
+<h2>Privacy — the short version</h2>
+
+<p>Messages from your group chat get stored so the AI can read and summarize them. That's what makes the digest work. I can see the data to make the product better. It's not sold, not shared with anyone, not used for anything else. If you want me to delete everything, I will — just ask.</p>
+
+<p>Your family's care data is not a product. You are.</p>
+
+<hr>
+
+<div class="signoff">
+  <p>That's really all there is to it right now. I appreciate you giving it a shot. If anything's confusing or you want to talk through setup, just reach out — I'm easy to get hold of and I actually respond.</p>
+  <p>Thanks for being here.</p>
+  <span class="signoff-name">— Eric</span>
+  <span class="signoff-contact">jericlandry@gmail.com</span>
+  <a href="https://www.linkedin.com/in/jeric-landry/" target="_blank" style="display:inline-block;margin-top:0.75rem;font-size:0.82rem;color:var(--teal-500);text-decoration:none;">A little more about me →</a>
+</div>
+
+<div class="footer">
+  <span class="footer-brand">Take Five</span>
+  <span class="footer-note">takefive.care · 2026</span>
+</div>
+
+</body>
+</html>

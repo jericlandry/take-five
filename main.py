@@ -8,6 +8,8 @@ import logging
 import httpx
 import os
 
+from pydantic import BaseModel
+from typing import Optional, List
 from twilio.twiml.messaging_response import MessagingResponse
 
 from take_five.memory import process_message_for_memory
@@ -28,6 +30,25 @@ GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_ACCESS_TOKEN")
 GROUP_NAME = "Take Five Ensemble"
 GROUPME_BOT_ID = "f7a1dcd219899a79f3d01dec91"
 GROUPME_URL = "https://api.groupme.com/v3/bots/post"
+
+class CreatePersonRequest(BaseModel):
+    name: str
+    p_type: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    aliases: Optional[List[str]] = None
+    notes: Optional[str] = None
+    external_id: Optional[str] = None
+    external_id_type: Optional[str] = None
+
+class CreateCareCircleRequest(BaseModel):
+    name: str
+    status: str = 'active'
+    external_id: Optional[str] = None
+    external_type: str = 'groupme'
+
+class CreateCircleMembershipRequest(BaseModel):
+    role: str  # senior | family | caregiver | professional
 
 @app.get("/health")
 async def health():
@@ -63,6 +84,60 @@ async def get_ensembles():
 async def get_ensemble_people(ensemble_id: str):
     logging.info(f"Get people for ensemble {ensemble_id}")
     people = repo.list_people_by_ensemble(ensemble_id)
+    return {"people": [row_to_dict(row) for row in people]}
+
+@app.post("/ensembles/{ensemble_id}/people")
+async def create_person(ensemble_id: str, body: CreatePersonRequest):
+    person = repo.add_person_to_ensemble(
+        ensemble_id=ensemble_id,
+        name=body.name,
+        p_type=body.p_type,
+        phone=body.phone,
+        email=body.email,
+        aliases=body.aliases or [],
+        notes=body.notes
+    )
+    return {"person": row_to_dict(person)}
+
+@app.get("/ensembles/{ensemble_id}/circles")
+async def get_care_circles(ensemble_id: str):
+    circles = repo.list_care_circles(ensemble_id=ensemble_id)
+    return {"circles": [row_to_dict(row) for row in circles]}
+
+@app.post("/ensembles/{ensemble_id}/circles")
+async def create_care_circle(ensemble_id: str, body: CreateCareCircleRequest):
+    circle = repo.create_care_circle(
+        ensemble_id=ensemble_id,
+        name=body.name,
+        status=body.status,
+        external_id=body.external_id,
+        external_type=body.external_type
+    )
+    return {"circle": row_to_dict(circle)}
+
+@app.get("/circles/{circle_id}")
+async def get_circle_by_id(circle_id: str):
+    circle = repo.get_circle_by_id(circle_id)
+    return {"people": row_to_dict(circle)}
+
+@app.get("/circles/{circle_id}/people")
+async def get_circle_people(circle_id: str):
+    people = repo.fetch_circle_roster(circle_id)
+    return {"people": [row_to_dict(row) for row in people]}
+
+@app.post("/circles/{circle_id}/people/{person_id}")
+async def add_person_to_circle(circle_id: str, person_id: str,
+                                body: CreateCircleMembershipRequest):
+    membership = repo.add_person_to_circle(
+        circle_id=circle_id,
+        person_id=person_id,
+        role=body.role
+    )
+    return {"membership": row_to_dict(membership)}
+
+@app.get("/circles/{circle_id}/people")
+async def get_circle_people(circle_id: str):
+    people = repo.fetch_circle_roster(circle_id)
     return {"people": [row_to_dict(row) for row in people]}
 
 @app.post("/messages")
