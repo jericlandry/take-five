@@ -165,13 +165,7 @@ async def groupme_webhook(request: Request):
     logging.info(f"Processing message from {person_name} in group {circle_ext_id}")
 
     try:
-        # 3. The "Triple Upsert" 
-        # Ensures the Circle, Person, and Membership exist before we log the message
-        repo.upsert_circle(circle_ext_id, GROUP_NAME) 
-        repo.upsert_person(person_ext_id, person_name, "family")
-        repo.add_to_circle(circle_ext_id, person_ext_id, "family")
 
-        # 4. Log the message with the raw GroupMe payload
         new_msg = repo.log_message(
             circle_ext_id=circle_ext_id,
             person_ext_id=person_ext_id,
