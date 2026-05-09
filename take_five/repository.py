@@ -154,14 +154,15 @@ class TakeFiveRepository:
         query = """
             SELECT
                 p.id,
-                p.name,
-                p.type        AS p_type,
+                p.name          AS member_name,
+                p.type          AS p_type,
                 p.phone,
                 p.email,
-                p.aliases,
-                p.notes,
+                p.aliases       AS person_aliases,
+                p.notes         AS person_notes,
                 p.external_id,
-                cm.role
+                cm.role         AS person_role,
+                c.name          AS circle_name
             FROM care_circles c
             JOIN circle_memberships cm ON c.id = cm.circle_id
             JOIN people p ON cm.person_id = p.id
