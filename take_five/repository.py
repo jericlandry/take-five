@@ -30,8 +30,8 @@ class TakeFiveRepository:
     def upsert_person(self, external_id: str, name: str, p_type: str, **kwargs) -> Dict:
         """Creates or updates a person. p_type: senior, family, aide, nurse, agent"""
         query = """
-            INSERT INTO people (external_id, external_type, name, type, email, phone, timezone)
-            VALUES (%(ext_id)s, 'groupme', %(name)s, %(type)s, %(email)s, %(phone)s, %(tz)s)
+            INSERT INTO people (external_id, name, type, email, phone, timezone)
+            VALUES (%(ext_id)s, %(name)s, %(type)s, %(email)s, %(phone)s, %(tz)s)
             ON CONFLICT (external_id) 
             DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type
             RETURNING *;
@@ -59,8 +59,8 @@ class TakeFiveRepository:
     def add_person_to_ensemble(self, ensemble_id: str, name: str, p_type: str, **kwargs) -> Dict:
         """Creates a person and associates them with an ensemble."""
         query = """
-            INSERT INTO people (ensemble_id, name, type, phone, email, timezone, aliases, notes)
-            VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s)
+            INSERT INTO people (ensemble_id, name, type, phone, email, timezone, aliases, notes, external_id)
+            VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s)
             RETURNING *;
         """
         params = {
@@ -71,7 +71,8 @@ class TakeFiveRepository:
             'email': kwargs.get('email'),
             'tz': kwargs.get('timezone', 'America/Chicago'),
             'aliases': kwargs.get('aliases', []),   # default to empty list not None
-            'notes': kwargs.get('notes')            # string, None is fine
+            'notes': kwargs.get('notes'),           # string, None is fine
+            'external_id': kwargs.get('external_id'),
         }
         return self._execute(query, params)
 
@@ -79,8 +80,8 @@ class TakeFiveRepository:
     def upsert_circle(self, external_id: str, name: str) -> Dict:
         """Creates or updates a circle based on GroupMe Group ID."""
         query = """
-            INSERT INTO care_circles (external_id, external_type, name)
-            VALUES (%s, 'groupme', %s)
+            INSERT INTO care_circles (external_id, name)
+            VALUES (%s, %s)
             ON CONFLICT (external_id) 
             DO UPDATE SET name = EXCLUDED.name
             RETURNING *;
@@ -88,19 +89,18 @@ class TakeFiveRepository:
         return self._execute(query, (str(external_id), name))
     
     def create_care_circle(self, ensemble_id: str, name: str, status: str = 'active',
-                        external_id: Optional[str] = None, external_type: str = 'groupme') -> Dict:
+                        external_id: Optional[str] = None) -> Dict:
         """Creates a care circle under an ensemble."""
         query = """
-            INSERT INTO care_circles (ensemble_id, name, status, external_id, external_type)
-            VALUES (%(ensemble_id)s, %(name)s, %(status)s, %(external_id)s, %(external_type)s)
+            INSERT INTO care_circles (ensemble_id, name, status, external_id)
+            VALUES (%(ensemble_id)s, %(name)s, %(status)s, %(external_id)s)
             RETURNING *;
         """
         return self._execute(query, {
             'ensemble_id': ensemble_id,
             'name': name,
             'status': status,
-            'external_id': external_id,
-            'external_type': external_type
+            'external_id': external_id
         })
 
     def get_circle_by_external_id(self, external_id: str) -> Optional[Dict]:
@@ -108,9 +108,8 @@ class TakeFiveRepository:
     
     def get_circle_by_id(self, circle_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM care_circles WHERE id = %s;", (str(circle_id),))
-
+    
     def find_circles_by_person(self, person_external_id: str) -> List[Dict]:
-        """Returns all circles associated with a specific person's external_id."""
         query = """
             SELECT c.*, m.role 
             FROM care_circles c
@@ -118,18 +117,21 @@ class TakeFiveRepository:
             JOIN people p ON m.person_id = p.id
             WHERE p.external_id = %(ext_id)s;
         """
-        params = {'ext_id': str(person_external_id)}
-        return self._execute(query, params)
+        return self._execute(query, {'ext_id': str(person_external_id)}, fetch='all')
 
     def fetch_circle_roster(self, circle_id: str) -> list:
-        """Fetch all circle members with aliases, notes, and role."""
+        """Fetch all circle members with their person details and role."""
         query = """
             SELECT
-                c.name    AS circle_name,
-                p.name    AS member_name,
-                p.aliases AS person_aliases,
-                p.notes   AS person_notes,
-                cm.role   AS person_role
+                p.id,
+                p.name,
+                p.type        AS p_type,
+                p.phone,
+                p.email,
+                p.aliases,
+                p.notes,
+                p.external_id,
+                cm.role
             FROM care_circles c
             JOIN circle_memberships cm ON c.id = cm.circle_id
             JOIN people p ON cm.person_id = p.id

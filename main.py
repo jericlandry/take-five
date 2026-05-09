@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import logging
 import httpx
 import os
+from datetime import datetime
 
 from pydantic import BaseModel
 from typing import Optional, List
@@ -53,29 +54,45 @@ class CreatePersonRequest(BaseModel):
     aliases: Optional[List[str]] = None
     notes: Optional[str] = None
     external_id: Optional[str] = None
-    external_id_type: Optional[str] = None
 
 class CreateCareCircleRequest(BaseModel):
     name: str
     status: str = 'active'
     external_id: Optional[str] = None
-    external_type: str = 'groupme'
 
 class CreateCircleMembershipRequest(BaseModel):
     role: str  # senior | family | caregiver | professional
 
+class CreateEnsembleRequest(BaseModel):
+    name: str
+    plan: str
+    status: str = "trial"
+
+class MessageRequest(BaseModel):
+    circle_id: str
+    message: str
+    response_format: str = "markdown"
+
+class DigestRequest(BaseModel):
+    circle_id: str
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
 @secure_router.post("/digest")
-async def summary(circle_id: str):
-    logging.info("Summary request received")
-
-    digest = generate_weekly_digest(circle_id)
-
+async def summary(body: DigestRequest):
+    logging.info("Digest request received")
+    kwargs = {}
+    if body.start_date: # date format for reuquest ex: "2026-05-01T00:00:00"
+        kwargs['start_date'] = body.start_date
+    if body.end_date:
+        kwargs['end_date'] = body.end_date
+    digest = generate_weekly_digest(body.circle_id, **kwargs)
     return {"digest": digest}
 
 @secure_router.post("/ensembles")
-async def create_ensemble(name: str, plan: str, status: str = "trial"):
-    logging.info("Create ensemble request received")
-    ensemble = repo.create_ensemble(name, plan, status)
+async def create_ensemble(body: CreateEnsembleRequest):
+    logging.info(f"Create ensemble request received: {body.name}")
+    ensemble = repo.create_ensemble(body.name, body.plan, body.status)
     return {"ensemble": row_to_dict(ensemble)}
 
 @secure_router.get("/ensembles")
@@ -99,6 +116,7 @@ async def create_person(ensemble_id: str, body: CreatePersonRequest):
         phone=body.phone,
         email=body.email,
         aliases=body.aliases or [],
+        external_id=body.external_id,
         notes=body.notes
     )
     return {"person": row_to_dict(person)}
@@ -115,7 +133,6 @@ async def create_care_circle(ensemble_id: str, body: CreateCareCircleRequest):
         name=body.name,
         status=body.status,
         external_id=body.external_id,
-        external_type=body.external_type
     )
     return {"circle": row_to_dict(circle)}
 
@@ -139,15 +156,10 @@ async def add_person_to_circle(circle_id: str, person_id: str,
     )
     return {"membership": row_to_dict(membership)}
 
-@secure_router.get("/circles/{circle_id}/people")
-async def get_circle_people(circle_id: str):
-    people = repo.fetch_circle_roster(circle_id)
-    return {"people": [row_to_dict(row) for row in people]}
-
 @secure_router.post("/messages")
-async def chat(circle_id: str, message: str, response_format: str = "markdown"):
-    logging.info("Chat message received")
-    response = await ask(message, circle_id, response_format=response_format)
+async def message(body: MessageRequest):
+    logging.info("Message received")
+    response = await ask(body.message, body.circle_id, response_format=body.response_format)
     return {"response": response}
 
 #--- Open endpoints for external integrations (e.g. GroupMe, Twilio) ---
@@ -162,8 +174,8 @@ async def groupme_webhook(request: Request):
         return {"status": "ignored"}
     
     # 2. Extract GroupMe specific fields
-    circle_ext_id = data.get("group_id")
-    person_ext_id = data.get("sender_id")
+    circle_ext_id = f"groupme:{data.get('group_id')}"
+    person_ext_id = f"groupme:{data.get('sender_id')}"
     person_name = data.get("name", "Unknown User")
     text = data.get("text", "")
 
@@ -237,49 +249,47 @@ async def groupme_webhook(request: Request):
 
 @open_router.post("/twilio/sms")
 async def receive_sms(From: str = Form(...), Body: str = Form(...)):
-    # 1. Start TwiML response
     response = MessagingResponse()
     
     person = repo.find_person_by_phone(From)
 
-    if person:
-        logging.info(f"SMS received from known person: {person['name']} ({From})")
-        circles = repo.find_circles_by_person(person['external_id']) if person else []
-        if circles:
-            person_ext_id = person['external_id']
-            circle_ext_id = circles['external_id']  # Assuming one circle per person for simplicity
-            # 4. Log the message with the raw GroupMe payload
-            new_msg = repo.log_message(
-                circle_ext_id=circle_ext_id,
-                person_ext_id=person_ext_id,
-                body=Body,
-                raw_data=Body,
-                channel="sms"
-            )
-
-            asyncio.create_task(process_message_for_memory(
-                message_id=str(new_msg['id']),
-                circle_id=str(new_msg['circle_id']),
-                body=Body,
-                sender=person['name'],
-                sent_at=new_msg['sent_at'],
-                repo=repo
-            ))
-        else:
-            logging.warning(f"No circles found for person {person['name']} ({From})")
-            response.message("Sorry, I couldn't find your care circle. Please contact support.")
-            return Response(content=str(response), media_type="application/xml")
-    else:
+    if not person:
         logging.info(f"SMS received from unknown number: {From}")
         response.message("Sorry, I don't recognize your number. Please contact support to be added to the system.")
         return Response(content=str(response), media_type="application/xml")
-    
-    # 2. Logic: Print the message and reply
-    logging.info(f"Twilio SMS received from {From}: {Body}")
 
-    response.message(f"Hey! {person['name']} I got your message: '{Body}'")
+    logging.info(f"SMS received from known person: {person['name']} ({From})")
+    circles = repo.find_circles_by_person(person['external_id'])
 
-    # 3. Return as XML
+    if not circles:
+        logging.warning(f"No circles found for person {person['name']} ({From})")
+        response.message("Sorry, I couldn't find your care circle. Please contact support.")
+        return Response(content=str(response), media_type="application/xml")
+
+    # Take first circle — one person, one circle for now
+    circle = circles[0] #TODO: this assumes one circle per person. future need to figure out how to handle multiple circles (e.g. separate ones for different parents)
+    person_ext_id = person['external_id']
+    circle_ext_id = circle['external_id']
+
+    new_msg = repo.log_message(
+        circle_ext_id=circle_ext_id,
+        person_ext_id=person_ext_id,
+        body=Body,
+        raw_data={"from": From, "body": Body},  # dict, not raw string
+        channel="sms"
+    )
+
+    asyncio.create_task(process_message_for_memory(
+        message_id=str(new_msg['id']),
+        circle_id=str(new_msg['circle_id']),
+        body=Body,
+        sender=person['name'],
+        sent_at=new_msg['sent_at'],
+        repo=repo
+    ))
+
+    logging.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
+    response.message(f"Got it, {person['name']}. Thanks for the update.")
     return Response(content=str(response), media_type="application/xml")
 
 app.include_router(secure_router)
