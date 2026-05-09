@@ -46,6 +46,12 @@ class TakeFiveRepository:
     def get_person_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM people WHERE external_id = %s;", (str(external_id),))
     
+    def get_person_by_id(self, person_id: str) -> Optional[Dict]:
+        return self._execute(
+            "SELECT * FROM people WHERE id = %s;",
+            (person_id,)
+        )
+    
     def find_person_by_phone(self, phone: str) -> Optional[Dict]:
         """Finds a person by their phone number."""
         query = """
@@ -55,6 +61,30 @@ class TakeFiveRepository:
         """
         params = {'phone': phone}
         return self._execute(query, params)
+    
+    def update_person(self, person_id: str, updates) -> Dict:
+        query = """
+            UPDATE people SET
+                name        = COALESCE(%(name)s, name),
+                type        = COALESCE(%(type)s, type),
+                phone       = COALESCE(%(phone)s, phone),
+                email       = COALESCE(%(email)s, email),
+                aliases     = COALESCE(%(aliases)s, aliases),
+                notes       = COALESCE(%(notes)s, notes),
+                external_id = COALESCE(%(external_id)s, external_id)
+            WHERE id = %(id)s
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'id': person_id,
+            'name': updates.name,
+            'type': updates.p_type,
+            'phone': updates.phone,
+            'email': updates.email,
+            'aliases': updates.aliases,
+            'notes': updates.notes,
+            'external_id': updates.external_id,
+        })
     
     def add_person_to_ensemble(self, ensemble_id: str, name: str, p_type: str, **kwargs) -> Dict:
         """Creates a person and associates them with an ensemble."""

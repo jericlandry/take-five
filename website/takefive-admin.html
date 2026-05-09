@@ -257,6 +257,25 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+
+<!-- AUTH BANNER -->
+<div id="auth-banner" style="
+  display: none;
+  background: var(--danger-bg);
+  border-bottom: 1px solid rgba(226,75,74,0.25);
+  padding: 0.6rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 13px;
+  color: var(--danger);
+">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+  <span id="auth-banner-msg">Enter your API key in the top right to get started.</span>
+</div>
+
 <div class="app">
 
 <!-- SIDEBAR -->
@@ -558,6 +577,67 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+
+<!-- Edit Person -->
+<div class="modal-backdrop" id="modal-edit-person">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Person</div>
+      <button class="modal-close" onclick="closeModal('modal-edit-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="form-row cols-2">
+      <div class="field">
+        <label>Full Name *</label>
+        <input type="text" id="edit-person-name" placeholder="e.g. Rosa Martinez"/>
+      </div>
+      <div class="field">
+        <label>Person Type *</label>
+        <select id="edit-person-type">
+          <option value="senior">Senior (care recipient)</option>
+          <option value="family">Family member</option>
+          <option value="caregiver">Caregiver / Aide</option>
+          <option value="professional">Professional (nurse, doctor)</option>
+          <option value="bot">Bot / System</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="edit-person-phone" placeholder="+1 555 000 0000"/>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="edit-person-email" placeholder="name@example.com"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>External ID</label>
+        <input type="text" id="edit-person-ext-id" placeholder="groupme:12345678"/>
+        <div class="form-hint">Format: groupme:sender_id</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Aliases</label>
+        <input type="text" id="edit-person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/>
+        <div class="form-hint">Names the AI may see in chat messages</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="edit-person-notes" placeholder="Any context about this person…"></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="btn-save-person" onclick="savePerson()">Save Changes</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-person')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Circle -->
 <div class="modal-backdrop" id="modal-add-circle">
   <div class="modal">
@@ -635,6 +715,7 @@ const state = {
   circles: [],
   currentCircleId: null,
   selectedMemberId: null,
+  editingPersonId: null,
 };
 
 // ─── API ───
@@ -674,9 +755,17 @@ function qs(params) {
 }
 
 // ─── UI HELPERS ───
-function setApiStatus(ok) {
+function setApiStatus(ok, msg) {
   const el = document.getElementById('apiStatus');
   el.className = 'api-status ' + (ok ? 'ok' : 'err');
+  const banner = document.getElementById('auth-banner');
+  const bannerMsg = document.getElementById('auth-banner-msg');
+  if (ok) {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'flex';
+    bannerMsg.textContent = msg || 'Authentication failed. Check your API key.';
+  }
 }
 
 function toast(msg, isErr=false) {
@@ -831,7 +920,9 @@ function renderPeople() {
       <td class="td-mono">${p.email||'—'}</td>
       <td>${(p.aliases||[]).length ? p.aliases.map(a=>`<span class="pill pill-person" style="margin:1px;">${a}</span>`).join('') : '<span style="color:var(--g400);font-size:12px;">—</span>'}</td>
       <td class="td-mono">${(p.id||'').slice(0,8)}…</td>
-      <td></td>
+      <td><div class="td-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditPerson('${p.id}')">Edit</button>
+      </div></td>
     </tr>`).join('');
 }
 
@@ -857,6 +948,51 @@ async function createPerson() {
   toast(`${name} added`);
   closeModal('modal-add-person');
   ['person-name','person-phone','person-email','person-ext-id','person-aliases','person-notes'].forEach(id => document.getElementById(id).value='');
+  await loadPeople();
+}
+
+
+// ─── EDIT PERSON ───
+async function openEditPerson(personId) {
+  state.editingPersonId = personId;
+  const person = state.people.find(p => p.id === personId);
+  if (!person) { toast('Person not found', true); return; }
+
+  document.getElementById('edit-person-name').value = person.name || '';
+  document.getElementById('edit-person-type').value = person.type || person.p_type || 'family';
+  document.getElementById('edit-person-phone').value = person.phone || '';
+  document.getElementById('edit-person-email').value = person.email || '';
+  document.getElementById('edit-person-ext-id').value = person.external_id || '';
+  document.getElementById('edit-person-aliases').value = (person.aliases || []).join(', ');
+  document.getElementById('edit-person-notes').value = person.notes || '';
+
+  openModal('modal-edit-person');
+}
+
+async function savePerson() {
+  const personId = state.editingPersonId;
+  if (!personId) return;
+
+  const name = document.getElementById('edit-person-name').value.trim();
+  const p_type = document.getElementById('edit-person-type').value;
+  const phone = document.getElementById('edit-person-phone').value.trim();
+  const email = document.getElementById('edit-person-email').value.trim();
+  const extId = document.getElementById('edit-person-ext-id').value.trim();
+  const aliasRaw = document.getElementById('edit-person-aliases').value.trim();
+  const notes = document.getElementById('edit-person-notes').value.trim();
+  const aliases = aliasRaw ? aliasRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  if (!name) { toast('Name is required', true); return; }
+
+  const body = { name, p_type, phone, email, aliases, notes, external_id: extId };
+
+  setLoading('btn-save-person', true);
+  const data = await api('PUT', `/people/${personId}`, body);
+  setLoading('btn-save-person', false);
+  if (!data) return;
+
+  toast(`${name} updated`);
+  closeModal('modal-edit-person');
   await loadPeople();
 }
 
@@ -1020,10 +1156,19 @@ document.getElementById('ensemble-nav').style.display = 'none';
 document.getElementById('stat-plan').textContent = 'Family+';
 
 // On API key change, try to load ensembles
-document.getElementById('apiKey').addEventListener('change', loadEnsembles);
+document.getElementById('apiKey').addEventListener('change', () => {
+  if (!apiKey()) {
+    setApiStatus(false, 'Enter your API key in the top right to get started.');
+  } else {
+    loadEnsembles();
+  }
+});
 document.getElementById('apiKey').addEventListener('keydown', e => { if (e.key==='Enter') loadEnsembles(); });
 
-// Init
+// Init — show unauthenticated banner if no key on load
+if (!apiKey()) {
+  setApiStatus(false, 'Enter your API key in the top right to get started.');
+}
 loadEnsembles();
 </script>
 </body>

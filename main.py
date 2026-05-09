@@ -55,6 +55,15 @@ class CreatePersonRequest(BaseModel):
     notes: Optional[str] = None
     external_id: Optional[str] = None
 
+class UpdatePersonRequest(BaseModel):
+    name: Optional[str] = None
+    p_type: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    aliases: Optional[List[str]] = None
+    notes: Optional[str] = None
+    external_id: Optional[str] = None
+
 class CreateCareCircleRequest(BaseModel):
     name: str
     status: str = 'active'
@@ -119,6 +128,16 @@ async def create_person(ensemble_id: str, body: CreatePersonRequest):
         external_id=body.external_id,
         notes=body.notes
     )
+    return {"person": row_to_dict(person)}
+
+@secure_router.get("/people/{person_id}")
+async def get_person(person_id: str):
+    person = repo.get_person_by_id(person_id)
+    return {"person": row_to_dict(person)}
+
+@secure_router.put("/people/{person_id}")
+async def update_person(person_id: str, body: UpdatePersonRequest):
+    person = repo.update_person(person_id, body)
     return {"person": row_to_dict(person)}
 
 @secure_router.get("/ensembles/{ensemble_id}/circles")
