@@ -1083,12 +1083,12 @@ function renderRoster(members) {
     <tr>
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
-          <div class="avatar ${avatarColor(m.p_type)}">${initials(m.name||'?')}</div>
-          <strong>${m.name||'—'}</strong>
+          <div class="avatar ${avatarColor(m.p_type)}">${initials(m.member_name||'?')}</div>
+          <strong>${m.member_name||'—'}</strong>
         </div>
       </td>
       <td>${m.p_type ? statusPill(m.p_type) : '—'}</td>
-      <td>${rolePill(m.role)}</td>
+      <td>${rolePill(m.person_role)}</td>
       <td class="td-mono">${m.phone||'—'}</td>
       <td></td>
     </tr>`).join('');
