@@ -267,10 +267,12 @@ async def groupme_webhook(request: Request):
     return {"status": "ok"}
 
 @open_router.post("/twilio/sms")
-async def receive_sms(From: str = Form(...), Body: str = Form(...)):
+async def receive_sms(From: str = Form(...), Body: str = Form(...), To: str = Form(...)):
     response = MessagingResponse()
     
     person = repo.find_person_by_phone(From)
+    circle_ext_id = f"sms:{To}"
+    person_ext_id = f"sms:{From}"
 
     if not person:
         logging.info(f"SMS received from unknown number: {From}")
@@ -278,23 +280,18 @@ async def receive_sms(From: str = Form(...), Body: str = Form(...)):
         return Response(content=str(response), media_type="application/xml")
 
     logging.info(f"SMS received from known person: {person['name']} ({From})")
-    circles = repo.find_circles_by_person(person['external_id'])
+    circle = repo.get_circle_by_external_id(circle_ext_id)
 
-    if not circles:
+    if not circle:
         logging.warning(f"No circles found for person {person['name']} ({From})")
         response.message("Sorry, I couldn't find your care circle. Please contact support.")
         return Response(content=str(response), media_type="application/xml")
-
-    # Take first circle — one person, one circle for now
-    circle = circles[0] #TODO: this assumes one circle per person. future need to figure out how to handle multiple circles (e.g. separate ones for different parents)
-    person_ext_id = person['external_id']
-    circle_ext_id = circle['external_id']
 
     new_msg = repo.log_message(
         circle_ext_id=circle_ext_id,
         person_ext_id=person_ext_id,
         body=Body,
-        raw_data={"from": From, "body": Body},  # dict, not raw string
+        raw_data={"from": From, "to": To, "body": Body},
         channel="sms"
     )
 
