@@ -12,6 +12,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 from typing import Optional, List
+from starlette.responses import FileResponse
 from twilio.twiml.messaging_response import MessagingResponse
 
 from take_five.memory import process_message_for_memory
@@ -330,5 +331,9 @@ app.include_router(secure_router)
 async def health():
     logging.info("Health check requested")
     return {"status": "ok"}
+
+@open_router.get("/admin/{file_name}")
+async def read_admin(file_name: str):
+    return FileResponse(f'admin/{file_name}')
 
 app.include_router(open_router)
