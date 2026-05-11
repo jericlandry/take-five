@@ -101,6 +101,7 @@ class MessageRequest(BaseModel):
 
 class DigestRequest(BaseModel):
     circle_id: str
+    response_format: str = "markdown"
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 

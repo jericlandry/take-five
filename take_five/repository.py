@@ -132,6 +132,13 @@ class TakeFiveRepository:
             'status': status,
             'external_id': external_id
         })
+    
+    def get_active_circles(self) -> List[Dict]:
+        """Returns all care circles with status = 'active'."""
+        return self._execute(
+            "SELECT * FROM care_circles WHERE status = 'active' ORDER BY created_at;",
+            fetch='all'
+        )
 
     def get_circle_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),))
@@ -245,25 +252,25 @@ class TakeFiveRepository:
 
 
     def get_messages_in_date_range(
-        self, 
-        circle_ext_id: str, 
-        start_date: datetime, 
-        end_date: datetime, 
+        self,
+        circle_id: str,
+        start_date: datetime,
+        end_date: datetime,
         limit: int = 100
     ) -> List[Dict]:
         query = """
             SELECT m.*, p.name as author_name 
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
-            WHERE m.circle_id = (SELECT id FROM care_circles WHERE external_id = %s)
+            WHERE m.circle_id = %s
             AND m.sent_at >= %s 
             AND m.sent_at <= %s
             ORDER BY m.sent_at DESC 
             LIMIT %s;
         """
         return self._execute(
-            query, 
-            (str(circle_ext_id), start_date, end_date, limit), 
+            query,
+            (str(circle_id), start_date, end_date, limit),
             fetch='all'
         )
     

@@ -71,34 +71,23 @@ def fetch_prompt():
 # ---------------------------------------------------------------------------
  
 def generate_weekly_digest(
-    circle_ext_id: str,
-    start_date: datetime=datetime.now() - timedelta(days=7),
-    end_date: datetime=datetime.now() + timedelta(days=1),
+    circle_id: str,
+    response_format: str = "markdown",
+    start_date: datetime = datetime.now() - timedelta(days=7),
+    end_date: datetime = datetime.now() + timedelta(days=1),
 ) -> str:
-    """
-    Fetch the past week of messages for a care circle, run them through
-    the t5-week-summary prompt, and return the digest as a string.
- 
-    Args:
-        circle_ext_id:  External ID of the care circle (GroupMe group ID).
-        start_date:     Start of the date range (defaults to 7 days ago).
-        end_date:       End of the date range (defaults to now).
- 
-    Returns:
-        The generated weekly digest as a plain string.
-    """
-    # Default to the past 7 days
     if end_date is None:
         end_date = datetime.utcnow()
     if start_date is None:
         start_date = end_date - timedelta(days=7)
 
     messages = repo.get_messages_in_date_range(
-        circle_ext_id=circle_ext_id,
+        circle_id=circle_id,
         start_date=start_date,
         end_date=end_date
     )
-    print(f"Fetched {len(messages)} messages for circle {circle_ext_id} from {start_date} to {end_date}")
+
+    print(f"Fetched {len(messages)} messages for circle {circle_id} from {start_date} to {end_date}")
     if not messages:
         return "No messages found for this period — nothing to summarise."
     
@@ -109,6 +98,6 @@ def generate_weekly_digest(
     chain = fetch_prompt()
  
     # 4. Invoke and return the digest text
-    response = chain.invoke({"CONVERSATION_TEXT": conversation})
+    response = chain.invoke({"conversation_text": conversation, "response_format": response_format})
     
     return response.content
