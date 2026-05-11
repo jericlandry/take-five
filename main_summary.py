@@ -31,5 +31,5 @@ def main(circle_ext_id: str):
             logging.error(f"Failed to send to GroupMe: {response.status_code} - {response.text}")
 
 if __name__ == "__main__":
-    main("114182896")
+    main("groupme:114182896")
     

@@ -708,7 +708,9 @@ tbody tr:last-child td { border-bottom: none; }
 <script>
 // ─── STATE ───
 const state = {
-  apiBase: window.location.origin,
+apiBase: window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://take-five.onrender.com',
   ensembles: [],
   activeEnsembleId: null,
   people: [],

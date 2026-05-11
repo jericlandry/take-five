@@ -2,7 +2,7 @@ import asyncio
 
 from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter,  Request, Form, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from dotenv import load_dotenv
 import logging
@@ -36,6 +36,22 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     return credentials.credentials
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://localhost:3000",
+        "http://127.0.0.1:8000",
+        "https://take-five.onrender.com",
+        "https://takefive.care",
+        "https://www.takefive.care",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 open_router = APIRouter()
 secure_router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -314,9 +330,5 @@ app.include_router(secure_router)
 async def health():
     logging.info("Health check requested")
     return {"status": "ok"}
-
-@open_router.get("/{file_name}")
-async def read_page(file_name: str = "index.html"):
-    return FileResponse(f'website/{file_name}')
 
 app.include_router(open_router)
