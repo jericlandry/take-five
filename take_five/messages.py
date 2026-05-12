@@ -1,19 +1,14 @@
 import os
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 from langchain_anthropic import ChatAnthropic
  
 from take_five.repository import TakeFiveRepository
 from take_five.memory import get_embedding
-from take_five.utils import fetch_prompt
+from take_five.utils import fetch_prompt, RESPONSE_FORMATS
 
 ANTHROPIC_MODEL       = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 conversation_chain = fetch_prompt("t5-ask") | ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
-RESPONSE_FORMATS = {
-    "markdown": "Format your response using markdown — headers, bold, bullet points where appropriate.",
-    "text":     "Format your response as plain text only. No markdown, no asterisks, no headers. Use simple line breaks.",
-    "json":     "Format your response as a JSON object with keys: 'summary' (string), 'details' (list of strings), 'flags' (list of any concerns worth raising).",
-}
 
 class ContextBuilder:
     def __init__(self, circle_id: str, question: str):
@@ -29,6 +24,20 @@ class ContextBuilder:
         instance._circle_context = instance._load_circle_context()
         instance._recent   = instance._build_recent_messages()
         instance._semantic = instance._build_semantic(embedding)
+        return instance
+    
+    @classmethod
+    def create_for_digest(
+        cls,
+        circle_id: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> "ContextBuilder":
+        instance = cls(circle_id, question="")
+        instance._roster         = instance._build_roster()
+        instance._circle_context = instance._load_circle_context()
+        instance._recent         = instance._build_recent_messages(start_date, end_date)
+        instance._semantic       = ""
         return instance
 
     # Private builders — do the work
@@ -70,20 +79,41 @@ class ContextBuilder:
  
         return "\n".join(lines)
 
-    def _build_recent_messages(self) -> str: 
-        recent_msgs = self.repo.get_recent_messages(self.circle_id)
+    def _build_recent_messages(
+        self,
+        start_date: datetime = None,
+        end_date: datetime = None
+    ) -> str:
+        recent_msgs = self.repo.get_messages(
+            self.circle_id,
+            start_date=start_date,
+            end_date=end_date
+        )
         return self._format_recent_messages_context(recent_msgs)
 
     def _format_recent_messages_context(self, rows: list) -> str:
         if not rows:
             return "## Recent Messages\n_No messages found._\n"
-    
+
+        today = date.today()
         lines = ["## Recent Messages (most recent first)\n"]
         for row in rows:
-            ts     = row["sent_at"].strftime("%b %d, %Y %I:%M %p") if row["sent_at"] else "unknown time"
+            if row["sent_at"]:
+                ts = row["sent_at"].strftime("%A, %b %d, %Y %I:%M %p")
+                days_ago = (today - row["sent_at"].date()).days
+                if days_ago == 0:
+                    recency = "today"
+                elif days_ago == 1:
+                    recency = "yesterday"
+                else:
+                    recency = f"{days_ago} days ago"
+                ts_label = f"{ts} ({recency})"
+            else:
+                ts_label = "unknown time"
+
             sender = row["author_name"] or "Unknown"
-            lines.append(f"- **{sender}** ({ts}): {row['body']}")
-    
+            lines.append(f"- **{sender}** ({ts_label}): {row['body']}")
+
         return "\n".join(lines)
     
     def _build_semantic(self, embedding: list) -> str:

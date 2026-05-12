@@ -140,6 +140,25 @@ class TakeFiveRepository:
             fetch='all'
         )
 
+    def update_care_circle(self, circle_id: str, updates: dict) -> Dict:
+        """Update a care circle's name, status, external_id, and/or integration_config."""
+        query = """
+            UPDATE care_circles SET
+                name               = COALESCE(%(name)s, name),
+                status             = COALESCE(%(status)s, status),
+                external_id        = COALESCE(%(external_id)s, external_id),
+                integration_config = COALESCE(%(integration_config)s, integration_config)
+            WHERE id = %(id)s
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'id': circle_id,
+            'name': updates.get('name'),
+            'status': updates.get('status'),
+            'external_id': updates.get('external_id'),
+            'integration_config': Json(updates['integration_config']) if updates.get('integration_config') is not None else None,
+        })
+
     def get_circle_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),))
     
@@ -239,40 +258,35 @@ class TakeFiveRepository:
             channel
         ))
 
-    def get_recent_messages(self, circle_id: str) -> List[Dict]:
-        query = """
-            SELECT m.*, p.name as author_name 
-            FROM messages m
-            LEFT JOIN people p ON m.person_id = p.id
-            WHERE m.circle_id = (SELECT id FROM care_circles WHERE id = %s)
-            ORDER BY m.sent_at DESC;
-        """
-        # Fix: Add a comma after the ID to make it a tuple: (value,)
-        return self._execute(query, (str(circle_id),), fetch='all')
-
-
-    def get_messages_in_date_range(
+    def get_messages(
         self,
         circle_id: str,
-        start_date: datetime,
-        end_date: datetime,
-        limit: int = 100
+        start_date: datetime = None,
+        end_date: datetime = None,
+        limit: int = None
     ) -> List[Dict]:
         query = """
             SELECT m.*, p.name as author_name 
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
-            WHERE m.circle_id = %s
-            AND m.sent_at >= %s 
-            AND m.sent_at <= %s
-            ORDER BY m.sent_at DESC 
-            LIMIT %s;
+            WHERE m.circle_id = (SELECT id FROM care_circles WHERE id = %s)
         """
-        return self._execute(
-            query,
-            (str(circle_id), start_date, end_date, limit),
-            fetch='all'
-        )
+        params = [str(circle_id)]
+
+        if start_date:
+            query += " AND m.sent_at >= %s"
+            params.append(start_date)
+        if end_date:
+            query += " AND m.sent_at <= %s"
+            params.append(end_date)
+
+        query += " ORDER BY m.sent_at DESC"
+
+        if limit:
+            query += " LIMIT %s"
+            params.append(limit)
+
+        return self._execute(query, tuple(params), fetch='all')
     
     def upsert_message_chunk(
         self,

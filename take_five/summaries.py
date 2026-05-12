@@ -1,103 +1,44 @@
 import os
-from datetime import datetime, timedelta
-from typing import List, Dict
- 
-from langsmith import Client
+from datetime import date, datetime, timedelta
+import logging
+
 from langchain_anthropic import ChatAnthropic
- 
-from take_five.repository import TakeFiveRepository
 
-SUMMARY_PROMPT_NAME   = os.getenv("LANGSMITH_PROMPT_NAME", "t5-week-summary")
-ANTHROPIC_MODEL       = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
-ANTHROPIC_MAX_TOKENS  = int(os.getenv("ANTHROPIC_MAX_TOKENS", "600"))
-ANTHROPIC_API_KEY     = os.getenv("ANTHROPIC_API_KEY")
+from take_five.messages import ContextBuilder
+from take_five.utils import fetch_prompt, RESPONSE_FORMATS
 
-# 1. Fetch messages from Supabase
-repo = TakeFiveRepository() 
- 
-def format_conversation(messages: List[Dict]) -> str:
-    """
-    Convert raw message dicts from TakeFiveRepository into the
-    'sender (timestamp): message' format that works best for Haiku.
- 
-    Expects each dict to have at minimum:
-        sender_name     : str
-        formatted_time  : str  (or created_at / timestamp as fallback)
-        message         : str  (or content / text as fallback)
-    """
-    lines = []
-    for msg in messages:
-        sender    = msg.get("author_name") or msg.get("name") or msg.get("sender") or "Unknown"
-        timestamp = (
-            msg.get("formatted_time")
-            or msg.get("created_at")
-            or msg.get("timestamp")
-            or ""
-        )
-        content   = (
-            msg.get("message")
-            or msg.get("content")
-            or msg.get("text")
-            or msg.get("body")
-            or ""
-        ).strip()
- 
-        if not content:
-            continue
- 
-        prefix = f"{sender} ({timestamp}): " if timestamp else f"{sender}: "
-        lines.append(f"{prefix}{content}")
- 
-    return "\n\n".join(lines)
+SUMMARY_PROMPT_NAME = os.getenv("LANGSMITH_PROMPT_NAME", "t5-week-summary")
 
-def fetch_prompt():
-    """
-    Pull the named prompt from LangSmith Hub and return a runnable chain
-    ready to invoke with Claude Haiku.
-    """
-    ls_client = Client()
-    prompt_template = ls_client.pull_prompt(SUMMARY_PROMPT_NAME)
- 
-    llm = ChatAnthropic(
-        model=ANTHROPIC_MODEL,
-        max_tokens=ANTHROPIC_MAX_TOKENS
-    )
- 
-    return prompt_template | llm
+logging.basicConfig(level=logging.INFO)
+
+chain = fetch_prompt(SUMMARY_PROMPT_NAME) | ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
 
 
-# ---------------------------------------------------------------------------
-# Generate digest
-# ---------------------------------------------------------------------------
- 
 def generate_weekly_digest(
     circle_id: str,
     response_format: str = "markdown",
-    start_date: datetime = datetime.now() - timedelta(days=7),
-    end_date: datetime = datetime.now() + timedelta(days=1),
+    start_date: datetime = None,
+    end_date: datetime = None,
 ) -> str:
-    if end_date is None:
-        end_date = datetime.utcnow()
+
     if start_date is None:
-        start_date = end_date - timedelta(days=7)
+        start_date = datetime.now() - timedelta(days=7)
+    if end_date is None:
+        end_date = datetime.now() + timedelta(days=1)
 
-    messages = repo.get_messages_in_date_range(
-        circle_id=circle_id,
-        start_date=start_date,
-        end_date=end_date
-    )
+    logging.info(f"Generating digest for circle_id={circle_id} from {start_date} to {end_date}")
 
-    print(f"Fetched {len(messages)} messages for circle {circle_id} from {start_date} to {end_date}")
-    if not messages:
+    ctx = ContextBuilder.create_for_digest(circle_id, start_date, end_date)
+    messages = ctx.get_recent_messages()
+
+    if "No messages found" in messages:
         return "No messages found for this period — nothing to summarise."
-    
-    # 2. Format conversation for the model
-    conversation = format_conversation(messages)
- 
-    # 3. Build chain (prompt pulled from LangSmith | Claude Haiku)
-    chain = fetch_prompt()
- 
-    # 4. Invoke and return the digest text
-    response = chain.invoke({"conversation_text": conversation, "response_format": response_format})
-    
-    return response.content
+
+    response = chain.invoke({
+        "conversation_text": messages,
+        "roster_context":    ctx.get_roster(),
+        "current_date":      date.today().strftime("%A, %B %d, %Y"),
+        "response_format":   RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"])
+    })
+
+    return response.content if hasattr(response, "content") else str(response)

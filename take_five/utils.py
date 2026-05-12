@@ -1,14 +1,22 @@
 from datetime import datetime
 from typing import List, Dict
 
+from dotenv import load_dotenv
+
 from langsmith import Client
 
-import json
 from uuid import UUID
+import os
 
-from take_five.summaries import SUMMARY_PROMPT_NAME
+load_dotenv()  # Load environment variables from .env file
 
 ls_client = Client()
+
+RESPONSE_FORMATS = {
+    "markdown": "Format your response using markdown — headers, bold, bullet points where appropriate.",
+    "text":     "Format your response as plain text only. No markdown, no asterisks, no headers. Use simple line breaks.",
+    "json":     "Format your response as a JSON object with keys: 'summary' (string), 'details' (list of strings), 'flags' (list of any concerns worth raising).",
+}
 
 def fetch_prompt(prompt_name):
     """

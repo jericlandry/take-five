@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from dotenv import load_dotenv
 import logging
-import httpx
 import os
 from datetime import datetime
 
@@ -20,6 +19,8 @@ from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
 from take_five.messages import ask
 from take_five.utils import row_to_dict, row_list_to_dict_list
+
+from take_five.integrations.groupme import send_message_async
 
 logging.basicConfig(level=logging.INFO)
 
@@ -56,12 +57,9 @@ app.add_middleware(
 open_router = APIRouter()
 secure_router = APIRouter(dependencies=[Depends(verify_token)])
 
-repo = TakeFiveRepository() 
+repo = TakeFiveRepository()
 
 GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_ACCESS_TOKEN")
-GROUP_NAME = "Take Five Ensemble"
-GROUPME_BOT_ID = "f7a1dcd219899a79f3d01dec91"
-GROUPME_URL = "https://api.groupme.com/v3/bots/post"
 
 class CreatePersonRequest(BaseModel):
     name: str
@@ -88,6 +86,12 @@ class CreateCareCircleRequest(BaseModel):
 
 class CreateCircleMembershipRequest(BaseModel):
     role: str  # senior | family | caregiver | professional
+
+class UpdateCareCircleRequest(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    external_id: Optional[str] = None
+    integration_config: Optional[dict] = None
 
 class CreateEnsembleRequest(BaseModel):
     name: str
@@ -178,6 +182,11 @@ async def get_circle_by_id(circle_id: str):
     circle = repo.get_circle_by_id(circle_id)
     return {"people": row_to_dict(circle)}
 
+@secure_router.put("/circles/{circle_id}")
+async def update_care_circle(circle_id: str, body: UpdateCareCircleRequest):
+    circle = repo.update_care_circle(circle_id, body.model_dump(exclude_none=True))
+    return {"circle": row_to_dict(circle)}
+
 @secure_router.get("/circles/{circle_id}/people")
 async def get_circle_people(circle_id: str):
     people = repo.fetch_circle_roster(circle_id)
@@ -239,7 +248,9 @@ async def groupme_webhook(request: Request):
 
         if '@T5' in text:
             question = text.split('@T5', 1)[1].strip()
-            circle_id = repo.get_circle_by_external_id(circle_ext_id)['id']
+            circle = repo.get_circle_by_external_id(circle_ext_id)
+            circle_id = circle['id'] if circle else None
+            bot_id = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
             
             if not question:
                 logging.warning("T5 command detected but no question found.")
@@ -247,31 +258,13 @@ async def groupme_webhook(request: Request):
             if not circle_id:
                 logging.error(f"Circle with external_id {circle_ext_id} not found in database.")
                 return {"status": "ok"}
+            if not bot_id:
+                logging.error(f"No groupme_bot_id in integration_config for circle {circle_ext_id}.")
+                return {"status": "ok"}
             
-            logging.info(f"T5 question command detected, generating digest...")
+            logging.info(f"T5 question command detected, generating response...")
             bot_response = await ask(question, circle_id, response_format="text")
-            
-            # Define headers to match what worked in curl
-            headers = {
-                "User-Agent": "curl/7.68.0", # Mimics the successful curl request
-                "Content-Type": "application/json"
-            }
-            
-            async with httpx.AsyncClient() as client:
-                payload = {
-                    "bot_id": GROUPME_BOT_ID,
-                    "text": bot_response
-                }
-                
-                # We add 'params' to the request to authenticate
-                response = await client.post(GROUPME_URL, json=payload, headers=headers)
-                
-                if response.status_code == 202:
-                    logging.info("Digest sent successfully to GroupMe")
-                else:
-                    # GroupMe errors often contain helpful JSON in response.text
-                    logging.error(f"Failed to send to GroupMe: {response.status_code} - {response.text}")
-            # --------------------------------
+            await send_message_async(bot_id, bot_response)
         
         logging.info(f"Message stored. Internal ID: {new_msg['id']}")
 

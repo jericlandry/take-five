@@ -46,7 +46,7 @@ def main():
         response_format = "text" if ext_id.startswith("groupme:") else "markdown"
 
         try:
-            digest = generate_weekly_digest(str(circle["id"], response_format=response_format))
+            digest = generate_weekly_digest(str(circle["id"]), response_format=response_format)
             send_message(bot_id, digest)
         except Exception as e:
             logging.error(f"Failed for {circle_name}: {e}")

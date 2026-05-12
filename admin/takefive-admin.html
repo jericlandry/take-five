@@ -506,7 +506,7 @@ tbody tr:last-child td { border-bottom: none; }
         <select id="ens-status">
           <option value="trial">Trial</option>
           <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="archived">Archived</option>
         </select>
       </div>
     </div>
@@ -657,7 +657,7 @@ tbody tr:last-child td { border-bottom: none; }
         <label>Status</label>
         <select id="circle-status">
           <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="archived">Archived</option>
         </select>
       </div>
     </div>
@@ -671,6 +671,46 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="form-actions">
       <button class="btn btn-primary" id="btn-create-circle" onclick="createCircle()">Create Circle</button>
       <button class="btn btn-ghost" onclick="closeModal('modal-add-circle')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Circle -->
+<div class="modal-backdrop" id="modal-edit-circle">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Care Circle</div>
+      <button class="modal-close" onclick="closeModal('modal-edit-circle')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Circle Name *</label>
+        <input type="text" id="edit-circle-name" placeholder="e.g. Take Five Ensemble"/>
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="field">
+        <label>Status</label>
+        <select id="edit-circle-status">
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>External Group ID</label>
+        <input type="text" id="edit-circle-ext-id" placeholder="groupme:98765432"/>
+        <div class="form-hint">Format: channel:id</div>
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:0.25rem;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--g600);margin-bottom:0.5rem;">Integration Config</div>
+      <div id="edit-circle-config-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addConfigRow()">+ Add key</button>
+      <div class="form-hint" style="margin-top:4px;">e.g. groupme_bot_id, whatsapp_phone_number_id</div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="btn-save-circle" onclick="saveCircle()">Save Changes</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-circle')">Cancel</button>
     </div>
   </div>
 </div>
@@ -718,6 +758,7 @@ apiBase: window.location.hostname === 'localhost'
   currentCircleId: null,
   selectedMemberId: null,
   editingPersonId: null,
+  editingCircleId: null,
 };
 
 // ─── API ───
@@ -811,7 +852,7 @@ function rolePill(role) {
   return `<span class="pill ${cls}">${role}</span>`;
 }
 function statusPill(s) {
-  const cls = { active:'pill-active', trial:'pill-trial', inactive:'pill-inactive' }[s] || 'pill-inactive';
+  const cls = { active:'pill-active', trial:'pill-trial', archived:'pill-inactive' }[s] || 'pill-inactive';
   return `<span class="pill ${cls}">${s}</span>`;
 }
 
@@ -1023,6 +1064,7 @@ function renderCircles() {
       <td class="td-mono">${c.external_id||'—'}</td>
       <td class="td-mono">${(c.id||'').slice(0,8)}…</td>
       <td><div class="td-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditCircle('${c.id}')">Edit</button>
         <button class="btn btn-ghost btn-sm" onclick="goToRoster('${c.id}')">Roster →</button>
       </div></td>
     </tr>`).join('');
@@ -1043,6 +1085,74 @@ async function createCircle() {
   toast(`Circle "${name}" created`);
   closeModal('modal-add-circle');
   ['circle-name','circle-ext-id'].forEach(id => document.getElementById(id).value='');
+  await loadCircles();
+}
+
+// ─── EDIT CIRCLE ───
+function addConfigRow(key='', value='') {
+  const wrap = document.getElementById('edit-circle-config-rows');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `
+    <input type="text" placeholder="key" value="${key}" style="flex:1;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;">
+    <input type="text" placeholder="value" value="${value}" style="flex:2;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;">
+    <button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--g400);font-size:16px;line-height:1;padding:0 4px;">&times;</button>
+  `;
+  wrap.appendChild(row);
+}
+
+function getConfigFromRows() {
+  const config = {};
+  document.querySelectorAll('#edit-circle-config-rows > div').forEach(row => {
+    const [keyInput, valInput] = row.querySelectorAll('input');
+    const k = keyInput.value.trim();
+    const v = valInput.value.trim();
+    if (k) config[k] = v;
+  });
+  return config;
+}
+
+async function openEditCircle(circleId) {
+  state.editingCircleId = circleId;
+  const circle = state.circles.find(c => c.id === circleId);
+  if (!circle) { toast('Circle not found', true); return; }
+
+  document.getElementById('edit-circle-name').value = circle.name || '';
+  document.getElementById('edit-circle-status').value = circle.status || 'active';
+  document.getElementById('edit-circle-ext-id').value = circle.external_id || '';
+
+  // Populate key-value rows from existing config
+  const wrap = document.getElementById('edit-circle-config-rows');
+  wrap.innerHTML = '';
+  const config = circle.integration_config || {};
+  Object.entries(config).forEach(([k, v]) => addConfigRow(k, v));
+
+  openModal('modal-edit-circle');
+}
+
+async function saveCircle() {
+  const circleId = state.editingCircleId;
+  if (!circleId) return;
+
+  const name   = document.getElementById('edit-circle-name').value.trim();
+  const status = document.getElementById('edit-circle-status').value;
+  const extId  = document.getElementById('edit-circle-ext-id').value.trim();
+
+  if (!name) { toast('Circle name is required', true); return; }
+
+  const integration_config = getConfigFromRows();
+
+  const body = { name, status };
+  if (extId) body.external_id = extId;
+  if (Object.keys(integration_config).length) body.integration_config = integration_config;
+
+  setLoading('btn-save-circle', true);
+  const data = await api('PUT', `/circles/${circleId}`, body);
+  setLoading('btn-save-circle', false);
+  if (!data) return;
+
+  toast(`Circle "${name}" updated`);
+  closeModal('modal-edit-circle');
   await loadCircles();
 }
 
