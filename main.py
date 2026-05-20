@@ -44,7 +44,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8000",
         "http://localhost:3000",
+        "http://localhost:10000",      # ← add
         "http://127.0.0.1:8000",
+        "http://127.0.0.1:10000",     # ← add
+        "http://0.0.0.0:10000",       # ← add (this is what your browser is seeing)
         "https://take-five.onrender.com",
         "https://takefive.care",
         "https://www.takefive.care",
@@ -213,7 +216,8 @@ async def message(body: MessageRequest):
 async def groupme_webhook(request: Request):
     data = await request.json()
     logging.info("GroupMe webhook received")
-
+    logging.info(f"Webhook data: {data}")
+    
     # 1. Guard: Ignore the bot's own messages to avoid infinite loops
     if data.get("sender_type") == "bot":
         logging.info("Bot message ignored")

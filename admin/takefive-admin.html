@@ -748,8 +748,8 @@ tbody tr:last-child td { border-bottom: none; }
 <script>
 // ─── STATE ───
 const state = {
-apiBase: window.location.hostname === 'localhost'
-  ? 'http://localhost:10000'
+apiBase: ['localhost', '0.0.0.0', '127.0.0.1'].includes(window.location.hostname)
+  ? `${window.location.protocol}//${window.location.hostname}:10000`
   : 'https://take-five.onrender.com',
   ensembles: [],
   activeEnsembleId: null,
