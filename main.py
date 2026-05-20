@@ -19,6 +19,7 @@ from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
 from take_five.messages import ask
 from take_five.utils import row_to_dict, row_list_to_dict_list
+from take_five.images import handle_image_message, get_image_attachment
 
 from take_five.integrations.groupme import send_message_async
 
@@ -250,6 +251,11 @@ async def groupme_webhook(request: Request):
             repo=repo
         ))
 
+        # 3. Image detection — runs on every message with an image attachment
+        if get_image_attachment(data):
+            asyncio.create_task(handle_image_message(data))
+
+        # 4. T5 ask flow — runs when @T5 is mentioned
         if '@T5' in text:
             question = text.split('@T5', 1)[1].strip()
             circle = repo.get_circle_by_external_id(circle_ext_id)
