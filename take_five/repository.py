@@ -100,8 +100,8 @@ class TakeFiveRepository:
             'phone': kwargs.get('phone'),
             'email': kwargs.get('email'),
             'tz': kwargs.get('timezone', 'America/Chicago'),
-            'aliases': kwargs.get('aliases', []),   # default to empty list not None
-            'notes': kwargs.get('notes'),           # string, None is fine
+            'aliases': kwargs.get('aliases', []),
+            'notes': kwargs.get('notes'),
             'external_id': kwargs.get('external_id'),
         }
         return self._execute(query, params)
@@ -235,28 +235,54 @@ class TakeFiveRepository:
         return self._execute(query, (str(circle_ext_id), str(person_ext_id), role))
 
     # --- MESSAGES ---
-    def log_message(self, circle_ext_id: str, person_ext_id: Optional[str], 
-                    body: str, msg_type: str = 'inbound', 
-                    direction: str = 'inbound', raw_data: Optional[Dict] = None, channel: str = 'groupme') -> Dict:
+    def log_message(self, circle_ext_id: str, person_ext_id: Optional[str],
+                    body: str, msg_type: str = 'inbound',
+                    direction: str = 'inbound', raw_data: Optional[Dict] = None,
+                    channel: str = 'groupme') -> Dict:
         """
-        Logs a message. person_ext_id can be None for system/agent notes.
-        parsed_data should be a Python dict (mood_score, meds_taken, etc.)
+        Logs a message to the messages table.
+
+        person_ext_id=None for bot/agent outbound messages — person_id is
+        inserted as NULL directly rather than via subquery, avoiding a
+        WHERE external_id = NULL anti-pattern.
+
+        Semantics:
+          direction='inbound',  person_id=<uuid> → human message
+          direction='outbound', person_id=NULL   → bot/agent message
         """
-        query = """
-            INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
-            VALUES (
-                (SELECT id FROM care_circles WHERE external_id = %s),
-                (SELECT id FROM people WHERE external_id = %s),
-                %s, %s, %s, %s, %s
-            ) RETURNING *;
-        """
-        return self._execute(query, (
-            str(circle_ext_id), 
-            str(person_ext_id) if person_ext_id else None, 
-            msg_type, direction, body, 
-            Json(raw_data) if raw_data else None,
-            channel
-        ))
+        if person_ext_id:
+            query = """
+                INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
+                VALUES (
+                    (SELECT id FROM care_circles WHERE external_id = %s),
+                    (SELECT id FROM people WHERE external_id = %s),
+                    %s, %s, %s, %s, %s
+                ) RETURNING *;
+            """
+            params = (
+                str(circle_ext_id),
+                str(person_ext_id),
+                msg_type, direction, body,
+                Json(raw_data) if raw_data else None,
+                channel,
+            )
+        else:
+            query = """
+                INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
+                VALUES (
+                    (SELECT id FROM care_circles WHERE external_id = %s),
+                    NULL,
+                    %s, %s, %s, %s, %s
+                ) RETURNING *;
+            """
+            params = (
+                str(circle_ext_id),
+                msg_type, direction, body,
+                Json(raw_data) if raw_data else None,
+                channel,
+            )
+
+        return self._execute(query, params)
 
     def get_messages(
         self,

@@ -214,10 +214,29 @@ async def message(body: MessageRequest):
 
 # --- Open endpoints for external integrations ---
 
-async def groupme_reply(bot_id: Optional[str], text: Optional[str]):
-    """Post a reply to GroupMe. No-op if bot_id or text is missing."""
-    if bot_id and text:
-        await send_message_async(bot_id, text)
+async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_id: Optional[str] = None):
+    """
+    Post a reply to GroupMe and log it as an outbound message.
+    Logging ensures ask() can see bot replies as context in future turns.
+    No-op if bot_id or text is missing.
+    """
+    if not bot_id or not text:
+        return
+    await send_message_async(bot_id, text)
+    if circle_ext_id:
+        try:
+            repo.log_message(
+                circle_ext_id=circle_ext_id,
+                person_ext_id=None,       # agent/system message, no person
+                body=text,
+                raw_data={"source": "t5_bot", "bot_id": bot_id},
+                msg_type="outbound",
+                direction="outbound",
+                channel="groupme",
+            )
+            logging.info(f"[groupme] Bot reply logged to {circle_ext_id}")
+        except Exception as e:
+            logging.error(f"[groupme] Failed to log bot reply: {e}")
 
 @open_router.post("/groupme/webhook")
 async def groupme_webhook(request: Request):
@@ -261,15 +280,15 @@ async def groupme_webhook(request: Request):
         circle_id = circle['id'] if circle else None
         bot_id = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
 
-        # 3. Image detection — returns reply text or None, posted via same send_message_async
+        # 3. Image detection — returns reply text or None
         image_attachment = extract_groupme_image(data)
         if image_attachment:
             async def process_image():
                 reply = await handle_image_message(image_attachment)
-                await groupme_reply(bot_id, reply)
+                await groupme_reply(bot_id, reply, circle_ext_id)
             asyncio.create_task(process_image())
 
-        # 4. T5 ask flow — same send_message_async
+        # 4. T5 ask flow
         if '@T5' in text:
             question = text.split('@T5', 1)[1].strip()
             if not question:
@@ -284,7 +303,7 @@ async def groupme_webhook(request: Request):
 
             logging.info("T5 question command detected, generating response...")
             bot_response = await ask(question, circle_id, response_format="text")
-            await groupme_reply(bot_id, bot_response)
+            await groupme_reply(bot_id, bot_response, circle_ext_id)
 
         logging.info(f"Message stored. Internal ID: {new_msg['id']}")
 
