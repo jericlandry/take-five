@@ -132,10 +132,11 @@ class ContextBuilder:
     async def create(cls, circle_id: str, question: str) -> "ContextBuilder":
         instance = cls(circle_id, question)
         embedding = await get_embedding(question, is_query=True)
-        instance._roster         = instance._build_roster()
-        instance._circle_context = instance._load_circle_context()
-        instance._recent         = instance._build_recent_messages()
-        instance._semantic       = instance._build_semantic(embedding)
+        instance._roster          = instance._build_roster()
+        instance._circle_context  = instance._load_circle_context()
+        instance._clinical        = instance._build_clinical_records()
+        instance._recent          = instance._build_recent_messages()
+        instance._semantic        = instance._build_semantic(embedding)
         return instance
 
     @classmethod
@@ -146,10 +147,11 @@ class ContextBuilder:
         end_date: datetime
     ) -> "ContextBuilder":
         instance = cls(circle_id, question="")
-        instance._roster         = instance._build_roster()
-        instance._circle_context = instance._load_circle_context()
-        instance._recent         = instance._build_recent_messages(start_date, end_date)
-        instance._semantic       = ""
+        instance._roster          = instance._build_roster()
+        instance._circle_context  = instance._load_circle_context()
+        instance._clinical        = instance._build_clinical_records()
+        instance._recent          = instance._build_recent_messages(start_date, end_date)
+        instance._semantic        = ""
         return instance
 
     def _build_roster(self) -> str:
@@ -167,8 +169,8 @@ class ContextBuilder:
         for row in rows:
             by_role.setdefault(row["person_role"], []).append(row)
 
-        # "senior" must be first so Claude always sees care recipients at the top.
-        # All roles are included via the fallback so no role is silently dropped.
+        # "senior" first — care recipients must always be visible to Claude.
+        # Fallback loop ensures no role is silently dropped.
         role_order = ["senior", "subject", "coordinator", "caregiver", "family", "member"]
         role_labels = {
             "senior":      "Seniors (care recipients)",
@@ -191,7 +193,6 @@ class ContextBuilder:
                     lines.append(f"  - {row['person_notes']}")
             lines.append("")
 
-        # Catch any roles not in role_order so nothing is silently dropped
         for role, members in by_role.items():
             if role in role_order:
                 continue
@@ -203,6 +204,103 @@ class ContextBuilder:
                 if row["person_notes"]:
                     lines.append(f"  - {row['person_notes']}")
             lines.append("")
+
+        return "\n".join(lines)
+
+    def _build_clinical_records(self) -> str:
+        """
+        Fetch all active clinical records for every senior in the circle
+        and format them as an authoritative structured section for Claude.
+        This is the source of truth for medication questions — not message history.
+        """
+        seniors = self.repo.get_seniors_in_circle(self.circle_id)
+        if not seniors:
+            return "## Clinical Records\n_No seniors found in circle._\n"
+
+        lines = ["## Clinical Records\n"]
+        any_records = False
+
+        for senior in seniors:
+            person_id   = str(senior['id'])
+            person_name = senior['name']
+
+            records = self.repo.get_clinical_records(
+                circle_id=self.circle_id,
+                person_id=person_id,
+            )
+
+            # Group by resource_type
+            by_type: dict[str, list] = {}
+            for r in records:
+                by_type.setdefault(r['resource_type'], []).append(r)
+
+            if not records:
+                lines.append(f"### {person_name}\n_No clinical records on file._\n")
+                continue
+
+            any_records = True
+            lines.append(f"### {person_name}")
+
+            # Medications first
+            for resource_type, type_records in by_type.items():
+                label = {
+                    "MedicationStatement": "Medications",
+                    "Condition":           "Conditions / Diagnoses",
+                    "Observation":         "Observations",
+                    "Appointment":         "Appointments",
+                    "AllergyIntolerance":  "Allergies",
+                    "Procedure":           "Procedures",
+                }.get(resource_type, resource_type)
+
+                lines.append(f"\n**{label}**")
+
+                for rec in type_records:
+                    data       = rec['data'] if isinstance(rec['data'], dict) else json.loads(rec['data'])
+                    record_id  = str(rec['id'])
+                    status     = rec['status']
+
+                    name  = data.get('medication_name') or data.get('condition') or data.get('symptom') or 'Unknown'
+                    dose  = data.get('dosage', '')
+                    instr = data.get('instructions', '')
+                    notes = rec.get('notes') or ''
+
+                    # Primary line
+                    primary = f"- **{name}**"
+                    if dose:
+                        primary += f" ({dose})"
+                    if status and status != 'active':
+                        primary += f" — _{status}_"
+                    lines.append(primary)
+
+                    if instr:
+                        lines.append(f"  Instructions: {instr}")
+
+                    # Optional detail fields
+                    detail_fields = [
+                        ('prescriber', 'Prescriber'),
+                        ('pharmacy',   'Pharmacy'),
+                        ('refill_date','Refill date'),
+                        ('quantity',   'Quantity'),
+                        ('rx_number',  'Rx#'),
+                        ('form',       'Form'),
+                    ]
+                    details = [
+                        f"{label}: {data[field]}"
+                        for field, label in detail_fields
+                        if data.get(field)
+                    ]
+                    if details:
+                        lines.append(f"  {' | '.join(details)}")
+
+                    if notes:
+                        lines.append(f"  Note: {notes}")
+
+                    lines.append(f"  [record_id: {record_id}]")
+
+            lines.append("")
+
+        if not any_records:
+            lines.append("_No clinical records on file for any senior in this circle._\n")
 
         return "\n".join(lines)
 
@@ -267,10 +365,11 @@ class ContextBuilder:
                 return f.read()
         return f"## Circle Context: {self.circle_id}\n\n_No context found._\n"
 
-    def get_roster(self) -> str:          return self._roster
-    def get_circle_context(self) -> str:  return self._circle_context
-    def get_recent_messages(self) -> str: return self._recent
-    def get_semantic(self) -> str:        return self._semantic
+    def get_roster(self) -> str:           return self._roster
+    def get_circle_context(self) -> str:   return self._circle_context
+    def get_clinical_records(self) -> str: return self._clinical
+    def get_recent_messages(self) -> str:  return self._recent
+    def get_semantic(self) -> str:         return self._semantic
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +382,8 @@ You answer questions clearly, accurately, and with warmth.
 Guidelines:
 - Use the person's preferred name or alias when appropriate
 - For medication questions, be precise and complete — never guess
+- Always use the Clinical Records section as the authoritative source for medications,
+  diagnoses, and other clinical facts. Message history is supplementary context only.
 - For mood or behavioral questions, cite specific messages and dates where possible
 - For clinical questions (e.g. dementia indicators), ground your answer in the messages
   and apply care domain knowledge — note patterns, changes over time, and flag anything
@@ -298,7 +399,7 @@ Tool use — save_clinical_record:
   write actually succeeded. Never infer a record was saved from any other message.
 - Call save_clinical_record ONLY when the user explicitly confirms (e.g. "yes", "save it",
   "looks good", "that's right") AND there is a PENDING CONFIRMATION medication in context.
-- Do NOT call it if the user is still making corrections or required fields are missing.
+- Do NOT call it if the user is still making corrections or if required fields are missing.
 - The person_id must be the UUID of the care recipient (senior) from the roster —
   never use a family member's ID.
 - If there is more than one senior in the circle and it is unclear which one the
@@ -310,12 +411,13 @@ def _build_human_message(
     today: str,
     circle_context: str,
     roster: str,
+    clinical_records: str,
     recent_messages: str,
     semantic_chunks: str,
     response_format: str,
     question: str,
 ) -> str:
-    """Mirrors the LangSmith t5-ask human message template exactly."""
+    """Mirrors the LangSmith t5-ask human message template, with clinical records added."""
     return f"""Today is {today}.
 ---
 ## Circle Context
@@ -323,6 +425,8 @@ def _build_human_message(
 ---
 ## Care Circle Roster
 {roster}
+---
+{clinical_records}
 ---
 ## Recent Messages
 {recent_messages}
@@ -360,13 +464,14 @@ async def ask_with_tools(
     ctx = await ContextBuilder.create(circle_id, question)
 
     human_content = _build_human_message(
-        today           = datetime.now().strftime("%B %d, %Y"),
-        circle_context  = ctx.get_circle_context(),
-        roster          = ctx.get_roster(),
-        recent_messages = ctx.get_recent_messages(),
-        semantic_chunks = ctx.get_semantic(),
-        response_format = RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["text"]),
-        question        = question,
+        today            = datetime.now().strftime("%B %d, %Y"),
+        circle_context   = ctx.get_circle_context(),
+        roster           = ctx.get_roster(),
+        clinical_records = ctx.get_clinical_records(),
+        recent_messages  = ctx.get_recent_messages(),
+        semantic_chunks  = ctx.get_semantic(),
+        response_format  = RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["text"]),
+        question         = question,
     )
 
     user_message = HumanMessage(content=human_content)
@@ -374,7 +479,7 @@ async def ask_with_tools(
     response     = llm.invoke([user_message], config={"system": SYSTEM_PROMPT})
 
     if response.tool_calls:
-        tool_messages = []
+        tool_messages    = []
         saved_record_ids = []
 
         for tc in response.tool_calls:
@@ -392,9 +497,8 @@ async def ask_with_tools(
         )
         reply = followup.content.strip()
 
-        # Prepend a machine-readable marker when the DB write actually succeeded.
-        # This is the ONLY reliable signal that a record was saved — Claude reads
-        # this marker in future turns to avoid hallucinating prior saves.
+        # Machine-readable marker — the only reliable signal of a successful DB write.
+        # Claude reads this in future turns to avoid hallucinating prior saves.
         if saved_record_ids:
             record_ids = ", ".join(saved_record_ids)
             reply = f"[SAVED: record_id={record_ids}]\n{reply}"
