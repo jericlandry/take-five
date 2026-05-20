@@ -167,9 +167,12 @@ class ContextBuilder:
         for row in rows:
             by_role.setdefault(row["person_role"], []).append(row)
 
-        role_order  = ["subject", "coordinator", "caregiver", "family", "member"]
+        # "senior" must be first so Claude always sees care recipients at the top.
+        # All roles are included via the fallback so no role is silently dropped.
+        role_order = ["senior", "subject", "coordinator", "caregiver", "family", "member"]
         role_labels = {
-            "subject":     "Subjects (people being cared for)",
+            "senior":      "Seniors (care recipients)",
+            "subject":     "Subjects (care recipients)",
             "coordinator": "Coordinators",
             "caregiver":   "Caregivers",
             "family":      "Family Members",
@@ -181,6 +184,19 @@ class ContextBuilder:
                 continue
             lines.append(f"### {role_labels.get(role, role.title())}")
             for row in by_role[role]:
+                aliases   = ", ".join(row["person_aliases"] or [])
+                alias_str = f" (also known as: {aliases})" if aliases else ""
+                lines.append(f"- **{row['member_name']}**{alias_str} [person_id: {row['id']}]")
+                if row["person_notes"]:
+                    lines.append(f"  - {row['person_notes']}")
+            lines.append("")
+
+        # Catch any roles not in role_order so nothing is silently dropped
+        for role, members in by_role.items():
+            if role in role_order:
+                continue
+            lines.append(f"### {role.title()}")
+            for row in members:
                 aliases   = ", ".join(row["person_aliases"] or [])
                 alias_str = f" (also known as: {aliases})" if aliases else ""
                 lines.append(f"- **{row['member_name']}**{alias_str} [person_id: {row['id']}]")
