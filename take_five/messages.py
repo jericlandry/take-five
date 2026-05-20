@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
@@ -13,15 +13,13 @@ from take_five.utils import fetch_prompt, RESPONSE_FORMATS
 
 logger = logging.getLogger(__name__)
 
-ANTHROPIC_MODEL    = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
-conversation_chain = fetch_prompt("t5-ask") | ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
-llm_with_tools     = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
+llm_with_tools = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
 
 # ---------------------------------------------------------------------------
 # Tool definition
 # ---------------------------------------------------------------------------
 
-# Module-level repo used by the tool — injected before each ask_with_tools() call
+# Module-level context injected before each ask_with_tools() call
 _tool_context: dict = {}
 
 @tool
@@ -46,9 +44,9 @@ def save_clinical_record(
     """
     Save a confirmed medication or clinical record to the Take Five database.
 
-    Call this tool when the user has confirmed the medication details are correct
-    and wants to save them. Do not call it if there are still unresolved corrections
-    or missing required fields.
+    Call this tool when the user has explicitly confirmed the medication details
+    are correct and wants to save them. Do not call it if there are still
+    unresolved corrections or missing required fields.
 
     Args:
         person_id:       UUID of the care recipient this record belongs to.
@@ -70,8 +68,8 @@ def save_clinical_record(
         notes:           Free-text family additions (preferences, context).
         status:          'active' | 'discontinued' | 'as_needed'. Default: 'active'.
     """
-    repo      = _tool_context.get('repo')
-    circle_id = _tool_context.get('circle_id')
+    repo         = _tool_context.get('repo')
+    circle_id    = _tool_context.get('circle_id')
     confirmed_by = _tool_context.get('confirmed_by_person_id')
 
     if not repo or not circle_id:
@@ -91,7 +89,6 @@ def save_clinical_record(
         "quantity":        quantity,
         "schedule":        schedule or {},
     }
-    # Strip nulls to keep the JSONB clean
     data = {k: v for k, v in data.items() if v is not None}
 
     try:
@@ -104,7 +101,10 @@ def save_clinical_record(
             status=status,
             confirmed_by=confirmed_by,
         )
-        logger.info(f"[tools] Clinical record saved — id: {record['id']}, type: {resource_type}, medication: {medication_name}")
+        logger.info(
+            f"[tools] Clinical record saved — "
+            f"id: {record['id']}, type: {resource_type}, medication: {medication_name}"
+        )
         return json.dumps({
             "success":       True,
             "record_id":     str(record['id']),
@@ -120,7 +120,7 @@ def save_clinical_record(
 TOOLS = [save_clinical_record]
 
 # ---------------------------------------------------------------------------
-# Context builder — shared by ask() and ask_with_tools()
+# Context builder — used by ask_with_tools() and summaries.py
 # ---------------------------------------------------------------------------
 
 class ContextBuilder:
@@ -138,7 +138,7 @@ class ContextBuilder:
         instance._recent         = instance._build_recent_messages()
         instance._semantic       = instance._build_semantic(embedding)
         return instance
-    
+
     @classmethod
     def create_for_digest(
         cls,
@@ -156,18 +156,18 @@ class ContextBuilder:
     def _build_roster(self) -> str:
         roster = self.repo.fetch_circle_roster(self.circle_id)
         return self._format_roster_context(roster)
-    
+
     def _format_roster_context(self, rows: list) -> str:
         if not rows:
             return "## Care Circle\n_No members found._\n"
-    
+
         circle_name = rows[0]["circle_name"]
         lines = [f"## Care Circle: {circle_name}\n"]
-    
+
         by_role: dict[str, list] = {}
         for row in rows:
             by_role.setdefault(row["person_role"], []).append(row)
-    
+
         role_order  = ["subject", "coordinator", "caregiver", "family", "member"]
         role_labels = {
             "subject":     "Subjects (people being cared for)",
@@ -176,7 +176,7 @@ class ContextBuilder:
             "family":      "Family Members",
             "member":      "Members",
         }
-    
+
         for role in role_order:
             if role not in by_role:
                 continue
@@ -188,7 +188,7 @@ class ContextBuilder:
                 if row["person_notes"]:
                     lines.append(f"  - {row['person_notes']}")
             lines.append("")
- 
+
         return "\n".join(lines)
 
     def _build_recent_messages(
@@ -227,7 +227,7 @@ class ContextBuilder:
             lines.append(f"- **{sender}** ({ts_label}): {row['body']}")
 
         return "\n".join(lines)
-    
+
     def _build_semantic(self, embedding: list) -> str:
         chunks = self.repo.fetch_semantic_chunks(self.circle_id, embedding)
         return self._format_semantic_context(chunks)
@@ -235,14 +235,14 @@ class ContextBuilder:
     def _format_semantic_context(self, rows: list) -> str:
         if not rows:
             return "## Relevant Message History\n_No relevant messages found._\n"
-    
+
         lines = ["## Relevant Message History (semantic search)\n"]
         for row in rows:
             header = row["context_header"] or "Unknown"
             lines.append(f"- **{header}**: {row['body']}")
             if row["context_summary"]:
                 lines.append(f"  - _{row['context_summary']}_")
-    
+
         return "\n".join(lines)
 
     def _load_circle_context(self) -> str:
@@ -252,54 +252,75 @@ class ContextBuilder:
                 return f.read()
         return f"## Circle Context: {self.circle_id}\n\n_No context found._\n"
 
-    def get_roster(self) -> str:         return self._roster
-    def get_circle_context(self) -> str: return self._circle_context
+    def get_roster(self) -> str:          return self._roster
+    def get_circle_context(self) -> str:  return self._circle_context
     def get_recent_messages(self) -> str: return self._recent
-    def get_semantic(self) -> str:       return self._semantic
-    def get_full_context(self) -> str:
-        return "\n\n".join([self._roster, self._circle_context, self._recent, self._semantic])
+    def get_semantic(self) -> str:        return self._semantic
 
 
 # ---------------------------------------------------------------------------
-# ask() — standard Q&A, LangChain chain, no tools
+# System prompt
 # ---------------------------------------------------------------------------
 
-async def ask(question: str, circle_id: str, response_format: str = "markdown") -> str:
-    ctx = await ContextBuilder.create(circle_id, question)
-    response = conversation_chain.invoke({
-        "today":           datetime.now().strftime("%B %d, %Y"),
-        "circle_context":  ctx.get_circle_context(),
-        "roster":          ctx.get_roster(),
-        "recent_messages": ctx.get_recent_messages(),
-        "semantic_chunks": ctx.get_semantic(),
-        "response_format": RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"]),
-        "question":        question,
-    })
-    return response.content.strip()
-
-
-# ---------------------------------------------------------------------------
-# ask_with_tools() — tool-aware Q&A for confirmation flows
-# Homogenous LangChain environment: ChatAnthropic.bind_tools()
-# ---------------------------------------------------------------------------
-
-SYSTEM_PROMPT = """You are Take Five, an AI care coordinator supporting a family caring for aging loved ones. You answer questions clearly, accurately, and with warmth.
+SYSTEM_PROMPT = """You are Take Five, an AI care coordinator supporting a family caring for aging loved ones.
+You answer questions clearly, accurately, and with warmth.
 
 Guidelines:
 - Use the person's preferred name or alias when appropriate
 - For medication questions, be precise and complete — never guess
 - For mood or behavioral questions, cite specific messages and dates where possible
-- For clinical questions (e.g. dementia indicators), ground your answer in the messages and apply care domain knowledge — note patterns, changes over time, and flag anything worth raising with a doctor
+- For clinical questions (e.g. dementia indicators), ground your answer in the messages
+  and apply care domain knowledge — note patterns, changes over time, and flag anything
+  worth raising with a doctor
 - If the answer is not in the provided context, say so clearly rather than speculating
 - Keep answers concise but complete
 
 Tool use — save_clinical_record:
-- Call this tool ONLY when the user has explicitly confirmed the medication details are correct (e.g. "yes", "save it", "that's right").
+- Call this tool ONLY when the user has explicitly confirmed the medication details are
+  correct (e.g. "yes", "save it", "that's right", "looks good").
 - Do NOT call it if the user is still making corrections or if required fields are missing.
-- The person_id must be the UUID of the care recipient (senior) from the roster below — never use a family member's ID.
-- If there is more than one senior in the circle and it is not clear which one the medication belongs to, ask before saving.
-- After a successful save, confirm warmly: tell the user the medication has been saved and summarise what was recorded."""
+- The person_id must be the UUID of the care recipient (senior) from the roster —
+  never use a family member's ID.
+- If there is more than one senior in the circle and it is unclear which one the
+  medication belongs to, ask before saving.
+- After a successful save, confirm warmly: tell the user the medication has been saved
+  and summarise what was recorded."""
 
+
+def _build_human_message(
+    today: str,
+    circle_context: str,
+    roster: str,
+    recent_messages: str,
+    semantic_chunks: str,
+    response_format: str,
+    question: str,
+) -> str:
+    """Mirrors the LangSmith t5-ask human message template exactly."""
+    return f"""Today is {today}.
+---
+## Circle Context
+{circle_context}
+---
+## Care Circle Roster
+{roster}
+---
+## Recent Messages
+{recent_messages}
+---
+## Relevant Message History
+{semantic_chunks}
+---
+## Response Format
+{response_format}
+---
+## Question
+{question}"""
+
+
+# ---------------------------------------------------------------------------
+# ask_with_tools() — single entry point for all Q&A and confirmation flows
+# ---------------------------------------------------------------------------
 
 async def ask_with_tools(
     question: str,
@@ -308,43 +329,37 @@ async def ask_with_tools(
     confirmed_by_person_id: str = None,
 ) -> str:
     """
-    Tool-aware ask — used for the @T5 flow in GroupMe where the user may be
-    confirming a medication. Uses ChatAnthropic.bind_tools() to stay within
-    the homogenous LangChain environment.
+    Tool-aware ask using ChatAnthropic.bind_tools() within the LangChain environment.
+    Single entry point for GroupMe @T5 flow and the /messages API endpoint.
 
-    confirmed_by_person_id: the person_id of whoever sent the @T5 message,
-    passed into _tool_context so the tool can record who confirmed the save.
+    confirmed_by_person_id: person_id of the sender, stored on saved DB records.
     """
     global _tool_context
 
     repo = TakeFiveRepository()
 
-    # Inject context for the tool to use when it executes
     _tool_context = {
-        'repo':                  repo,
-        'circle_id':             circle_id,
+        'repo':                   repo,
+        'circle_id':              circle_id,
         'confirmed_by_person_id': confirmed_by_person_id,
     }
 
     ctx = await ContextBuilder.create(circle_id, question)
 
-    full_context = "\n\n".join([
-        ctx.get_circle_context(),
-        ctx.get_roster(),
-        ctx.get_recent_messages(),
-        ctx.get_semantic(),
-    ])
+    human_content = _build_human_message(
+        today           = datetime.now().strftime("%B %d, %Y"),
+        circle_context  = ctx.get_circle_context(),
+        roster          = ctx.get_roster(),
+        recent_messages = ctx.get_recent_messages(),
+        semantic_chunks = ctx.get_semantic(),
+        response_format = RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["text"]),
+        question        = question,
+    )
 
-    system = f"{SYSTEM_PROMPT}\n\n{full_context}\n\nToday: {datetime.now().strftime('%B %d, %Y')}"
-    format_instruction = RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["text"])
+    user_message = HumanMessage(content=human_content)
+    llm          = llm_with_tools.bind_tools(TOOLS)
+    response     = llm.invoke([user_message], config={"system": SYSTEM_PROMPT})
 
-    user_message = HumanMessage(content=f"{question}\n\n{format_instruction}")
-
-    # Bind tools and invoke
-    llm = llm_with_tools.bind_tools(TOOLS)
-    response = llm.invoke([user_message], config={"system": system})
-
-    # If Claude called a tool, execute it and send the result back
     if response.tool_calls:
         tool_messages = []
         for tc in response.tool_calls:
@@ -353,10 +368,9 @@ async def ask_with_tools(
                 result = save_clinical_record.invoke(tc['args'])
                 tool_messages.append(ToolMessage(content=result, tool_call_id=tc['id']))
 
-        # Send tool results back to Claude for a natural language reply
         followup = llm.invoke(
             [user_message, response, *tool_messages],
-            config={"system": system}
+            config={"system": SYSTEM_PROMPT}
         )
         return followup.content.strip()
 
