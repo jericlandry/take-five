@@ -291,8 +291,14 @@ class TakeFiveRepository:
         end_date: datetime = None,
         limit: int = None
     ) -> List[Dict]:
+        """
+        Fetch messages for a circle. Bot messages (person_id IS NULL) are
+        labelled 'Take Five' as author_name so ask() can identify them in context.
+        """
         query = """
-            SELECT m.*, p.name as author_name 
+            SELECT
+                m.*,
+                COALESCE(p.name, 'Take Five') AS author_name
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
             WHERE m.circle_id = (SELECT id FROM care_circles WHERE id = %s)

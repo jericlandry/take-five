@@ -216,8 +216,8 @@ async def message(body: MessageRequest):
 
 async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_id: Optional[str] = None):
     """
-    Post a reply to GroupMe and log it as an outbound message.
-    Logging ensures ask() can see bot replies as context in future turns.
+    Post a reply to GroupMe and log it as an outbound agent_note.
+    Logging ensures ask() sees bot replies as context in future turns.
     No-op if bot_id or text is missing.
     """
     if not bot_id or not text:
@@ -227,10 +227,10 @@ async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_i
         try:
             repo.log_message(
                 circle_ext_id=circle_ext_id,
-                person_ext_id=None,       # agent/system message, no person
+                person_ext_id=None,
                 body=text,
                 raw_data={"source": "t5_bot", "bot_id": bot_id},
-                msg_type="outbound",
+                msg_type="agent_note",
                 direction="outbound",
                 channel="groupme",
             )
