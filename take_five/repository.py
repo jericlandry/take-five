@@ -5,17 +5,17 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()
 
 class TakeFiveRepository:
     def __init__(self):
         self.db_config = {
-                'dbname': 'takefive',
-                'user': os.getenv('DB_USER'),
-                'password': os.getenv('DB_PASSWORD'),
-                'host': 'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
-                'port': 5432
-            }
+            'dbname':   'takefive',
+            'user':     os.getenv('DB_USER'),
+            'password': os.getenv('DB_PASSWORD'),
+            'host':     'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
+            'port':     5432
+        }
 
     def _execute(self, query: str, params: tuple = (), fetch: str = 'one'):
         with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
@@ -27,41 +27,33 @@ class TakeFiveRepository:
                 return None
 
     # --- PEOPLE ---
+
     def upsert_person(self, external_id: str, name: str, p_type: str, **kwargs) -> Dict:
-        """Creates or updates a person. p_type: senior, family, aide, nurse, agent"""
         query = """
             INSERT INTO people (external_id, name, type, email, phone, timezone)
             VALUES (%(ext_id)s, %(name)s, %(type)s, %(email)s, %(phone)s, %(tz)s)
-            ON CONFLICT (external_id) 
+            ON CONFLICT (external_id)
             DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type
             RETURNING *;
         """
-        params = {
+        return self._execute(query, {
             'ext_id': str(external_id), 'name': name, 'type': p_type,
             'email': kwargs.get('email'), 'phone': kwargs.get('phone'),
             'tz': kwargs.get('timezone', 'America/Chicago')
-        }
-        return self._execute(query, params)
+        })
 
     def get_person_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM people WHERE external_id = %s;", (str(external_id),))
-    
+
     def get_person_by_id(self, person_id: str) -> Optional[Dict]:
-        return self._execute(
-            "SELECT * FROM people WHERE id = %s;",
-            (person_id,)
-        )
-    
+        return self._execute("SELECT * FROM people WHERE id = %s;", (person_id,))
+
     def find_person_by_phone(self, phone: str) -> Optional[Dict]:
-        """Finds a person by their phone number."""
-        query = """
-            SELECT * FROM people 
-            WHERE phone = %(phone)s 
-            LIMIT 1;
-        """
-        params = {'phone': phone}
-        return self._execute(query, params)
-    
+        return self._execute(
+            "SELECT * FROM people WHERE phone = %(phone)s LIMIT 1;",
+            {'phone': phone}
+        )
+
     def update_person(self, person_id: str, updates) -> Dict:
         query = """
             UPDATE people SET
@@ -76,72 +68,56 @@ class TakeFiveRepository:
             RETURNING *;
         """
         return self._execute(query, {
-            'id': person_id,
-            'name': updates.name,
-            'type': updates.p_type,
-            'phone': updates.phone,
-            'email': updates.email,
-            'aliases': updates.aliases,
-            'notes': updates.notes,
+            'id': person_id, 'name': updates.name, 'type': updates.p_type,
+            'phone': updates.phone, 'email': updates.email,
+            'aliases': updates.aliases, 'notes': updates.notes,
             'external_id': updates.external_id,
         })
-    
+
     def add_person_to_ensemble(self, ensemble_id: str, name: str, p_type: str, **kwargs) -> Dict:
-        """Creates a person and associates them with an ensemble."""
         query = """
             INSERT INTO people (ensemble_id, name, type, phone, email, timezone, aliases, notes, external_id)
             VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s)
             RETURNING *;
         """
-        params = {
-            'ensemble_id': ensemble_id,
-            'name': name,
-            'type': p_type,
-            'phone': kwargs.get('phone'),
-            'email': kwargs.get('email'),
+        return self._execute(query, {
+            'ensemble_id': ensemble_id, 'name': name, 'type': p_type,
+            'phone': kwargs.get('phone'), 'email': kwargs.get('email'),
             'tz': kwargs.get('timezone', 'America/Chicago'),
-            'aliases': kwargs.get('aliases', []),
-            'notes': kwargs.get('notes'),
+            'aliases': kwargs.get('aliases', []), 'notes': kwargs.get('notes'),
             'external_id': kwargs.get('external_id'),
-        }
-        return self._execute(query, params)
+        })
 
     # --- CARE CIRCLES ---
+
     def upsert_circle(self, external_id: str, name: str) -> Dict:
-        """Creates or updates a circle based on GroupMe Group ID."""
         query = """
             INSERT INTO care_circles (external_id, name)
             VALUES (%s, %s)
-            ON CONFLICT (external_id) 
-            DO UPDATE SET name = EXCLUDED.name
+            ON CONFLICT (external_id) DO UPDATE SET name = EXCLUDED.name
             RETURNING *;
         """
         return self._execute(query, (str(external_id), name))
-    
+
     def create_care_circle(self, ensemble_id: str, name: str, status: str = 'active',
-                        external_id: Optional[str] = None) -> Dict:
-        """Creates a care circle under an ensemble."""
+                           external_id: Optional[str] = None) -> Dict:
         query = """
             INSERT INTO care_circles (ensemble_id, name, status, external_id)
             VALUES (%(ensemble_id)s, %(name)s, %(status)s, %(external_id)s)
             RETURNING *;
         """
         return self._execute(query, {
-            'ensemble_id': ensemble_id,
-            'name': name,
-            'status': status,
-            'external_id': external_id
+            'ensemble_id': ensemble_id, 'name': name,
+            'status': status, 'external_id': external_id
         })
-    
+
     def get_active_circles(self) -> List[Dict]:
-        """Returns all care circles with status = 'active'."""
         return self._execute(
             "SELECT * FROM care_circles WHERE status = 'active' ORDER BY created_at;",
             fetch='all'
         )
 
     def update_care_circle(self, circle_id: str, updates: dict) -> Dict:
-        """Update a care circle's name, status, external_id, and/or integration_config."""
         query = """
             UPDATE care_circles SET
                 name               = COALESCE(%(name)s, name),
@@ -156,18 +132,23 @@ class TakeFiveRepository:
             'name': updates.get('name'),
             'status': updates.get('status'),
             'external_id': updates.get('external_id'),
-            'integration_config': Json(updates['integration_config']) if updates.get('integration_config') is not None else None,
+            'integration_config': Json(updates['integration_config'])
+                if updates.get('integration_config') is not None else None,
         })
 
     def get_circle_by_external_id(self, external_id: str) -> Optional[Dict]:
-        return self._execute("SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),))
-    
+        return self._execute(
+            "SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),)
+        )
+
     def get_circle_by_id(self, circle_id: str) -> Optional[Dict]:
-        return self._execute("SELECT * FROM care_circles WHERE id = %s;", (str(circle_id),))
-    
+        return self._execute(
+            "SELECT * FROM care_circles WHERE id = %s;", (str(circle_id),)
+        )
+
     def find_circles_by_person(self, person_external_id: str) -> List[Dict]:
         query = """
-            SELECT c.*, m.role 
+            SELECT c.*, m.role
             FROM care_circles c
             JOIN circle_memberships m ON c.id = m.circle_id
             JOIN people p ON m.person_id = p.id
@@ -176,7 +157,6 @@ class TakeFiveRepository:
         return self._execute(query, {'ext_id': str(person_external_id)}, fetch='all')
 
     def fetch_circle_roster(self, circle_id: str) -> list:
-        """Fetch all circle members with their person details and role."""
         query = """
             SELECT
                 p.id,
@@ -197,17 +177,31 @@ class TakeFiveRepository:
         """
         return self._execute(query, {"circle_id": circle_id}, fetch="all")
 
+    def get_seniors_in_circle(self, circle_id: str) -> List[Dict]:
+        """
+        Return all people with role='senior' in a circle.
+        Used by ask_with_tools() to resolve care recipient when
+        the label has no patient name.
+        """
+        query = """
+            SELECT p.id, p.name, p.aliases
+            FROM people p
+            JOIN circle_memberships cm ON p.id = cm.person_id
+            WHERE cm.circle_id = %(circle_id)s
+              AND cm.role = 'senior'
+            ORDER BY p.name;
+        """
+        return self._execute(query, {"circle_id": circle_id}, fetch="all")
+
     # --- MEMBERSHIPS ---
+
     def list_care_circles(self, ensemble_id: str) -> List[Dict]:
-        """Returns all care circles belonging to an ensemble."""
         return self._execute(
             "SELECT * FROM care_circles WHERE ensemble_id = %s ORDER BY name;",
-            (ensemble_id,),
-            fetch='all'
+            (ensemble_id,), fetch='all'
         )
-    
+
     def add_person_to_circle(self, circle_id: str, person_id: str, role: str) -> Dict:
-        """Adds a person to a care circle with a role."""
         query = """
             INSERT INTO circle_memberships (circle_id, person_id, role)
             VALUES (%(circle_id)s, %(person_id)s, %(role)s)
@@ -215,13 +209,10 @@ class TakeFiveRepository:
             RETURNING *;
         """
         return self._execute(query, {
-            'circle_id': circle_id,
-            'person_id': person_id,
-            'role': role
+            'circle_id': circle_id, 'person_id': person_id, 'role': role
         })
 
     def add_to_circle(self, circle_ext_id: str, person_ext_id: str, role: str) -> Dict:
-        """Links person to circle using external IDs."""
         query = """
             INSERT INTO circle_memberships (circle_id, person_id, role)
             VALUES (
@@ -235,6 +226,7 @@ class TakeFiveRepository:
         return self._execute(query, (str(circle_ext_id), str(person_ext_id), role))
 
     # --- MESSAGES ---
+
     def log_message(self, circle_ext_id: str, person_ext_id: Optional[str],
                     body: str, msg_type: str = 'inbound',
                     direction: str = 'inbound', raw_data: Optional[Dict] = None,
@@ -243,8 +235,7 @@ class TakeFiveRepository:
         Logs a message to the messages table.
 
         person_ext_id=None for bot/agent outbound messages — person_id is
-        inserted as NULL directly rather than via subquery, avoiding a
-        WHERE external_id = NULL anti-pattern.
+        inserted as NULL directly rather than via subquery.
 
         Semantics:
           direction='inbound',  person_id=<uuid> → human message
@@ -260,11 +251,9 @@ class TakeFiveRepository:
                 ) RETURNING *;
             """
             params = (
-                str(circle_ext_id),
-                str(person_ext_id),
+                str(circle_ext_id), str(person_ext_id),
                 msg_type, direction, body,
-                Json(raw_data) if raw_data else None,
-                channel,
+                Json(raw_data) if raw_data else None, channel,
             )
         else:
             query = """
@@ -278,22 +267,15 @@ class TakeFiveRepository:
             params = (
                 str(circle_ext_id),
                 msg_type, direction, body,
-                Json(raw_data) if raw_data else None,
-                channel,
+                Json(raw_data) if raw_data else None, channel,
             )
-
         return self._execute(query, params)
 
-    def get_messages(
-        self,
-        circle_id: str,
-        start_date: datetime = None,
-        end_date: datetime = None,
-        limit: int = None
-    ) -> List[Dict]:
+    def get_messages(self, circle_id: str, start_date: datetime = None,
+                     end_date: datetime = None, limit: int = None) -> List[Dict]:
         """
         Fetch messages for a circle. Bot messages (person_id IS NULL) are
-        labelled 'Take Five' as author_name so ask() can identify them in context.
+        labelled 'Take Five' so ask() can identify them in context.
         """
         query = """
             SELECT
@@ -319,23 +301,14 @@ class TakeFiveRepository:
             params.append(limit)
 
         return self._execute(query, tuple(params), fetch='all')
-    
-    def upsert_message_chunk(
-        self,
-        message_id: str,
-        circle_id: str,
-        chunk_index: int,
-        body: str,
-        context_header: str,
-        context_summary: str,
-        embedded_text: str,
-        embedding: list,
-        sent_at
-    ) -> Dict:
+
+    def upsert_message_chunk(self, message_id: str, circle_id: str, chunk_index: int,
+                              body: str, context_header: str, context_summary: str,
+                              embedded_text: str, embedding: list, sent_at) -> Dict:
         query = """
             INSERT INTO message_chunks
                 (message_id, circle_id, chunk_index, body,
-                context_header, context_summary, embedded_text, embedding, sent_at)
+                 context_header, context_summary, embedded_text, embedding, sent_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector, %s)
             ON CONFLICT (message_id, chunk_index) DO UPDATE SET
                 context_summary = EXCLUDED.context_summary,
@@ -348,14 +321,9 @@ class TakeFiveRepository:
             context_header, context_summary, embedded_text,
             str(embedding), sent_at
         ))
-    
-    def fetch_semantic_chunks(
-        self,
-        circle_id: str,
-        question_embedding: list[float],
-        limit: int=10,
-    ) -> list:
-        """Retrieve top-k message chunks by cosine similarity."""
+
+    def fetch_semantic_chunks(self, circle_id: str, question_embedding: list[float],
+                               limit: int = 10) -> list:
         query = """
             SELECT
                 mc.body,
@@ -374,43 +342,99 @@ class TakeFiveRepository:
             {"embedding": str(question_embedding), "circle_id": circle_id, "limit": limit},
             fetch="all",
         )
-    
+
+    # --- CLINICAL RECORDS ---
+
+    def save_clinical_record(
+        self,
+        circle_id: str,
+        person_id: str,
+        resource_type: str,
+        data: Dict,
+        notes: Optional[str] = None,
+        status: str = 'active',
+        confirmed_by: Optional[str] = None,
+        source_message_id: Optional[str] = None,
+    ) -> Dict:
+        """
+        Insert a clinical record. Called by ask_with_tools() when Claude
+        invokes the save_clinical_record tool after user confirmation.
+
+        resource_type: 'MedicationStatement' | 'Condition' | 'Observation'
+                       'Appointment' | 'AllergyIntolerance' | 'Procedure'
+        """
+        query = """
+            INSERT INTO clinical_records (
+                circle_id, person_id, resource_type, status,
+                data, notes, confirmed_by, confirmed_at, source_message_id
+            ) VALUES (
+                %(circle_id)s, %(person_id)s, %(resource_type)s, %(status)s,
+                %(data)s, %(notes)s, %(confirmed_by)s,
+                %(confirmed_at)s, %(source_message_id)s
+            ) RETURNING *;
+        """
+        return self._execute(query, {
+            'circle_id':         circle_id,
+            'person_id':         person_id,
+            'resource_type':     resource_type,
+            'status':            status,
+            'data':              Json(data),
+            'notes':             notes,
+            'confirmed_by':      confirmed_by,
+            'confirmed_at':      datetime.utcnow() if confirmed_by else None,
+            'source_message_id': source_message_id,
+        })
+
+    def get_clinical_records(
+        self,
+        circle_id: str,
+        person_id: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        status: str = 'active',
+    ) -> List[Dict]:
+        """Fetch clinical records for a circle, optionally filtered by person and type."""
+        query = """
+            SELECT cr.*, p.name AS person_name
+            FROM clinical_records cr
+            JOIN people p ON cr.person_id = p.id
+            WHERE cr.circle_id = %(circle_id)s
+              AND cr.status = %(status)s
+        """
+        params: Dict = {'circle_id': circle_id, 'status': status}
+
+        if person_id:
+            query += " AND cr.person_id = %(person_id)s"
+            params['person_id'] = person_id
+        if resource_type:
+            query += " AND cr.resource_type = %(resource_type)s"
+            params['resource_type'] = resource_type
+
+        query += " ORDER BY cr.created_at DESC"
+        return self._execute(query, params, fetch='all')
+
     # --- ENSEMBLES ---
+
     def create_ensemble(self, name: str, plan: str = 'family_plus', status: str = 'trial') -> Dict:
-        """Creates a new ensemble (family account)."""
         query = """
             INSERT INTO ensembles (name, plan, status)
             VALUES (%(name)s, %(plan)s, %(status)s)
             RETURNING *;
         """
-        params = {'name': name, 'plan': plan, 'status': status}
-        return self._execute(query, params)
+        return self._execute(query, {'name': name, 'plan': plan, 'status': status})
 
     def get_ensemble(self, ensemble_id: str) -> Optional[Dict]:
-        """Fetch an ensemble by id."""
-        return self._execute(
-            "SELECT * FROM ensembles WHERE id = %s;", 
-            (ensemble_id,)
-        )
+        return self._execute("SELECT * FROM ensembles WHERE id = %s;", (ensemble_id,))
 
     def get_ensemble_by_name(self, name: str) -> Optional[Dict]:
-        """Fetch an ensemble by name."""
-        return self._execute(
-            "SELECT * FROM ensembles WHERE name = %s;", 
-            (name,)
-        )
+        return self._execute("SELECT * FROM ensembles WHERE name = %s;", (name,))
 
     def list_ensembles(self) -> List[Dict]:
-        """Returns all ensembles."""
         return self._execute(
-            "SELECT * FROM ensembles ORDER BY created_at DESC;", 
-            fetch='all'
+            "SELECT * FROM ensembles ORDER BY created_at DESC;", fetch='all'
         )
 
     def list_people_by_ensemble(self, ensemble_id: str) -> List[Dict]:
-        """Returns all people belonging to an ensemble."""
         return self._execute(
             "SELECT * FROM people WHERE ensemble_id = %s ORDER BY name;",
-            (ensemble_id,),
-            fetch='all'
+            (ensemble_id,), fetch='all'
         )

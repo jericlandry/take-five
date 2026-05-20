@@ -17,7 +17,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from take_five.memory import process_message_for_memory
 from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
-from take_five.messages import ask
+from take_five.messages import ask_with_tools
 from take_five.utils import row_to_dict, row_list_to_dict_list
 from take_five.images import extract_groupme_image, extract_sms_image, handle_image_message
 
@@ -209,7 +209,12 @@ async def add_person_to_circle(circle_id: str, person_id: str,
 @secure_router.post("/messages")
 async def message(body: MessageRequest):
     logging.info("Message received")
-    response = await ask(body.message, body.circle_id, response_format=body.response_format)
+    response = await ask_with_tools(
+        question=body.message,
+        circle_id=body.circle_id,
+        response_format=body.response_format,
+        confirmed_by_person_id=None,  # no person context via API
+    )
     return {"response": response}
 
 # --- Open endpoints for external integrations ---
@@ -217,7 +222,6 @@ async def message(body: MessageRequest):
 async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_id: Optional[str] = None):
     """
     Post a reply to GroupMe and log it as an outbound agent_note.
-    Logging ensures ask() sees bot replies as context in future turns.
     No-op if bot_id or text is missing.
     """
     if not bot_id or not text:
@@ -252,8 +256,8 @@ async def groupme_webhook(request: Request):
     # 2. Extract fields
     circle_ext_id = f"groupme:{data.get('group_id')}"
     person_ext_id = f"groupme:{data.get('sender_id')}"
-    person_name = data.get("name", "Unknown User")
-    text = data.get("text", "")
+    person_name   = data.get("name", "Unknown User")
+    text          = data.get("text", "")
 
     logging.info(f"Processing message from {person_name} in group {circle_ext_id}")
 
@@ -275,10 +279,14 @@ async def groupme_webhook(request: Request):
             repo=repo
         ))
 
-        # Resolve circle once — bot_id used by both image and ask branches
-        circle = repo.get_circle_by_external_id(circle_ext_id)
+        # Resolve circle once — used by both image and ask branches
+        circle    = repo.get_circle_by_external_id(circle_ext_id)
         circle_id = circle['id'] if circle else None
-        bot_id = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
+        bot_id    = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
+
+        # Resolve the sender's person_id for confirmed_by tracking
+        sender_person    = repo.get_person_by_external_id(person_ext_id)
+        sender_person_id = str(sender_person['id']) if sender_person else None
 
         # 3. Image detection — returns reply text or None
         image_attachment = extract_groupme_image(data)
@@ -288,7 +296,7 @@ async def groupme_webhook(request: Request):
                 await groupme_reply(bot_id, reply, circle_ext_id)
             asyncio.create_task(process_image())
 
-        # 4. T5 ask flow
+        # 4. T5 ask flow — ask_with_tools handles both Q&A and medication saves
         if '@T5' in text:
             question = text.split('@T5', 1)[1].strip()
             if not question:
@@ -302,7 +310,12 @@ async def groupme_webhook(request: Request):
                 return {"status": "ok"}
 
             logging.info("T5 question command detected, generating response...")
-            bot_response = await ask(question, circle_id, response_format="text")
+            bot_response = await ask_with_tools(
+                question=question,
+                circle_id=circle_id,
+                response_format="text",
+                confirmed_by_person_id=sender_person_id,
+            )
             await groupme_reply(bot_id, bot_response, circle_ext_id)
 
         logging.info(f"Message stored. Internal ID: {new_msg['id']}")
@@ -326,7 +339,7 @@ async def receive_sms(
 ):
     response = MessagingResponse()
 
-    person = repo.find_person_by_phone(From)
+    person        = repo.find_person_by_phone(From)
     circle_ext_id = f"sms:{To}"
     person_ext_id = f"sms:{From}"
 
@@ -360,17 +373,14 @@ async def receive_sms(
         repo=repo
     ))
 
-    # MMS image detection — reply via Twilio response (not yet implemented)
+    # MMS image detection
     if int(NumMedia) > 0:
         sms_payload = {
             "NumMedia": NumMedia,
             "MediaUrl0": MediaUrl0,
             "MediaContentType0": MediaContentType0,
-            "Body": Body,
-            "From": From,
-            "To": To,
-            "sender_name": person['name'],
-            "MessageSid": "",
+            "Body": Body, "From": From, "To": To,
+            "sender_name": person['name'], "MessageSid": "",
         }
         image_attachment = extract_sms_image(sms_payload)
         if image_attachment:
