@@ -169,8 +169,6 @@ class ContextBuilder:
         for row in rows:
             by_role.setdefault(row["person_role"], []).append(row)
 
-        # "senior" first — care recipients must always be visible to Claude.
-        # Fallback loop ensures no role is silently dropped.
         role_order = ["senior", "subject", "coordinator", "caregiver", "family", "member"]
         role_labels = {
             "senior":      "Seniors (care recipients)",
@@ -208,11 +206,6 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_clinical_records(self) -> str:
-        """
-        Fetch all active clinical records for every senior in the circle
-        and format them as an authoritative structured section for Claude.
-        This is the source of truth for medication questions — not message history.
-        """
         seniors = self.repo.get_seniors_in_circle(self.circle_id)
         if not seniors:
             return "## Clinical Records\n_No seniors found in circle._\n"
@@ -229,7 +222,6 @@ class ContextBuilder:
                 person_id=person_id,
             )
 
-            # Group by resource_type
             by_type: dict[str, list] = {}
             for r in records:
                 by_type.setdefault(r['resource_type'], []).append(r)
@@ -241,7 +233,6 @@ class ContextBuilder:
             any_records = True
             lines.append(f"### {person_name}")
 
-            # Medications first
             for resource_type, type_records in by_type.items():
                 label = {
                     "MedicationStatement": "Medications",
@@ -255,16 +246,15 @@ class ContextBuilder:
                 lines.append(f"\n**{label}**")
 
                 for rec in type_records:
-                    data       = rec['data'] if isinstance(rec['data'], dict) else json.loads(rec['data'])
-                    record_id  = str(rec['id'])
-                    status     = rec['status']
+                    data      = rec['data'] if isinstance(rec['data'], dict) else json.loads(rec['data'])
+                    record_id = str(rec['id'])
+                    status    = rec['status']
 
                     name  = data.get('medication_name') or data.get('condition') or data.get('symptom') or 'Unknown'
                     dose  = data.get('dosage', '')
                     instr = data.get('instructions', '')
                     notes = rec.get('notes') or ''
 
-                    # Primary line
                     primary = f"- **{name}**"
                     if dose:
                         primary += f" ({dose})"
@@ -275,18 +265,17 @@ class ContextBuilder:
                     if instr:
                         lines.append(f"  Instructions: {instr}")
 
-                    # Optional detail fields
                     detail_fields = [
-                        ('prescriber', 'Prescriber'),
-                        ('pharmacy',   'Pharmacy'),
-                        ('refill_date','Refill date'),
-                        ('quantity',   'Quantity'),
-                        ('rx_number',  'Rx#'),
-                        ('form',       'Form'),
+                        ('prescriber',  'Prescriber'),
+                        ('pharmacy',    'Pharmacy'),
+                        ('refill_date', 'Refill date'),
+                        ('quantity',    'Quantity'),
+                        ('rx_number',   'Rx#'),
+                        ('form',        'Form'),
                     ]
                     details = [
-                        f"{label}: {data[field]}"
-                        for field, label in detail_fields
+                        f"{lbl}: {data[field]}"
+                        for field, lbl in detail_fields
                         if data.get(field)
                     ]
                     if details:
@@ -397,9 +386,12 @@ Tool use — save_clinical_record:
 - A medication is SAVED only when you see a message beginning with "[SAVED: record_id=...]"
   in the conversation history. This marker is written by the system only when the database
   write actually succeeded. Never infer a record was saved from any other message.
-- Call save_clinical_record ONLY when the user explicitly confirms (e.g. "yes", "save it",
-  "looks good", "that's right") AND there is a PENDING CONFIRMATION medication in context.
-- Do NOT call it if the user is still making corrections or if required fields are missing.
+- Call save_clinical_record when:
+  (a) The user explicitly confirms a PENDING CONFIRMATION medication
+      (e.g. "yes", "save it", "looks good", "that's right"), OR
+  (b) The user directly provides medication details and asks to add or save them
+      (e.g. "add a medication for Gomez", "save this prescription", "please add Metformin 500mg").
+- Do NOT call it if required fields are missing without asking for them first.
 - The person_id must be the UUID of the care recipient (senior) from the roster —
   never use a family member's ID.
 - If there is more than one senior in the circle and it is unclear which one the
@@ -417,7 +409,6 @@ def _build_human_message(
     response_format: str,
     question: str,
 ) -> str:
-    """Mirrors the LangSmith t5-ask human message template, with clinical records added."""
     return f"""Today is {today}.
 ---
 ## Circle Context
@@ -497,8 +488,6 @@ async def ask_with_tools(
         )
         reply = followup.content.strip()
 
-        # Machine-readable marker — the only reliable signal of a successful DB write.
-        # Claude reads this in future turns to avoid hallucinating prior saves.
         if saved_record_ids:
             record_ids = ", ".join(saved_record_ids)
             reply = f"[SAVED: record_id={record_ids}]\n{reply}"
