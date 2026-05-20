@@ -142,14 +142,50 @@ def extract_sms_image(payload: dict) -> Optional[ImageAttachment]:
 
 
 # ---------------------------------------------------------------------------
+# Required fields by medication type
+# ---------------------------------------------------------------------------
+
+# Fields required for all medications
+REQUIRED_ALL = [
+    ("medication_name", "medication name"),
+    ("dosage",          "dosage (e.g. 10mg)"),
+    ("instructions",    "dosing instructions (e.g. take once daily at bedtime)"),
+]
+
+# Additional fields required for prescriptions (not supplements)
+REQUIRED_PRESCRIPTION = [
+    ("prescriber", "prescribing doctor's name"),
+]
+
+
+def get_missing_required(extracted: dict) -> list[str]:
+    """
+    Return a list of human-readable labels for required fields that are
+    missing or null, based on whether this is a prescription or supplement.
+    """
+    is_supplement = extracted.get("is_supplement", False)
+    checks = REQUIRED_ALL if is_supplement else REQUIRED_ALL + REQUIRED_PRESCRIPTION
+
+    return [
+        label
+        for field, label in checks
+        if not extracted.get(field)
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Formatting
 # ---------------------------------------------------------------------------
 
 def format_medication_message(extracted: dict, sender_name: str, confidence: str, notes: str) -> str:
     """
     Format extracted medication data into a chat-friendly message with
-    a confirmation prompt. The user replies @T5 to confirm, correct, or
-    add detail — ask() handles the rest using this message as context.
+    a confirmation prompt. Flags any required fields that are missing so
+    the user knows to supply them in their @T5 reply.
+
+    Required fields:
+      All medications:   medication_name, dosage, instructions
+      Prescriptions only: prescriber
     """
     lines = [f"💊 Medication label read from {sender_name}'s photo:\n"]
 
@@ -183,6 +219,13 @@ def format_medication_message(extracted: dict, sender_name: str, confidence: str
         lines.append(f"\n⚠️ Confidence: {confidence}")
     if notes:
         lines.append(f"Note: {notes}")
+
+    # Missing required fields — ask the user to fill them in
+    missing = get_missing_required(extracted)
+    if missing:
+        lines.append("\n⚠️ A few things I couldn't read from the label:")
+        for item in missing:
+            lines.append(f"  • {item}")
 
     lines.append(
         "\n@T5 does this look right? Reply @T5 yes to save, "
@@ -283,11 +326,13 @@ async def handle_image_message(attachment: ImageAttachment) -> Optional[str]:
 
     if classification == "MEDICATION":
         extracted = result.get("extracted", {})
+        missing = get_missing_required(extracted)
         logger.info(
             f"[images] MEDICATION DETECTED — "
             f"name: {extracted.get('medication_name')}, "
             f"dosage: {extracted.get('dosage')}, "
-            f"patient: {extracted.get('patient_name')}"
+            f"patient: {extracted.get('patient_name')}, "
+            f"missing required: {missing or 'none'}"
         )
         return format_medication_message(
             extracted=extracted,
