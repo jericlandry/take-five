@@ -7,8 +7,8 @@ Channel adapters (GroupMe, WhatsApp, SMS) are responsible for extracting
 an ImageAttachment from their respective webhook payloads and passing it
 to handle_image_message(). This module knows nothing about GroupMe specifics.
 
-Phase 1: Vision classification and extraction — logs to console only.
-Phase 2 (future): DB write via tool use after confirmation flow.
+Phase 1: Vision classification and extraction — returns reply text to caller.
+Phase 2 (future): Confirmation flow and DB write via tool use.
 """
 
 import logging
@@ -17,6 +17,7 @@ import anthropic
 import json
 import base64
 from dataclasses import dataclass
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -75,29 +76,25 @@ Return only valid JSON. No preamble, no markdown code fences.
 class ImageAttachment:
     """
     Normalized image event produced by each channel adapter.
-    
-    Channel webhooks are responsible for constructing this from their
-    own payload format before calling handle_image_message().
-    
-    GroupMe:   extracted in groupme.py from attachments[].type == "image"
-    WhatsApp:  extracted from Media URL in WhatsApp webhook payload
-    SMS/MMS:   extracted from Twilio NumMedia / MediaUrl0..N fields
+
+    GroupMe:  extracted from attachments[].type == "image"
+    WhatsApp: extracted from Media URL in WhatsApp webhook payload
+    SMS/MMS:  extracted from Twilio NumMedia / MediaUrl0..N fields
     """
     url: str
     sender_name: str
     message_text: str
     sender_id: str
-    group_id: str        # circle/group identifier — group_id, phone number, etc.
+    group_id: str
     message_id: str
-    channel: str         # "groupme" | "whatsapp" | "sms"
+    channel: str        # "groupme" | "whatsapp" | "sms"
 
 
 # ---------------------------------------------------------------------------
-# Channel adapters — one per integration
-# Each returns an ImageAttachment or None if no image in the payload.
+# Channel adapters
 # ---------------------------------------------------------------------------
 
-def extract_groupme_image(payload: dict) -> ImageAttachment | None:
+def extract_groupme_image(payload: dict) -> Optional[ImageAttachment]:
     """Extract image from a GroupMe webhook payload."""
     attachments = payload.get("attachments", [])
     image_url = next(
@@ -118,42 +115,17 @@ def extract_groupme_image(payload: dict) -> ImageAttachment | None:
     )
 
 
-def extract_whatsapp_image(payload: dict) -> ImageAttachment | None:
-    """
-    Extract image from a WhatsApp Cloud API webhook payload.
-    
-    WhatsApp delivers media as a media_id that must be fetched separately
-    via the Graph API. The URL here should be pre-resolved by the webhook
-    handler before calling this function, or handled lazily in fetch_image_as_base64.
-    
-    Placeholder — implement when WhatsApp integration is added.
-    """
-    # WhatsApp payload structure (Cloud API):
-    # payload["entry"][0]["changes"][0]["value"]["messages"][0]["image"]["id"]
-    # Requires a separate GET to https://graph.facebook.com/{media_id}
-    # to resolve to a downloadable URL with Authorization: Bearer {token}
+def extract_whatsapp_image(payload: dict) -> Optional[ImageAttachment]:
+    """Placeholder — implement when WhatsApp integration is added."""
     raise NotImplementedError("WhatsApp image extraction not yet implemented")
 
 
-def extract_sms_image(payload: dict) -> ImageAttachment | None:
-    """
-    Extract image from a Twilio MMS webhook payload (form-encoded).
-    
-    Twilio sends NumMedia, MediaUrl0..N, MediaContentType0..N fields.
-    The webhook handler receives these as Form() parameters and should
-    pass them here as a normalized dict.
-    
-    Placeholder — implement when MMS support is added.
-    """
-    # Twilio MMS fields:
-    # NumMedia: number of media attachments
-    # MediaUrl0, MediaUrl1, ...: public URLs (no auth required)
-    # MediaContentType0, ...: mime types
+def extract_sms_image(payload: dict) -> Optional[ImageAttachment]:
+    """Extract image from a Twilio MMS webhook payload."""
     num_media = int(payload.get("NumMedia", 0))
     if num_media == 0:
         return None
 
-    # Take the first image attachment
     for i in range(num_media):
         content_type = payload.get(f"MediaContentType{i}", "")
         if content_type.startswith("image/"):
@@ -170,16 +142,56 @@ def extract_sms_image(payload: dict) -> ImageAttachment | None:
 
 
 # ---------------------------------------------------------------------------
-# Core pipeline — channel-agnostic from here down
+# Formatting
+# ---------------------------------------------------------------------------
+
+def format_medication_message(extracted: dict, sender_name: str, confidence: str, notes: str) -> str:
+    """Format extracted medication data into a chat-friendly message."""
+    lines = [f"💊 Medication label read from {sender_name}'s photo:\n"]
+
+    name = extracted.get("medication_name")
+    brand = extracted.get("brand_name")
+    if name and brand:
+        lines.append(f"Medication: {name} ({brand})")
+    elif name:
+        lines.append(f"Medication: {name}")
+
+    if extracted.get("dosage"):
+        lines.append(f"Dosage: {extracted['dosage']}")
+    if extracted.get("form"):
+        lines.append(f"Form: {extracted['form']}")
+    if extracted.get("instructions"):
+        lines.append(f"Instructions: {extracted['instructions']}")
+    if extracted.get("patient_name"):
+        lines.append(f"Patient: {extracted['patient_name']}")
+    if extracted.get("prescriber"):
+        lines.append(f"Prescriber: {extracted['prescriber']}")
+    if extracted.get("pharmacy"):
+        lines.append(f"Pharmacy: {extracted['pharmacy']}")
+    if extracted.get("refill_date"):
+        lines.append(f"Refill date: {extracted['refill_date']}")
+    if extracted.get("quantity"):
+        lines.append(f"Quantity: {extracted['quantity']}")
+    if extracted.get("is_supplement"):
+        lines.append(f"Type: Supplement")
+
+    if confidence != "high":
+        lines.append(f"\n⚠️ Confidence: {confidence}")
+    if notes:
+        lines.append(f"Note: {notes}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Core pipeline
 # ---------------------------------------------------------------------------
 
 async def fetch_image_as_base64(url: str, headers: dict = None) -> tuple[str, str]:
     """
     Fetch image from URL and return (base64_data, media_type).
-
-    GroupMe: redirects m.groupme.com → cdn2.groupme.com, follow_redirects required.
-    Twilio:  MediaUrls are public, no auth needed.
-    WhatsApp: requires Authorization: Bearer {token} in headers — pass via headers param.
+    GroupMe redirects m.groupme.com → cdn2.groupme.com, follow_redirects required.
+    WhatsApp requires Authorization: Bearer {token} — pass via headers param.
     """
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         response = await client.get(url, headers=headers or {})
@@ -195,36 +207,24 @@ async def fetch_image_as_base64(url: str, headers: dict = None) -> tuple[str, st
 
 
 async def analyze_image(attachment: ImageAttachment) -> dict:
-    """
-    Send image to Claude vision for classification and extraction.
-    Accepts a normalized ImageAttachment — no channel-specific logic here.
-    Returns parsed result dict.
-    """
+    """Send image to Claude vision. Returns parsed result dict."""
     logger.info(f"[images] Fetching image from {attachment.url}")
     image_data, media_type = await fetch_image_as_base64(attachment.url)
 
     logger.info(
         f"[images] Sending to Claude vision ({VISION_MODEL}) — "
-        f"channel: {attachment.channel}, "
-        f"sender: {attachment.sender_name}, "
-        f"text hint: '{attachment.message_text}'"
+        f"channel: {attachment.channel}, sender: {attachment.sender_name}"
     )
 
     user_content = []
-
     if attachment.message_text:
         user_content.append({
             "type": "text",
             "text": f'The sender wrote: "{attachment.message_text}"\n\nNow analyze the image:'
         })
-
     user_content.append({
         "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": media_type,
-            "data": image_data,
-        }
+        "source": {"type": "base64", "media_type": media_type, "data": image_data}
     })
 
     response = ANTHROPIC_CLIENT.messages.create(
@@ -238,10 +238,10 @@ async def analyze_image(attachment: ImageAttachment) -> dict:
     logger.info(f"[images] Raw vision response: {raw_text}")
 
     try:
-        result = json.loads(raw_text)
+        return json.loads(raw_text)
     except json.JSONDecodeError as e:
         logger.error(f"[images] Failed to parse vision response as JSON: {e}")
-        result = {
+        return {
             "classification": "ERROR",
             "description": "Could not parse vision response",
             "raw": raw_text,
@@ -250,22 +250,16 @@ async def analyze_image(attachment: ImageAttachment) -> dict:
             "notes": str(e)
         }
 
-    return result
 
-
-async def handle_image_message(attachment: ImageAttachment) -> dict | None:
+async def handle_image_message(attachment: ImageAttachment) -> Optional[str]:
     """
-    Main entry point — accepts a normalized ImageAttachment.
-    Called from any channel's webhook handler after extracting the attachment.
-    Logs everything — no DB writes in Phase 1.
+    Main entry point. Returns a reply string if the image warrants one
+    (MEDICATION), or None if not. Caller is responsible for posting the reply.
     """
     logger.info(
-        f"[images] Image detected — "
-        f"channel: {attachment.channel}, "
+        f"[images] Image detected — channel: {attachment.channel}, "
         f"sender: {attachment.sender_name} ({attachment.sender_id}), "
-        f"group: {attachment.group_id}, "
-        f"message_id: {attachment.message_id}, "
-        f"url: {attachment.url}"
+        f"group: {attachment.group_id}, message_id: {attachment.message_id}"
     )
 
     try:
@@ -274,26 +268,22 @@ async def handle_image_message(attachment: ImageAttachment) -> dict | None:
         logger.error(f"[images] Vision call failed: {e}", exc_info=True)
         return None
 
-    logger.info(f"[images] Classification: {result.get('classification')}")
-    logger.info(f"[images] Description: {result.get('description')}")
-    logger.info(f"[images] Confidence: {result.get('confidence')}")
+    classification = result.get("classification")
+    logger.info(f"[images] Classification: {classification} | Confidence: {result.get('confidence')}")
 
-    if result.get("classification") == "MEDICATION":
+    if classification == "MEDICATION":
         extracted = result.get("extracted", {})
-        logger.info(f"[images] MEDICATION DETECTED — extracted fields:")
-        logger.info(f"[images]   name:         {extracted.get('medication_name')}")
-        logger.info(f"[images]   brand:        {extracted.get('brand_name')}")
-        logger.info(f"[images]   dosage:       {extracted.get('dosage')}")
-        logger.info(f"[images]   form:         {extracted.get('form')}")
-        logger.info(f"[images]   instructions: {extracted.get('instructions')}")
-        logger.info(f"[images]   patient:      {extracted.get('patient_name')}")
-        logger.info(f"[images]   prescriber:   {extracted.get('prescriber')}")
-        logger.info(f"[images]   pharmacy:     {extracted.get('pharmacy')}")
-        logger.info(f"[images]   is_supplement:{extracted.get('is_supplement')}")
-        logger.info(f"[images]   confidence:   {result.get('confidence')}")
-        if result.get("notes"):
-            logger.info(f"[images]   notes:        {result.get('notes')}")
-    else:
-        logger.info(f"[images] OTHER image — care log description: {result.get('description')}")
+        logger.info(f"[images] MEDICATION DETECTED — "
+                    f"name: {extracted.get('medication_name')}, "
+                    f"dosage: {extracted.get('dosage')}, "
+                    f"patient: {extracted.get('patient_name')}")
 
-    return result
+        return format_medication_message(
+            extracted=extracted,
+            sender_name=attachment.sender_name,
+            confidence=result.get("confidence", "high"),
+            notes=result.get("notes") or "",
+        )
+
+    logger.info(f"[images] OTHER image — {result.get('description')}")
+    return None

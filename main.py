@@ -214,6 +214,11 @@ async def message(body: MessageRequest):
 
 # --- Open endpoints for external integrations ---
 
+async def groupme_reply(bot_id: Optional[str], text: Optional[str]):
+    """Post a reply to GroupMe. No-op if bot_id or text is missing."""
+    if bot_id and text:
+        await send_message_async(bot_id, text)
+
 @open_router.post("/groupme/webhook")
 async def groupme_webhook(request: Request):
     data = await request.json()
@@ -225,7 +230,7 @@ async def groupme_webhook(request: Request):
         logging.info("Bot message ignored")
         return {"status": "ignored"}
 
-    # 2. Extract GroupMe-specific fields
+    # 2. Extract fields
     circle_ext_id = f"groupme:{data.get('group_id')}"
     person_ext_id = f"groupme:{data.get('sender_id')}"
     person_name = data.get("name", "Unknown User")
@@ -251,31 +256,35 @@ async def groupme_webhook(request: Request):
             repo=repo
         ))
 
-        # 3. Image detection — extract normalized attachment, pass to channel-agnostic handler
+        # Resolve circle once — bot_id used by both image and ask branches
+        circle = repo.get_circle_by_external_id(circle_ext_id)
+        circle_id = circle['id'] if circle else None
+        bot_id = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
+
+        # 3. Image detection — returns reply text or None, posted via same send_message_async
         image_attachment = extract_groupme_image(data)
         if image_attachment:
-            asyncio.create_task(handle_image_message(image_attachment))
+            async def process_image():
+                reply = await handle_image_message(image_attachment)
+                await groupme_reply(bot_id, reply)
+            asyncio.create_task(process_image())
 
-        # 4. T5 ask flow
+        # 4. T5 ask flow — same send_message_async
         if '@T5' in text:
             question = text.split('@T5', 1)[1].strip()
-            circle = repo.get_circle_by_external_id(circle_ext_id)
-            circle_id = circle['id'] if circle else None
-            bot_id = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
-
             if not question:
                 logging.warning("T5 command detected but no question found.")
                 return {"status": "ok"}
             if not circle_id:
-                logging.error(f"Circle with external_id {circle_ext_id} not found in database.")
+                logging.error(f"Circle with external_id {circle_ext_id} not found.")
                 return {"status": "ok"}
             if not bot_id:
                 logging.error(f"No groupme_bot_id in integration_config for circle {circle_ext_id}.")
                 return {"status": "ok"}
 
-            logging.info(f"T5 question command detected, generating response...")
+            logging.info("T5 question command detected, generating response...")
             bot_response = await ask(question, circle_id, response_format="text")
-            await send_message_async(bot_id, bot_response)
+            await groupme_reply(bot_id, bot_response)
 
         logging.info(f"Message stored. Internal ID: {new_msg['id']}")
 
@@ -332,7 +341,7 @@ async def receive_sms(
         repo=repo
     ))
 
-    # MMS image detection — same pipeline, SMS extractor
+    # MMS image detection — reply via Twilio response (not yet implemented)
     if int(NumMedia) > 0:
         sms_payload = {
             "NumMedia": NumMedia,
@@ -342,7 +351,7 @@ async def receive_sms(
             "From": From,
             "To": To,
             "sender_name": person['name'],
-            "MessageSid": "",  # not captured in Form params above; add if needed
+            "MessageSid": "",
         }
         image_attachment = extract_sms_image(sms_payload)
         if image_attachment:
