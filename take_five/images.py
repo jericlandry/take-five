@@ -8,7 +8,7 @@ an ImageAttachment from their respective webhook payloads and passing it
 to handle_image_message(). This module knows nothing about GroupMe specifics.
 
 Phase 1: Vision classification and extraction — returns reply text to caller.
-Phase 2 (future): Confirmation flow and DB write via tool use.
+Phase 2 (future): DB write via tool use after confirmation through ask().
 """
 
 import logging
@@ -146,7 +146,11 @@ def extract_sms_image(payload: dict) -> Optional[ImageAttachment]:
 # ---------------------------------------------------------------------------
 
 def format_medication_message(extracted: dict, sender_name: str, confidence: str, notes: str) -> str:
-    """Format extracted medication data into a chat-friendly message."""
+    """
+    Format extracted medication data into a chat-friendly message with
+    a confirmation prompt. The user replies @T5 to confirm, correct, or
+    add detail — ask() handles the rest using this message as context.
+    """
     lines = [f"💊 Medication label read from {sender_name}'s photo:\n"]
 
     name = extracted.get("medication_name")
@@ -179,6 +183,12 @@ def format_medication_message(extracted: dict, sender_name: str, confidence: str
         lines.append(f"\n⚠️ Confidence: {confidence}")
     if notes:
         lines.append(f"Note: {notes}")
+
+    lines.append(
+        "\n@T5 does this look right? Reply @T5 yes to save, "
+        "or tell me anything to change or add — "
+        "like the name, timing, or how she prefers to take it."
+    )
 
     return "\n".join(lines)
 
@@ -253,8 +263,8 @@ async def analyze_image(attachment: ImageAttachment) -> dict:
 
 async def handle_image_message(attachment: ImageAttachment) -> Optional[str]:
     """
-    Main entry point. Returns a reply string if the image warrants one
-    (MEDICATION), or None if not. Caller is responsible for posting the reply.
+    Main entry point. Returns a reply string if the image is a medication,
+    None otherwise. Caller is responsible for posting the reply.
     """
     logger.info(
         f"[images] Image detected — channel: {attachment.channel}, "
@@ -273,11 +283,12 @@ async def handle_image_message(attachment: ImageAttachment) -> Optional[str]:
 
     if classification == "MEDICATION":
         extracted = result.get("extracted", {})
-        logger.info(f"[images] MEDICATION DETECTED — "
-                    f"name: {extracted.get('medication_name')}, "
-                    f"dosage: {extracted.get('dosage')}, "
-                    f"patient: {extracted.get('patient_name')}")
-
+        logger.info(
+            f"[images] MEDICATION DETECTED — "
+            f"name: {extracted.get('medication_name')}, "
+            f"dosage: {extracted.get('dosage')}, "
+            f"patient: {extracted.get('patient_name')}"
+        )
         return format_medication_message(
             extracted=extracted,
             sender_name=attachment.sender_name,
