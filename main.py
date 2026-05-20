@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter,  Request, Form, Response
+from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,13 +19,13 @@ from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
 from take_five.messages import ask
 from take_five.utils import row_to_dict, row_list_to_dict_list
-from take_five.images import handle_image_message, get_image_attachment
+from take_five.images import extract_groupme_image, extract_sms_image, handle_image_message
 
 from take_five.integrations.groupme import send_message_async
 
 logging.basicConfig(level=logging.INFO)
 
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()
 
 security = HTTPBearer()
 
@@ -45,10 +45,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8000",
         "http://localhost:3000",
-        "http://localhost:10000",      # ← add
+        "http://localhost:10000",
         "http://127.0.0.1:8000",
-        "http://127.0.0.1:10000",     # ← add
-        "http://0.0.0.0:10000",       # ← add (this is what your browser is seeing)
+        "http://127.0.0.1:10000",
+        "http://0.0.0.0:10000",
         "https://take-five.onrender.com",
         "https://takefive.care",
         "https://www.takefive.care",
@@ -117,7 +117,7 @@ class DigestRequest(BaseModel):
 async def summary(body: DigestRequest):
     logging.info("Digest request received")
     kwargs = {}
-    if body.start_date: # date format for reuquest ex: "2026-05-01T00:00:00"
+    if body.start_date:
         kwargs['start_date'] = body.start_date
     if body.end_date:
         kwargs['end_date'] = body.end_date
@@ -212,19 +212,20 @@ async def message(body: MessageRequest):
     response = await ask(body.message, body.circle_id, response_format=body.response_format)
     return {"response": response}
 
-#--- Open endpoints for external integrations (e.g. GroupMe, Twilio) ---
+# --- Open endpoints for external integrations ---
+
 @open_router.post("/groupme/webhook")
 async def groupme_webhook(request: Request):
     data = await request.json()
     logging.info("GroupMe webhook received")
     logging.info(f"Webhook data: {data}")
-    
-    # 1. Guard: Ignore the bot's own messages to avoid infinite loops
+
+    # 1. Guard: ignore bot's own messages to avoid infinite loops
     if data.get("sender_type") == "bot":
         logging.info("Bot message ignored")
         return {"status": "ignored"}
-    
-    # 2. Extract GroupMe specific fields
+
+    # 2. Extract GroupMe-specific fields
     circle_ext_id = f"groupme:{data.get('group_id')}"
     person_ext_id = f"groupme:{data.get('sender_id')}"
     person_name = data.get("name", "Unknown User")
@@ -233,12 +234,11 @@ async def groupme_webhook(request: Request):
     logging.info(f"Processing message from {person_name} in group {circle_ext_id}")
 
     try:
-
         new_msg = repo.log_message(
             circle_ext_id=circle_ext_id,
             person_ext_id=person_ext_id,
             body=text,
-            raw_data=data,  # Full JSON goes into the 'raw' column
+            raw_data=data,
             channel="groupme"
         )
 
@@ -251,17 +251,18 @@ async def groupme_webhook(request: Request):
             repo=repo
         ))
 
-        # 3. Image detection — runs on every message with an image attachment
-        if get_image_attachment(data):
-            asyncio.create_task(handle_image_message(data))
+        # 3. Image detection — extract normalized attachment, pass to channel-agnostic handler
+        image_attachment = extract_groupme_image(data)
+        if image_attachment:
+            asyncio.create_task(handle_image_message(image_attachment))
 
-        # 4. T5 ask flow — runs when @T5 is mentioned
+        # 4. T5 ask flow
         if '@T5' in text:
             question = text.split('@T5', 1)[1].strip()
             circle = repo.get_circle_by_external_id(circle_ext_id)
             circle_id = circle['id'] if circle else None
             bot_id = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
-            
+
             if not question:
                 logging.warning("T5 command detected but no question found.")
                 return {"status": "ok"}
@@ -271,26 +272,32 @@ async def groupme_webhook(request: Request):
             if not bot_id:
                 logging.error(f"No groupme_bot_id in integration_config for circle {circle_ext_id}.")
                 return {"status": "ok"}
-            
+
             logging.info(f"T5 question command detected, generating response...")
             bot_response = await ask(question, circle_id, response_format="text")
             await send_message_async(bot_id, bot_response)
-        
+
         logging.info(f"Message stored. Internal ID: {new_msg['id']}")
 
     except Exception as e:
         logging.error(f"Failed to sync or log message: {e}")
-        # Returning "ok" prevents GroupMe from retrying a broken request repeatedly
         return {"status": "error", "message": str(e)}
 
     logging.info("Webhook processed successfully")
-
     return {"status": "ok"}
 
+
 @open_router.post("/twilio/sms")
-async def receive_sms(From: str = Form(...), Body: str = Form(...), To: str = Form(...)):
+async def receive_sms(
+    From: str = Form(...),
+    Body: str = Form(...),
+    To: str = Form(...),
+    NumMedia: str = Form(default="0"),
+    MediaUrl0: Optional[str] = Form(default=None),
+    MediaContentType0: Optional[str] = Form(default=None),
+):
     response = MessagingResponse()
-    
+
     person = repo.find_person_by_phone(From)
     circle_ext_id = f"sms:{To}"
     person_ext_id = f"sms:{From}"
@@ -325,9 +332,26 @@ async def receive_sms(From: str = Form(...), Body: str = Form(...), To: str = Fo
         repo=repo
     ))
 
+    # MMS image detection — same pipeline, SMS extractor
+    if int(NumMedia) > 0:
+        sms_payload = {
+            "NumMedia": NumMedia,
+            "MediaUrl0": MediaUrl0,
+            "MediaContentType0": MediaContentType0,
+            "Body": Body,
+            "From": From,
+            "To": To,
+            "sender_name": person['name'],
+            "MessageSid": "",  # not captured in Form params above; add if needed
+        }
+        image_attachment = extract_sms_image(sms_payload)
+        if image_attachment:
+            asyncio.create_task(handle_image_message(image_attachment))
+
     logging.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
     response.message(f"Got it, {person['name']}. Thanks for the update.")
     return Response(content=str(response), media_type="application/xml")
+
 
 app.include_router(secure_router)
 
