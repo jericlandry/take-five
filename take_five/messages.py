@@ -277,9 +277,9 @@ Guidelines:
 Tool use — save_clinical_record:
 - A medication is PENDING when you see a message beginning with "💊 PENDING CONFIRMATION".
   This means the record has NOT been saved to the database yet — it is awaiting confirmation.
-- A medication is SAVED only when the save_clinical_record tool has been called successfully
-  in the current conversation and returned a success result. Never infer a record was saved
-  from message history alone.
+- A medication is SAVED only when you see a message beginning with "[SAVED: record_id=...]"
+  in the conversation history. This marker is written by the system only when the database
+  write actually succeeded. Never infer a record was saved from any other message.
 - Call save_clinical_record ONLY when the user explicitly confirms (e.g. "yes", "save it",
   "looks good", "that's right") AND there is a PENDING CONFIRMATION medication in context.
 - Do NOT call it if the user is still making corrections or required fields are missing.
@@ -359,16 +359,30 @@ async def ask_with_tools(
 
     if response.tool_calls:
         tool_messages = []
+        saved_record_ids = []
+
         for tc in response.tool_calls:
             logger.info(f"[ask_with_tools] Tool call: {tc['name']} args: {tc['args']}")
             if tc['name'] == 'save_clinical_record':
                 result = save_clinical_record.invoke(tc['args'])
+                parsed = json.loads(result)
+                if parsed.get('success'):
+                    saved_record_ids.append(parsed['record_id'])
                 tool_messages.append(ToolMessage(content=result, tool_call_id=tc['id']))
 
         followup = llm.invoke(
             [user_message, response, *tool_messages],
             config={"system": SYSTEM_PROMPT}
         )
-        return followup.content.strip()
+        reply = followup.content.strip()
+
+        # Prepend a machine-readable marker when the DB write actually succeeded.
+        # This is the ONLY reliable signal that a record was saved — Claude reads
+        # this marker in future turns to avoid hallucinating prior saves.
+        if saved_record_ids:
+            record_ids = ", ".join(saved_record_ids)
+            reply = f"[SAVED: record_id={record_ids}]\n{reply}"
+
+        return reply
 
     return response.content.strip()
