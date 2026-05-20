@@ -6,9 +6,6 @@ Image detection and analysis pipeline — channel-agnostic.
 Channel adapters (GroupMe, WhatsApp, SMS) are responsible for extracting
 an ImageAttachment from their respective webhook payloads and passing it
 to handle_image_message(). This module knows nothing about GroupMe specifics.
-
-Phase 1: Vision classification and extraction — returns reply text to caller.
-Phase 2 (future): DB write via tool use after confirmation through ask().
 """
 
 import logging
@@ -23,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 ANTHROPIC_CLIENT = anthropic.Anthropic()
 
-# Opus for vision — prescription labels are small, curved, often glare-y.
-# At family chat volume the cost difference is negligible.
 VISION_MODEL = "claude-opus-4-20250514"
 
 VISION_PROMPT = """You are analyzing an image sent in a family elder care group chat called Take Five.
@@ -74,13 +69,6 @@ Return only valid JSON. No preamble, no markdown code fences.
 
 @dataclass
 class ImageAttachment:
-    """
-    Normalized image event produced by each channel adapter.
-
-    GroupMe:  extracted from attachments[].type == "image"
-    WhatsApp: extracted from Media URL in WhatsApp webhook payload
-    SMS/MMS:  extracted from Twilio NumMedia / MediaUrl0..N fields
-    """
     url: str
     sender_name: str
     message_text: str
@@ -95,7 +83,6 @@ class ImageAttachment:
 # ---------------------------------------------------------------------------
 
 def extract_groupme_image(payload: dict) -> Optional[ImageAttachment]:
-    """Extract image from a GroupMe webhook payload."""
     attachments = payload.get("attachments", [])
     image_url = next(
         (a.get("url") for a in attachments if a.get("type") == "image"),
@@ -103,7 +90,6 @@ def extract_groupme_image(payload: dict) -> Optional[ImageAttachment]:
     )
     if not image_url:
         return None
-
     return ImageAttachment(
         url=image_url,
         sender_name=payload.get("name", "Unknown"),
@@ -116,16 +102,13 @@ def extract_groupme_image(payload: dict) -> Optional[ImageAttachment]:
 
 
 def extract_whatsapp_image(payload: dict) -> Optional[ImageAttachment]:
-    """Placeholder — implement when WhatsApp integration is added."""
     raise NotImplementedError("WhatsApp image extraction not yet implemented")
 
 
 def extract_sms_image(payload: dict) -> Optional[ImageAttachment]:
-    """Extract image from a Twilio MMS webhook payload."""
     num_media = int(payload.get("NumMedia", 0))
     if num_media == 0:
         return None
-
     for i in range(num_media):
         content_type = payload.get(f"MediaContentType{i}", "")
         if content_type.startswith("image/"):
@@ -142,35 +125,24 @@ def extract_sms_image(payload: dict) -> Optional[ImageAttachment]:
 
 
 # ---------------------------------------------------------------------------
-# Required fields by medication type
+# Required fields
 # ---------------------------------------------------------------------------
 
-# Fields required for all medications
 REQUIRED_ALL = [
     ("medication_name", "medication name"),
     ("dosage",          "dosage (e.g. 10mg)"),
     ("instructions",    "dosing instructions (e.g. take once daily at bedtime)"),
 ]
 
-# Additional fields required for prescriptions (not supplements)
 REQUIRED_PRESCRIPTION = [
     ("prescriber", "prescribing doctor's name"),
 ]
 
 
 def get_missing_required(extracted: dict) -> list[str]:
-    """
-    Return a list of human-readable labels for required fields that are
-    missing or null, based on whether this is a prescription or supplement.
-    """
     is_supplement = extracted.get("is_supplement", False)
     checks = REQUIRED_ALL if is_supplement else REQUIRED_ALL + REQUIRED_PRESCRIPTION
-
-    return [
-        label
-        for field, label in checks
-        if not extracted.get(field)
-    ]
+    return [label for field, label in checks if not extracted.get(field)]
 
 
 # ---------------------------------------------------------------------------
@@ -179,15 +151,13 @@ def get_missing_required(extracted: dict) -> list[str]:
 
 def format_medication_message(extracted: dict, sender_name: str, confidence: str, notes: str) -> str:
     """
-    Format extracted medication data into a chat-friendly message with
-    a confirmation prompt. Flags any required fields that are missing so
-    the user knows to supply them in their @T5 reply.
+    Format extracted medication data into a chat-friendly pending confirmation message.
 
-    Required fields:
-      All medications:   medication_name, dosage, instructions
-      Prescriptions only: prescriber
+    The '💊 PENDING CONFIRMATION' prefix is the signal ask_with_tools() uses to
+    distinguish an unsaved extraction from a previously saved record. Do not change it
+    without also updating the SYSTEM_PROMPT in messages.py.
     """
-    lines = [f"💊 Medication label read from {sender_name}'s photo:\n"]
+    lines = [f"💊 PENDING CONFIRMATION — Medication label read from {sender_name}'s photo:\n"]
 
     name = extracted.get("medication_name")
     brand = extracted.get("brand_name")
@@ -220,7 +190,6 @@ def format_medication_message(extracted: dict, sender_name: str, confidence: str
     if notes:
         lines.append(f"Note: {notes}")
 
-    # Missing required fields — ask the user to fill them in
     missing = get_missing_required(extracted)
     if missing:
         lines.append("\n⚠️ A few things I couldn't read from the label:")
@@ -241,11 +210,6 @@ def format_medication_message(extracted: dict, sender_name: str, confidence: str
 # ---------------------------------------------------------------------------
 
 async def fetch_image_as_base64(url: str, headers: dict = None) -> tuple[str, str]:
-    """
-    Fetch image from URL and return (base64_data, media_type).
-    GroupMe redirects m.groupme.com → cdn2.groupme.com, follow_redirects required.
-    WhatsApp requires Authorization: Bearer {token} — pass via headers param.
-    """
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         response = await client.get(url, headers=headers or {})
         response.raise_for_status()
@@ -260,7 +224,6 @@ async def fetch_image_as_base64(url: str, headers: dict = None) -> tuple[str, st
 
 
 async def analyze_image(attachment: ImageAttachment) -> dict:
-    """Send image to Claude vision. Returns parsed result dict."""
     logger.info(f"[images] Fetching image from {attachment.url}")
     image_data, media_type = await fetch_image_as_base64(attachment.url)
 
@@ -305,10 +268,6 @@ async def analyze_image(attachment: ImageAttachment) -> dict:
 
 
 async def handle_image_message(attachment: ImageAttachment) -> Optional[str]:
-    """
-    Main entry point. Returns a reply string if the image is a medication,
-    None otherwise. Caller is responsible for posting the reply.
-    """
     logger.info(
         f"[images] Image detected — channel: {attachment.channel}, "
         f"sender: {attachment.sender_name} ({attachment.sender_id}), "

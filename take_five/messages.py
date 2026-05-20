@@ -19,7 +19,6 @@ llm_with_tools = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
 # Tool definition
 # ---------------------------------------------------------------------------
 
-# Module-level context injected before each ask_with_tools() call
 _tool_context: dict = {}
 
 @tool
@@ -120,7 +119,7 @@ def save_clinical_record(
 TOOLS = [save_clinical_record]
 
 # ---------------------------------------------------------------------------
-# Context builder — used by ask_with_tools() and summaries.py
+# Context builder
 # ---------------------------------------------------------------------------
 
 class ContextBuilder:
@@ -276,15 +275,19 @@ Guidelines:
 - Keep answers concise but complete
 
 Tool use — save_clinical_record:
-- Call this tool ONLY when the user has explicitly confirmed the medication details are
-  correct (e.g. "yes", "save it", "that's right", "looks good").
-- Do NOT call it if the user is still making corrections or if required fields are missing.
+- A medication is PENDING when you see a message beginning with "💊 PENDING CONFIRMATION".
+  This means the record has NOT been saved to the database yet — it is awaiting confirmation.
+- A medication is SAVED only when the save_clinical_record tool has been called successfully
+  in the current conversation and returned a success result. Never infer a record was saved
+  from message history alone.
+- Call save_clinical_record ONLY when the user explicitly confirms (e.g. "yes", "save it",
+  "looks good", "that's right") AND there is a PENDING CONFIRMATION medication in context.
+- Do NOT call it if the user is still making corrections or required fields are missing.
 - The person_id must be the UUID of the care recipient (senior) from the roster —
   never use a family member's ID.
 - If there is more than one senior in the circle and it is unclear which one the
   medication belongs to, ask before saving.
-- After a successful save, confirm warmly: tell the user the medication has been saved
-  and summarise what was recorded."""
+- After a successful save, confirm warmly and summarise what was recorded."""
 
 
 def _build_human_message(
@@ -319,7 +322,7 @@ def _build_human_message(
 
 
 # ---------------------------------------------------------------------------
-# ask_with_tools() — single entry point for all Q&A and confirmation flows
+# ask_with_tools()
 # ---------------------------------------------------------------------------
 
 async def ask_with_tools(
@@ -328,12 +331,6 @@ async def ask_with_tools(
     response_format: str = "text",
     confirmed_by_person_id: str = None,
 ) -> str:
-    """
-    Tool-aware ask using ChatAnthropic.bind_tools() within the LangChain environment.
-    Single entry point for GroupMe @T5 flow and the /messages API endpoint.
-
-    confirmed_by_person_id: person_id of the sender, stored on saved DB records.
-    """
     global _tool_context
 
     repo = TakeFiveRepository()
