@@ -21,13 +21,7 @@
 }
 html, body { height: 100%; }
 body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--cream); color: var(--text); display: flex; flex-direction: column; }
-
-/* ── TOPBAR ── */
-.topbar {
-  height: 52px; background: var(--t800); display: flex; align-items: center;
-  padding: 0 1.5rem; gap: 1rem; flex-shrink: 0;
-  border-bottom: 1px solid rgba(93,202,165,0.2);
-}
+.topbar { height: 52px; background: var(--t800); display: flex; align-items: center; padding: 0 1.5rem; gap: 1rem; flex-shrink: 0; border-bottom: 1px solid rgba(93,202,165,0.2); }
 .topbar-brand { display: flex; align-items: center; gap: 9px; }
 .topbar-logo { width: 26px; height: 26px; }
 .topbar-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--t100); letter-spacing: -0.02em; }
@@ -35,36 +29,16 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .topbar-sep { width: 1px; height: 20px; background: rgba(93,202,165,0.2); }
 .topbar-api { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .topbar-api label { font-size: 11px; color: var(--t300); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.topbar-api input {
-  background: rgba(0,0,0,0.25); border: 1px solid rgba(93,202,165,0.25);
-  border-radius: var(--radius-sm); color: var(--t100); font-size: 12px;
-  font-family: monospace; padding: 4px 10px; width: 260px; outline: none;
-}
+.topbar-api input { background: rgba(0,0,0,0.25); border: 1px solid rgba(93,202,165,0.25); border-radius: var(--radius-sm); color: var(--t100); font-size: 12px; font-family: monospace; padding: 4px 10px; width: 260px; outline: none; }
 .topbar-api input:focus { border-color: var(--t300); }
 .api-status { width: 8px; height: 8px; border-radius: 50%; background: var(--g400); flex-shrink: 0; transition: background 0.3s; }
 .api-status.ok { background: var(--t300); }
 .api-status.err { background: var(--danger); }
-
-/* ── LAYOUT ── */
 .app { display: flex; flex: 1; overflow: hidden; }
-
-/* ── SIDEBAR ── */
-.sidebar {
-  width: var(--sidebar-w); flex-shrink: 0; background: var(--white);
-  border-right: 1px solid var(--g200); display: flex; flex-direction: column;
-  overflow-y: auto;
-}
+.sidebar { width: var(--sidebar-w); flex-shrink: 0; background: var(--white); border-right: 1px solid var(--g200); display: flex; flex-direction: column; overflow-y: auto; }
 .sidebar-section { padding: 1.25rem 0.75rem 0.5rem; }
-.sidebar-label {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
-  color: var(--g400); padding: 0 0.5rem; margin-bottom: 6px; display: block;
-}
-.sidebar-item {
-  display: flex; align-items: center; gap: 8px; padding: 0.45rem 0.6rem;
-  border-radius: var(--radius-sm); font-size: 13px; color: var(--g600);
-  cursor: pointer; transition: background 0.15s, color 0.15s; margin-bottom: 1px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: none; background: none; width: 100%; text-align: left;
-}
+.sidebar-label { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--g400); padding: 0 0.5rem; margin-bottom: 6px; display: block; }
+.sidebar-item { display: flex; align-items: center; gap: 8px; padding: 0.45rem 0.6rem; border-radius: var(--radius-sm); font-size: 13px; color: var(--g600); cursor: pointer; transition: background 0.15s, color 0.15s; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: none; background: none; width: 100%; text-align: left; }
 .sidebar-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar-item:hover { background: var(--t50); color: var(--t800); }
 .sidebar-item.active { background: var(--t50); color: var(--t800); font-weight: 700; }
@@ -72,38 +46,21 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .sidebar-item.active .badge-count { background: var(--t300); color: var(--t900); }
 .sidebar-divider { height: 1px; background: var(--g200); margin: 0.5rem 0.75rem; }
 .sidebar-ensemble-list { padding: 0 0.75rem 0.5rem; display: flex; flex-direction: column; gap: 1px; }
-.ens-chip {
-  display: flex; align-items: center; gap: 7px; padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-sm); font-size: 12px; color: var(--g600);
-  cursor: pointer; transition: background 0.15s; border: none; background: none; width: 100%; text-align: left;
-}
+.ens-chip { display: flex; align-items: center; gap: 7px; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); font-size: 12px; color: var(--g600); cursor: pointer; transition: background 0.15s; border: none; background: none; width: 100%; text-align: left; }
 .ens-chip:hover { background: var(--t50); color: var(--t800); }
 .ens-chip.active { background: var(--t50); color: var(--t800); font-weight: 700; }
 .ens-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--t300); flex-shrink: 0; }
 .ens-chip.inactive .ens-dot { background: var(--g400); }
-
-/* ── MAIN ── */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .panel { flex: 1; overflow-y: auto; padding: 1.5rem; }
-
-/* ── BREADCRUMB ── */
 .breadcrumb { display: flex; align-items: center; gap: 6px; margin-bottom: 1.25rem; font-size: 12px; color: var(--g400); }
 .breadcrumb span { color: var(--text); font-weight: 700; }
 .breadcrumb-sep { color: var(--g400); }
-
-/* ── PAGE HEADER ── */
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; }
 .page-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 400; color: var(--t800); line-height: 1.2; }
 .page-title em { font-style: italic; color: var(--t500); }
 .page-sub { font-size: 13px; color: var(--g600); margin-top: 4px; max-width: 480px; line-height: 1.5; }
-
-/* ── BUTTONS ── */
-.btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 0.5rem 1rem; border-radius: var(--radius-md);
-  font-family: 'Lato', sans-serif; font-size: 13px; font-weight: 700;
-  cursor: pointer; border: none; transition: background 0.15s, transform 0.1s;
-}
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-family: 'Lato', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: background 0.15s, transform 0.1s; }
 .btn:active { transform: scale(0.98); }
 .btn-primary { background: var(--t500); color: var(--white); }
 .btn-primary:hover { background: var(--t600); }
@@ -113,34 +70,20 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .btn-danger:hover { background: #F7C1C1; }
 .btn-sm { padding: 0.35rem 0.75rem; font-size: 12px; border-radius: var(--radius-sm); }
 .btn svg { width: 14px; height: 14px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-/* ── CARDS ── */
-.card {
-  background: var(--white); border: 1px solid var(--g200);
-  border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem;
-}
+.card { background: var(--white); border: 1px solid var(--g200); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
 .card-title { font-size: 13px; font-weight: 700; color: var(--t800); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px; }
 .card-title svg { width: 16px; height: 16px; stroke: var(--t500); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-
-/* ── FORM ── */
 .form-row { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
 .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
 .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--g600); }
-.field input, .field select, .field textarea {
-  padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
-  border: 1px solid var(--g200); background: var(--white);
-  font-family: 'Lato', sans-serif; font-size: 13px; color: var(--text);
-  outline: none; transition: border-color 0.15s; width: 100%;
-}
+.field input, .field select, .field textarea { padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--g200); background: var(--white); font-family: 'Lato', sans-serif; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s; width: 100%; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--t300); box-shadow: 0 0 0 3px rgba(93,202,165,0.15); }
 .field textarea { resize: vertical; min-height: 70px; }
 .field select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%23B0ADA6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
 .form-hint { font-size: 11px; color: var(--g400); margin-top: 2px; }
 .form-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--g200); }
-
-/* ── TABLE ── */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--g400); padding: 0 0.75rem 0.6rem; border-bottom: 1px solid var(--g200); white-space: nowrap; }
@@ -150,8 +93,6 @@ tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--g200); color
 tbody tr:last-child td { border-bottom: none; }
 .td-mono { font-family: monospace; font-size: 11px; color: var(--g400); }
 .td-actions { display: flex; gap: 6px; justify-content: flex-end; }
-
-/* ── PILLS / BADGES ── */
 .pill { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 100px; }
 .pill-active { background: var(--t50); color: var(--t800); }
 .pill-trial { background: var(--amber-bg); color: var(--amber-dk); }
@@ -162,48 +103,29 @@ tbody tr:last-child td { border-bottom: none; }
 .pill-caregiver { background: var(--amber-bg); color: var(--amber-dk); }
 .pill-professional { background: var(--info-bg); color: var(--info); }
 .pill-person { background: var(--cream); color: var(--g600); border: 1px solid var(--g200); }
-
-/* ── AVATAR ── */
 .avatar { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 .av-teal { background: var(--t50); color: var(--t800); }
 .av-amber { background: var(--amber-bg); color: var(--amber-dk); }
 .av-purple { background: #EEEDFE; color: #3C3489; }
 .av-gray { background: var(--g200); color: var(--g600); }
-
-/* ── EMPTY STATE ── */
 .empty { text-align: center; padding: 3rem 1rem; }
 .empty-icon { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.25; }
 .empty-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .empty-sub { font-size: 13px; color: var(--g600); }
-
-/* ── TOAST ── */
 .toast-wrap { position: fixed; bottom: 1.5rem; right: 1.5rem; display: flex; flex-direction: column; gap: 8px; z-index: 999; pointer-events: none; }
-.toast {
-  background: var(--t800); color: var(--t100); font-size: 13px;
-  padding: 0.65rem 1rem; border-radius: var(--radius-md); border-left: 3px solid var(--t300);
-  max-width: 320px; pointer-events: auto; opacity: 0;
-  transform: translateX(16px); transition: opacity 0.2s, transform 0.2s;
-}
+.toast { background: var(--t800); color: var(--t100); font-size: 13px; padding: 0.65rem 1rem; border-radius: var(--radius-md); border-left: 3px solid var(--t300); max-width: 320px; pointer-events: auto; opacity: 0; transform: translateX(16px); transition: opacity 0.2s, transform 0.2s; }
 .toast.err { background: var(--danger-dk); border-left-color: var(--danger); }
 .toast.show { opacity: 1; transform: translateX(0); }
-
-/* ── LOADING ── */
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── STATS ROW ── */
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
 .stat-card { background: var(--white); border: 1px solid var(--g200); border-radius: var(--radius-md); padding: 0.9rem 1rem; }
 .stat-val { font-family: 'Playfair Display', serif; font-size: 1.75rem; font-weight: 700; color: var(--t800); line-height: 1; }
 .stat-label { font-size: 11px; color: var(--g600); margin-top: 4px; }
-
-/* ── SECTION TABS ── */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--g200); margin-bottom: 1.25rem; }
 .tab { padding: 0.55rem 1rem; font-size: 13px; font-weight: 400; color: var(--g600); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
 .tab:hover { color: var(--t500); }
 .tab.active { color: var(--t800); border-bottom-color: var(--t500); font-weight: 700; }
-
-/* ── MODAL ── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(4,52,44,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 .modal-backdrop.open { opacity: 1; pointer-events: all; }
 .modal { background: var(--white); border-radius: var(--radius-lg); padding: 1.5rem; width: 480px; max-width: 90vw; transform: translateY(12px); transition: transform 0.2s; max-height: 90vh; overflow-y: auto; }
@@ -213,8 +135,6 @@ tbody tr:last-child td { border-bottom: none; }
 .modal-close { background: none; border: none; cursor: pointer; color: var(--g400); padding: 4px; border-radius: 4px; display: flex; }
 .modal-close:hover { color: var(--text); background: var(--cream); }
 .modal-close svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
-
-/* ── MEMBER SELECTOR ── */
 .member-pick { border: 1px solid var(--g200); border-radius: var(--radius-md); overflow: hidden; max-height: 240px; overflow-y: auto; }
 .member-opt { display: flex; align-items: center; gap: 10px; padding: 0.6rem 0.75rem; cursor: pointer; border-bottom: 1px solid var(--g200); transition: background 0.1s; }
 .member-opt:last-child { border-bottom: none; }
@@ -226,24 +146,30 @@ tbody tr:last-child td { border-bottom: none; }
 .member-opt.selected .member-opt-check svg { display: block; }
 .member-opt-name { font-size: 13px; color: var(--text); }
 .member-opt-type { font-size: 11px; color: var(--g400); margin-left: auto; }
+.detail-back { display: flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-size: 13px; color: var(--t500); padding: 0; margin-bottom: 1.25rem; font-family: 'Lato', sans-serif; }
+.detail-back:hover { color: var(--t800); }
+.detail-back svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.detail-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.detail-avatar { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+.detail-name { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--t800); }
+.detail-meta { font-size: 12px; color: var(--g400); margin-top: 2px; }
+.npi-results { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 8px; }
+.npi-result { border: 1px solid var(--g200); border-radius: var(--radius-md); padding: 0.75rem 1rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.npi-result:hover { border-color: var(--t300); background: var(--t50); }
+.npi-result.selected { border-color: var(--t500); background: var(--t50); }
+.npi-result-name { font-size: 13px; font-weight: 700; color: var(--t800); }
+.npi-result-specialty { font-size: 12px; color: var(--t500); margin-top: 2px; }
+.npi-result-address { font-size: 11px; color: var(--g400); margin-top: 3px; }
+.npi-result-npi { font-size: 10px; color: var(--g400); font-family: monospace; margin-top: 2px; }
 </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-brand">
     <svg class="topbar-logo" viewBox="0 0 56 56" fill="none">
-      <g stroke="#5DCAA5" stroke-width="1.5">
-        <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
-        <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
-        <line x1="6" y1="21" x2="28" y2="6"/>
-      </g>
-      <circle cx="28" cy="6" r="5" fill="#5DCAA5"/>
-      <circle cx="50" cy="21" r="5" fill="#5DCAA5"/>
-      <circle cx="42" cy="47" r="5" fill="#5DCAA5"/>
-      <circle cx="14" cy="47" r="5" fill="#5DCAA5"/>
-      <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
+      <g stroke="#5DCAA5" stroke-width="1.5"><line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/><line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/><line x1="6" y1="21" x2="28" y2="6"/></g>
+      <circle cx="28" cy="6" r="5" fill="#5DCAA5"/><circle cx="50" cy="21" r="5" fill="#5DCAA5"/><circle cx="42" cy="47" r="5" fill="#5DCAA5"/><circle cx="14" cy="47" r="5" fill="#5DCAA5"/><circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
       <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
     </svg>
     <span class="topbar-name">Take Five</span>
@@ -253,60 +179,37 @@ tbody tr:last-child td { border-bottom: none; }
   <div class="topbar-api">
     <label>API Key</label>
     <input type="password" id="apiKey" placeholder="Bearer token…" autocomplete="off"/>
-    <div class="api-status" id="apiStatus" title="Not connected"></div>
+    <div class="api-status" id="apiStatus"></div>
   </div>
 </div>
 
-
-<!-- AUTH BANNER -->
-<div id="auth-banner" style="
-  display: none;
-  background: var(--danger-bg);
-  border-bottom: 1px solid rgba(226,75,74,0.25);
-  padding: 0.6rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 13px;
-  color: var(--danger);
-">
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-  </svg>
+<div id="auth-banner" style="display:none;background:var(--danger-bg);border-bottom:1px solid rgba(226,75,74,0.25);padding:0.6rem 1.5rem;align-items:center;gap:0.6rem;font-size:13px;color:var(--danger);">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <span id="auth-banner-msg">Enter your API key in the top right to get started.</span>
 </div>
 
 <div class="app">
-
-<!-- SIDEBAR -->
 <nav class="sidebar">
   <div class="sidebar-section">
     <span class="sidebar-label">Navigation</span>
     <button class="sidebar-item active" onclick="showPage('ensembles')" id="nav-ensembles">
       <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Ensembles
-      <span class="badge-count" id="cnt-ensembles">0</span>
+      Ensembles <span class="badge-count" id="cnt-ensembles">0</span>
     </button>
   </div>
   <div class="sidebar-divider"></div>
-  <div class="sidebar-section">
-    <span class="sidebar-label">Active Ensemble</span>
-  </div>
-  <div class="sidebar-ensemble-list" id="sidebarEnsembles">
-    <div style="font-size:12px;color:var(--g400);padding:0.25rem 0.6rem;">No ensembles yet</div>
-  </div>
+  <div class="sidebar-section"><span class="sidebar-label">Active Ensemble</span></div>
+  <div class="sidebar-ensemble-list" id="sidebarEnsembles"><div style="font-size:12px;color:var(--g400);padding:0.25rem 0.6rem;">No ensembles yet</div></div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section" id="ensemble-nav" style="display:none;">
     <span class="sidebar-label">Setup</span>
     <button class="sidebar-item" onclick="showPage('people')" id="nav-people">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      People
-      <span class="badge-count" id="cnt-people">0</span>
+      People <span class="badge-count" id="cnt-people">0</span>
     </button>
     <button class="sidebar-item" onclick="showPage('circles')" id="nav-circles">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-      Circles
-      <span class="badge-count" id="cnt-circles">0</span>
+      Circles <span class="badge-count" id="cnt-circles">0</span>
     </button>
     <button class="sidebar-item" onclick="showPage('roster')" id="nav-roster">
       <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -315,160 +218,94 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </nav>
 
-<!-- MAIN PANEL -->
 <main class="main">
 
-  <!-- ── ENSEMBLES PAGE ── -->
+  <!-- ENSEMBLES -->
   <div class="panel" id="page-ensembles">
     <div class="breadcrumb">Take Five <span class="breadcrumb-sep">›</span> <span>Ensembles</span></div>
     <div class="page-header">
-      <div>
-        <div class="page-title">Care <em>Ensembles</em></div>
-        <div class="page-sub">An ensemble is a family account. Create one per family, then add people and circles inside it.</div>
-      </div>
-      <button class="btn btn-primary" onclick="openModal('modal-add-ensemble')">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        New Ensemble
-      </button>
+      <div><div class="page-title">Care <em>Ensembles</em></div><div class="page-sub">An ensemble is a family account. Create one per family, then add people and circles inside it.</div></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-ensemble')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Ensemble</button>
     </div>
-
     <div class="stats" id="ensemble-stats" style="display:none;">
       <div class="stat-card"><div class="stat-val" id="stat-ens">0</div><div class="stat-label">Ensembles</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-people">0</div><div class="stat-label">Total People</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-circles">0</div><div class="stat-label">Circles</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-plan">—</div><div class="stat-label">Plans</div></div>
     </div>
-
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        All Ensembles
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Plan</th>
-              <th>Status</th>
-              <th>ID</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="ensemble-tbody">
-            <tr><td colspan="5"><div class="empty"><div class="empty-icon">♪</div><div class="empty-title">No ensembles yet</div><div class="empty-sub">Create your first ensemble to get started</div></div></td></tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>All Ensembles</div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Plan</th><th>Status</th><th>ID</th><th></th></tr></thead><tbody id="ensemble-tbody"><tr><td colspan="5"><div class="empty"><div class="empty-icon">♪</div><div class="empty-title">No ensembles yet</div></div></td></tr></tbody></table></div>
     </div>
   </div>
 
-  <!-- ── PEOPLE PAGE ── -->
+  <!-- PEOPLE -->
   <div class="panel" id="page-people" style="display:none;">
     <div class="breadcrumb">Take Five <span class="breadcrumb-sep">›</span> Ensembles <span class="breadcrumb-sep">›</span> <span id="bc-people-ens">—</span> <span class="breadcrumb-sep">›</span> <span>People</span></div>
     <div class="page-header">
-      <div>
-        <div class="page-title">People in <em id="ph-ens-name">Ensemble</em></div>
-        <div class="page-sub">Add everyone in this family's care network — family members, caregivers, and professionals. They can be added to circles later.</div>
-      </div>
-      <button class="btn btn-primary" onclick="openModal('modal-add-person')">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Person
-      </button>
+      <div><div class="page-title">People in <em id="ph-ens-name">Ensemble</em></div><div class="page-sub">Add everyone in this family's care network.</div></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-person')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Person</button>
     </div>
-
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        Roster
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Name</th><th>Type</th><th>Phone</th><th>Email</th><th>Aliases</th><th>ID</th><th></th></tr>
-          </thead>
-          <tbody id="people-tbody">
-            <tr><td colspan="7"><div class="empty"><div class="empty-icon">♩</div><div class="empty-title">No people yet</div><div class="empty-sub">Add family members, caregivers, and professionals</div></div></td></tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Roster</div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Type</th><th>Phone</th><th>Email</th><th>Aliases</th><th>ID</th><th></th></tr></thead><tbody id="people-tbody"></tbody></table></div>
     </div>
   </div>
 
-  <!-- ── CIRCLES PAGE ── -->
+  <!-- CIRCLES -->
   <div class="panel" id="page-circles" style="display:none;">
     <div class="breadcrumb">Take Five <span class="breadcrumb-sep">›</span> Ensembles <span class="breadcrumb-sep">›</span> <span id="bc-circles-ens">—</span> <span class="breadcrumb-sep">›</span> <span>Circles</span></div>
     <div class="page-header">
-      <div>
-        <div class="page-title">Care <em>Circles</em></div>
-        <div class="page-sub">Circles map to a messaging group (e.g. a GroupMe group). Each circle has its own group chat and care context.</div>
-      </div>
-      <button class="btn btn-primary" onclick="openModal('modal-add-circle')">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        New Circle
-      </button>
+      <div><div class="page-title">Care <em>Circles</em></div><div class="page-sub">Circles map to a messaging group (e.g. a GroupMe group).</div></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-circle')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Circle</button>
     </div>
-
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-        Circles
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Name</th><th>Status</th><th>External ID</th><th>Circle ID</th><th></th></tr>
-          </thead>
-          <tbody id="circles-tbody">
-            <tr><td colspan="5"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">No circles yet</div><div class="empty-sub">Create a circle and link it to a GroupMe group</div></div></td></tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="card-title"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Circles</div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Status</th><th>External ID</th><th>Circle ID</th><th></th></tr></thead><tbody id="circles-tbody"></tbody></table></div>
     </div>
   </div>
 
-  <!-- ── ROSTER PAGE ── -->
+  <!-- ROSTER -->
   <div class="panel" id="page-roster" style="display:none;">
     <div class="breadcrumb">Take Five <span class="breadcrumb-sep">›</span> Ensembles <span class="breadcrumb-sep">›</span> <span id="bc-roster-ens">—</span> <span class="breadcrumb-sep">›</span> <span>Circle Roster</span></div>
-    <div class="page-header">
-      <div>
-        <div class="page-title">Circle <em>Roster</em></div>
-        <div class="page-sub">Assign people from this ensemble to a circle with a role. At least one person should have the <strong>senior</strong> role.</div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:1rem;">
-      <div class="card-title">Select Circle</div>
-      <div class="field" style="max-width:360px;">
-        <select id="roster-circle-select" onchange="loadRoster()">
-          <option value="">— choose a circle —</option>
-        </select>
-      </div>
-    </div>
-
+    <div class="page-header"><div><div class="page-title">Circle <em>Roster</em></div><div class="page-sub">Assign people to a circle with a role.</div></div></div>
+    <div class="card" style="margin-bottom:1rem;"><div class="card-title">Select Circle</div><div class="field" style="max-width:360px;"><select id="roster-circle-select" onchange="loadRoster()"><option value="">— choose a circle —</option></select></div></div>
     <div id="roster-content" style="display:none;">
+      <div class="page-header" style="margin-bottom:1rem;"><div class="card-title" style="font-size:14px;" id="roster-circle-name"></div><button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Member</button></div>
+      <div class="card"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Members</div><div class="table-wrap"><table><thead><tr><th>Person</th><th>Type</th><th>Role in Circle</th><th>Phone</th><th></th></tr></thead><tbody id="roster-tbody"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- PERSON DETAIL -->
+  <div class="panel" id="page-person-detail" style="display:none;">
+    <button class="detail-back" onclick="backToPeople()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back to People</button>
+    <div class="detail-header">
+      <div class="detail-avatar av-teal" id="detail-avatar">?</div>
+      <div><div class="detail-name" id="detail-name">—</div><div class="detail-meta" id="detail-meta">—</div></div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="tab-profile" onclick="switchPersonTab('profile')">Profile</button>
+      <button class="tab" id="tab-clinical" onclick="switchPersonTab('clinical')">Clinical</button>
+    </div>
+    <div id="person-tab-profile">
+      <div class="card">
+        <div class="card-title">Profile</div>
+        <div class="form-row cols-2"><div class="field"><label>Full Name</label><input type="text" id="dp-name"/></div><div class="field"><label>Person Type</label><select id="dp-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
+        <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="dp-phone"/></div><div class="field"><label>Email</label><input type="email" id="dp-email"/></div></div>
+        <div class="form-row"><div class="field"><label>External ID</label><input type="text" id="dp-ext-id"/></div></div>
+        <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="dp-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
+        <div class="form-row"><div class="field"><label>Notes</label><textarea id="dp-notes"></textarea></div></div>
+        <div class="form-actions"><button class="btn btn-primary" id="btn-dp-save" onclick="savePersonDetail()">Save Changes</button></div>
+      </div>
+    </div>
+    <div id="person-tab-clinical" style="display:none;">
       <div class="page-header" style="margin-bottom:1rem;">
-        <div class="card-title" style="font-size:14px;" id="roster-circle-name"></div>
-        <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')">
-          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Member
-        </button>
+        <div class="page-sub">Physicians and other care team members for this person.</div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-care-team')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Doctor</button>
       </div>
       <div class="card">
-        <div class="card-title">
-          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          Members
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Person</th><th>Type</th><th>Role in Circle</th><th>Phone</th><th></th></tr>
-            </thead>
-            <tbody id="roster-tbody">
-              <tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div></div></td></tr>
-            </tbody>
-          </table>
-        </div>
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Care Team</div>
+        <div class="table-wrap"><table><thead><tr><th>Name</th><th>Specialty</th><th>Phone</th><th>Address</th><th>NPI</th><th></th></tr></thead><tbody id="care-team-tbody"><tr><td colspan="6"><div class="empty"><div class="empty-title">No care team members yet</div><div class="empty-sub">Add a doctor to get started</div></div></td></tr></tbody></table></div>
       </div>
     </div>
   </div>
@@ -476,292 +313,105 @@ tbody tr:last-child td { border-bottom: none; }
 </main>
 </div>
 
-<!-- ─── MODALS ─── -->
+<!-- MODALS -->
 
 <!-- Add Ensemble -->
-<div class="modal-backdrop" id="modal-add-ensemble">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">New Ensemble</div>
-      <button class="modal-close" onclick="closeModal('modal-add-ensemble')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="form-row cols-2">
-      <div class="field">
-        <label>Ensemble Name *</label>
-        <input type="text" id="ens-name" placeholder="e.g. Landry Family"/>
-      </div>
-      <div class="field">
-        <label>Plan *</label>
-        <select id="ens-plan">
-          <option value="trial">Trial</option>
-          <option value="family">Family ($49/mo)</option>
-          <option value="family_plus">Family Plus ($79/mo)</option>
-          <option value="agency">Agency</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Status</label>
-        <select id="ens-status">
-          <option value="trial">Trial</option>
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="btn-create-ensemble" onclick="createEnsemble()">Create Ensemble</button>
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-ensemble')">Cancel</button>
-    </div>
-  </div>
-</div>
+<div class="modal-backdrop" id="modal-add-ensemble"><div class="modal"><div class="modal-header"><div class="modal-title">New Ensemble</div><button class="modal-close" onclick="closeModal('modal-add-ensemble')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2"><div class="field"><label>Ensemble Name *</label><input type="text" id="ens-name" placeholder="e.g. Landry Family"/></div><div class="field"><label>Plan *</label><select id="ens-plan"><option value="trial">Trial</option><option value="family">Family ($49/mo)</option><option value="family_plus">Family Plus ($79/mo)</option><option value="agency">Agency</option></select></div></div>
+<div class="form-row"><div class="field"><label>Status</label><select id="ens-status"><option value="trial">Trial</option><option value="active">Active</option><option value="archived">Archived</option></select></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-create-ensemble" onclick="createEnsemble()">Create Ensemble</button><button class="btn btn-ghost" onclick="closeModal('modal-add-ensemble')">Cancel</button></div>
+</div></div>
 
 <!-- Add Person -->
-<div class="modal-backdrop" id="modal-add-person">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Add Person</div>
-      <button class="modal-close" onclick="closeModal('modal-add-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="form-row cols-2">
-      <div class="field">
-        <label>Full Name *</label>
-        <input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/>
-      </div>
-      <div class="field">
-        <label>Person Type *</label>
-        <select id="person-type">
-          <option value="senior">Senior (care recipient)</option>
-          <option value="family">Family member</option>
-          <option value="caregiver">Caregiver / Aide</option>
-          <option value="professional">Professional (nurse, doctor)</option>
-          <option value="bot">Bot / System</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row cols-2">
-      <div class="field">
-        <label>Phone</label>
-        <input type="tel" id="person-phone" placeholder="+1 555 000 0000"/>
-      </div>
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="person-email" placeholder="name@example.com"/>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>External ID</label>
-        <input type="text" id="person-ext-id" placeholder="groupme:12345678"/>
-        <div class="form-hint">Format: groupme:sender_id — find sender_id in the GroupMe webhook payload</div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Aliases</label>
-        <input type="text" id="person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/>
-        <div class="form-hint">Names the AI may see in chat messages</div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Notes</label>
-        <textarea id="person-notes" placeholder="Any context about this person…"></textarea>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="btn-create-person" onclick="createPerson()">Add Person</button>
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-person')">Cancel</button>
-    </div>
-  </div>
-</div>
-
+<div class="modal-backdrop" id="modal-add-person"><div class="modal"><div class="modal-header"><div class="modal-title">Add Person</div><button class="modal-close" onclick="closeModal('modal-add-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"><label>Person Type *</label><select id="person-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional (nurse, doctor)</option><option value="bot">Bot / System</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="person-phone" placeholder="+1 555 000 0000"/></div><div class="field"><label>Email</label><input type="email" id="person-email" placeholder="name@example.com"/></div></div>
+<div class="form-row"><div class="field"><label>External ID</label><input type="text" id="person-ext-id" placeholder="groupme:12345678"/><div class="form-hint">Format: groupme:sender_id</div></div></div>
+<div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
+<div class="form-row"><div class="field"><label>Notes</label><textarea id="person-notes" placeholder="Any context about this person…"></textarea></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-create-person" onclick="createPerson()">Add Person</button><button class="btn btn-ghost" onclick="closeModal('modal-add-person')">Cancel</button></div>
+</div></div>
 
 <!-- Edit Person -->
-<div class="modal-backdrop" id="modal-edit-person">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Edit Person</div>
-      <button class="modal-close" onclick="closeModal('modal-edit-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="form-row cols-2">
-      <div class="field">
-        <label>Full Name *</label>
-        <input type="text" id="edit-person-name" placeholder="e.g. Rosa Martinez"/>
-      </div>
-      <div class="field">
-        <label>Person Type *</label>
-        <select id="edit-person-type">
-          <option value="senior">Senior (care recipient)</option>
-          <option value="family">Family member</option>
-          <option value="caregiver">Caregiver / Aide</option>
-          <option value="professional">Professional (nurse, doctor)</option>
-          <option value="bot">Bot / System</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row cols-2">
-      <div class="field">
-        <label>Phone</label>
-        <input type="tel" id="edit-person-phone" placeholder="+1 555 000 0000"/>
-      </div>
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="edit-person-email" placeholder="name@example.com"/>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>External ID</label>
-        <input type="text" id="edit-person-ext-id" placeholder="groupme:12345678"/>
-        <div class="form-hint">Format: groupme:sender_id</div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Aliases</label>
-        <input type="text" id="edit-person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/>
-        <div class="form-hint">Names the AI may see in chat messages</div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Notes</label>
-        <textarea id="edit-person-notes" placeholder="Any context about this person…"></textarea>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="btn-save-person" onclick="savePerson()">Save Changes</button>
-      <button class="btn btn-ghost" onclick="closeModal('modal-edit-person')">Cancel</button>
-    </div>
-  </div>
-</div>
+<div class="modal-backdrop" id="modal-edit-person"><div class="modal"><div class="modal-header"><div class="modal-title">Edit Person</div><button class="modal-close" onclick="closeModal('modal-edit-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="edit-person-name"/></div><div class="field"><label>Person Type *</label><select id="edit-person-type"><option value="senior">Senior</option><option value="family">Family member</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="edit-person-phone"/></div><div class="field"><label>Email</label><input type="email" id="edit-person-email"/></div></div>
+<div class="form-row"><div class="field"><label>External ID</label><input type="text" id="edit-person-ext-id"/></div></div>
+<div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="edit-person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
+<div class="form-row"><div class="field"><label>Notes</label><textarea id="edit-person-notes"></textarea></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-save-person" onclick="savePerson()">Save Changes</button><button class="btn btn-ghost" onclick="closeModal('modal-edit-person')">Cancel</button></div>
+</div></div>
 
 <!-- Add Circle -->
-<div class="modal-backdrop" id="modal-add-circle">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">New Care Circle</div>
-      <button class="modal-close" onclick="closeModal('modal-add-circle')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Circle Name *</label>
-        <input type="text" id="circle-name" placeholder="e.g. Take Five Ensemble"/>
-        <div class="form-hint">This should match the GroupMe group name</div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Status</label>
-        <select id="circle-status">
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>External Group ID</label>
-        <input type="text" id="circle-ext-id" placeholder="groupme:98765432"/>
-        <div class="form-hint">Format: groupme:group_id — find group_id in the GroupMe webhook payload</div>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="btn-create-circle" onclick="createCircle()">Create Circle</button>
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-circle')">Cancel</button>
-    </div>
-  </div>
-</div>
+<div class="modal-backdrop" id="modal-add-circle"><div class="modal"><div class="modal-header"><div class="modal-title">New Care Circle</div><button class="modal-close" onclick="closeModal('modal-add-circle')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row"><div class="field"><label>Circle Name *</label><input type="text" id="circle-name" placeholder="e.g. Take Five Ensemble"/><div class="form-hint">This should match the GroupMe group name</div></div></div>
+<div class="form-row"><div class="field"><label>Status</label><select id="circle-status"><option value="active">Active</option><option value="archived">Archived</option></select></div></div>
+<div class="form-row"><div class="field"><label>External Group ID</label><input type="text" id="circle-ext-id" placeholder="groupme:98765432"/><div class="form-hint">Format: groupme:group_id</div></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-create-circle" onclick="createCircle()">Create Circle</button><button class="btn btn-ghost" onclick="closeModal('modal-add-circle')">Cancel</button></div>
+</div></div>
 
 <!-- Edit Circle -->
-<div class="modal-backdrop" id="modal-edit-circle">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Edit Care Circle</div>
-      <button class="modal-close" onclick="closeModal('modal-edit-circle')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Circle Name *</label>
-        <input type="text" id="edit-circle-name" placeholder="e.g. Take Five Ensemble"/>
-      </div>
-    </div>
-    <div class="form-row cols-2">
-      <div class="field">
-        <label>Status</label>
-        <select id="edit-circle-status">
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>External Group ID</label>
-        <input type="text" id="edit-circle-ext-id" placeholder="groupme:98765432"/>
-        <div class="form-hint">Format: channel:id</div>
-      </div>
-    </div>
-    <div class="form-row" style="margin-top:0.25rem;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--g600);margin-bottom:0.5rem;">Integration Config</div>
-      <div id="edit-circle-config-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="addConfigRow()">+ Add key</button>
-      <div class="form-hint" style="margin-top:4px;">e.g. groupme_bot_id, whatsapp_phone_number_id</div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="btn-save-circle" onclick="saveCircle()">Save Changes</button>
-      <button class="btn btn-ghost" onclick="closeModal('modal-edit-circle')">Cancel</button>
-    </div>
-  </div>
-</div>
+<div class="modal-backdrop" id="modal-edit-circle"><div class="modal"><div class="modal-header"><div class="modal-title">Edit Care Circle</div><button class="modal-close" onclick="closeModal('modal-edit-circle')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row"><div class="field"><label>Circle Name *</label><input type="text" id="edit-circle-name"/></div></div>
+<div class="form-row cols-2"><div class="field"><label>Status</label><select id="edit-circle-status"><option value="active">Active</option><option value="archived">Archived</option></select></div><div class="field"><label>External Group ID</label><input type="text" id="edit-circle-ext-id"/><div class="form-hint">Format: channel:id</div></div></div>
+<div class="form-row" style="margin-top:0.25rem;"><div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--g600);margin-bottom:0.5rem;">Integration Config</div><div id="edit-circle-config-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div><button type="button" class="btn btn-ghost btn-sm" onclick="addConfigRow()">+ Add key</button><div class="form-hint" style="margin-top:4px;">e.g. groupme_bot_id</div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-save-circle" onclick="saveCircle()">Save Changes</button><button class="btn btn-ghost" onclick="closeModal('modal-edit-circle')">Cancel</button></div>
+</div></div>
 
 <!-- Add Member to Circle -->
-<div class="modal-backdrop" id="modal-add-member">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Add Member to Circle</div>
-      <button class="modal-close" onclick="closeModal('modal-add-member')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="field" style="margin-bottom:0.75rem;">
-      <label>Select Person</label>
-      <div class="member-pick" id="member-pick-list"></div>
-    </div>
-    <div class="field" style="margin-bottom:0;">
-      <label>Role in this Circle *</label>
-      <select id="member-role">
-        <option value="senior">Senior (care recipient)</option>
-        <option value="family">Family</option>
-        <option value="caregiver">Caregiver / Aide</option>
-        <option value="professional">Professional</option>
-      </select>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="btn-add-member" onclick="addMember()">Add to Circle</button>
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-member')">Cancel</button>
-    </div>
-  </div>
-</div>
+<div class="modal-backdrop" id="modal-add-member"><div class="modal"><div class="modal-header"><div class="modal-title">Add Member to Circle</div><button class="modal-close" onclick="closeModal('modal-add-member')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="field" style="margin-bottom:0.75rem;"><label>Select Person</label><div class="member-pick" id="member-pick-list"></div></div>
+<div class="field" style="margin-bottom:0;"><label>Role in this Circle *</label><select id="member-role"><option value="senior">Senior (care recipient)</option><option value="family">Family</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional</option></select></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-add-member" onclick="addMember()">Add to Circle</button><button class="btn btn-ghost" onclick="closeModal('modal-add-member')">Cancel</button></div>
+</div></div>
 
-<!-- TOASTS -->
+<!-- Edit Care Team Member -->
+<div class="modal-backdrop" id="modal-edit-care-team"><div class="modal" style="width:540px;"><div class="modal-header"><div class="modal-title">Edit Care Team Member</div><button class="modal-close" onclick="closeModal('modal-edit-care-team')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2"><div class="field"><label>Name</label><input type="text" id="ect-name"/></div><div class="field"><label>Credential</label><input type="text" id="ect-credential" placeholder="M.D., D.O., etc."/></div></div>
+<div class="form-row"><div class="field"><label>Specialty</label><input type="text" id="ect-specialty"/></div></div>
+<div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="ect-phone"/></div><div class="field"><label>NPI</label><input type="text" id="ect-npi" placeholder="10-digit NPI"/></div></div>
+<div class="form-row"><div class="field"><label>Address</label><input type="text" id="ect-address"/></div></div>
+<div class="form-row cols-3"><div class="field"><label>City</label><input type="text" id="ect-city"/></div><div class="field"><label>State</label><input type="text" id="ect-state" maxlength="2"/></div><div class="field"><label>Zip</label><input type="text" id="ect-zip"/></div></div>
+<div class="form-row"><div class="field"><label>Role / Relationship</label><input type="text" id="ect-role" placeholder="e.g. Primary care physician, Psychiatrist"/></div></div>
+<div class="form-row"><div class="field"><label>Notes</label><textarea id="ect-notes" placeholder="Any additional context…"></textarea></div></div>
+<div class="form-row"><div class="field"><label>Status</label><select id="ect-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-update-care-team" onclick="updateCareTeamMember()">Save Changes</button><button class="btn btn-ghost" onclick="closeModal('modal-edit-care-team')">Cancel</button></div>
+</div></div>
+
+<!-- Add Care Team Member -->
+<div class="modal-backdrop" id="modal-add-care-team"><div class="modal" style="width:540px;"><div class="modal-header"><div class="modal-title">Add Doctor / Care Team Member</div><button class="modal-close" onclick="closeModal('modal-add-care-team')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div id="care-team-search-section">
+  <div class="form-row cols-2"><div class="field"><label>First Name *</label><input type="text" id="ct-first-name" placeholder="Mark"/></div><div class="field"><label>Last Name *</label><input type="text" id="ct-last-name" placeholder="Burns"/></div></div>
+  <div class="form-row cols-2"><div class="field"><label>City</label><input type="text" id="ct-city" placeholder="New Braunfels"/></div><div class="field"><label>State</label><select id="ct-state"><option value="">— any —</option><option value="AL">AL</option><option value="AK">AK</option><option value="AZ">AZ</option><option value="AR">AR</option><option value="CA">CA</option><option value="CO">CO</option><option value="CT">CT</option><option value="DE">DE</option><option value="FL">FL</option><option value="GA">GA</option><option value="HI">HI</option><option value="ID">ID</option><option value="IL">IL</option><option value="IN">IN</option><option value="IA">IA</option><option value="KS">KS</option><option value="KY">KY</option><option value="LA">LA</option><option value="ME">ME</option><option value="MD">MD</option><option value="MA">MA</option><option value="MI">MI</option><option value="MN">MN</option><option value="MS">MS</option><option value="MO">MO</option><option value="MT">MT</option><option value="NE">NE</option><option value="NV">NV</option><option value="NH">NH</option><option value="NJ">NJ</option><option value="NM">NM</option><option value="NY">NY</option><option value="NC">NC</option><option value="ND">ND</option><option value="OH">OH</option><option value="OK">OK</option><option value="OR">OR</option><option value="PA">PA</option><option value="RI">RI</option><option value="SC">SC</option><option value="SD">SD</option><option value="TN">TN</option><option value="TX" selected>TX</option><option value="UT">UT</option><option value="VT">VT</option><option value="VA">VA</option><option value="WA">WA</option><option value="WV">WV</option><option value="WI">WI</option><option value="WY">WY</option></select></div></div>
+  <div class="form-actions" style="padding-top:0;border-top:none;margin-top:0;"><button class="btn btn-primary" id="btn-npi-search" onclick="searchNPI()">Search NPI Registry</button></div>
+  <div id="npi-results-wrap" style="display:none;"><div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--g600);margin-bottom:6px;">Select a match</div><div class="npi-results" id="npi-results-list"></div></div>
+</div>
+<div id="care-team-confirm-section" style="display:none;margin-top:1rem;">
+  <div style="background:var(--t50);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-bottom:0.75rem;" id="ct-selected-summary"></div>
+  <div class="form-row"><div class="field"><label>Role / Relationship</label><input type="text" id="ct-role" placeholder="e.g. Primary care physician, Psychiatrist"/></div></div>
+  <div class="form-row"><div class="field"><label>Notes</label><textarea id="ct-notes" placeholder="Any additional context…"></textarea></div></div>
+</div>
+<div class="form-actions" id="care-team-save-actions" style="display:none;">
+  <button class="btn btn-primary" id="btn-save-care-team" onclick="saveCareTeamMember()">Save to Clinical Records</button>
+  <button class="btn btn-ghost" onclick="resetCareTeamModal()">Search Again</button>
+</div>
+</div></div>
+
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
-// ─── STATE ───
 const state = {
-apiBase: ['localhost', '0.0.0.0', '127.0.0.1'].includes(window.location.hostname)
-  ? `${window.location.protocol}//${window.location.hostname}:10000`
-  : 'https://take-five.onrender.com',
-  ensembles: [],
-  activeEnsembleId: null,
-  people: [],
-  circles: [],
-  currentCircleId: null,
-  selectedMemberId: null,
-  editingPersonId: null,
-  editingCircleId: null,
+  apiBase: ['localhost','0.0.0.0','127.0.0.1'].includes(window.location.hostname)
+    ? `${window.location.protocol}//${window.location.hostname}:10000`
+    : 'https://take-five.onrender.com',
+  ensembles: [], activeEnsembleId: null, people: [], circles: [],
+  currentCircleId: null, selectedMemberId: null,
+  editingPersonId: null, editingCircleId: null,
+  detailPersonId: null, detailCircleId: null,
+  selectedNpiResult: null,
+  editingCareTeamRecordId: null, editingCareTeamRecords: [],
 };
 
-// ─── API ───
 function apiKey() { return document.getElementById('apiKey').value.trim(); }
 
 async function api(method, path, body) {
@@ -770,45 +420,20 @@ async function api(method, path, body) {
   try {
     const res = await fetch(state.apiBase + path, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + key,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) {
-      const err = await res.text();
-      toast(`API error ${res.status}: ${err.slice(0,120)}`, true);
-      return null;
-    }
+    if (!res.ok) { const err = await res.text(); toast(`API error ${res.status}: ${err.slice(0,120)}`, true); return null; }
     setApiStatus(true);
     return await res.json();
-  } catch(e) {
-    setApiStatus(false);
-    toast('Network error: ' + e.message, true);
-    return null;
-  }
+  } catch(e) { setApiStatus(false); toast('Network error: ' + e.message, true); return null; }
 }
 
-// URL-encode query params
-function qs(params) {
-  const p = Object.entries(params).filter(([,v]) => v != null && v !== '');
-  if (!p.length) return '';
-  return '?' + p.map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-}
-
-// ─── UI HELPERS ───
 function setApiStatus(ok, msg) {
-  const el = document.getElementById('apiStatus');
-  el.className = 'api-status ' + (ok ? 'ok' : 'err');
+  document.getElementById('apiStatus').className = 'api-status ' + (ok ? 'ok' : 'err');
   const banner = document.getElementById('auth-banner');
-  const bannerMsg = document.getElementById('auth-banner-msg');
-  if (ok) {
-    banner.style.display = 'none';
-  } else {
-    banner.style.display = 'flex';
-    bannerMsg.textContent = msg || 'Authentication failed. Check your API key.';
-  }
+  if (ok) { banner.style.display = 'none'; }
+  else { banner.style.display = 'flex'; document.getElementById('auth-banner-msg').textContent = msg || 'Authentication failed. Check your API key.'; }
 }
 
 function toast(msg, isErr=false) {
@@ -835,34 +460,23 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
 });
 
 function showPage(name) {
-  ['ensembles','people','circles','roster'].forEach(p => {
+  ['ensembles','people','circles','roster','person-detail'].forEach(p => {
     document.getElementById('page-'+p).style.display = p === name ? '' : 'none';
     document.getElementById('nav-'+p)?.classList.toggle('active', p === name);
   });
 }
 
-function avatarColor(type) {
-  return { senior: 'av-teal', family: 'av-purple', caregiver: 'av-amber', professional: 'av-teal', bot: 'av-gray' }[type] || 'av-gray';
-}
-function initials(name) {
-  return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-}
-function rolePill(role) {
-  const cls = { senior:'pill-senior', family:'pill-family', caregiver:'pill-caregiver', professional:'pill-professional' }[role] || 'pill-role';
-  return `<span class="pill ${cls}">${role}</span>`;
-}
-function statusPill(s) {
-  const cls = { active:'pill-active', trial:'pill-trial', archived:'pill-inactive' }[s] || 'pill-inactive';
-  return `<span class="pill ${cls}">${s}</span>`;
-}
+function avatarColor(type) { return { senior:'av-teal', family:'av-purple', caregiver:'av-amber', professional:'av-teal', bot:'av-gray' }[type] || 'av-gray'; }
+function initials(name) { return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+function rolePill(role) { const cls = { senior:'pill-senior', family:'pill-family', caregiver:'pill-caregiver', professional:'pill-professional' }[role] || 'pill-role'; return `<span class="pill ${cls}">${role}</span>`; }
+function statusPill(s) { const cls = { active:'pill-active', trial:'pill-trial', archived:'pill-inactive' }[s] || 'pill-inactive'; return `<span class="pill ${cls}">${s}</span>`; }
 
 // ─── ENSEMBLES ───
 async function loadEnsembles() {
   const data = await api('GET', '/ensembles');
   if (!data) return;
   state.ensembles = data.ensembles || [];
-  renderEnsembles();
-  updateSidebar();
+  renderEnsembles(); updateSidebar();
   document.getElementById('stat-ens').textContent = state.ensembles.length;
   if (state.ensembles.length) document.getElementById('ensemble-stats').style.display = '';
 }
@@ -870,32 +484,14 @@ async function loadEnsembles() {
 function renderEnsembles() {
   const tbody = document.getElementById('ensemble-tbody');
   document.getElementById('cnt-ensembles').textContent = state.ensembles.length;
-  if (!state.ensembles.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">♪</div><div class="empty-title">No ensembles yet</div><div class="empty-sub">Create your first ensemble to get started</div></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = state.ensembles.map(e => `
-    <tr>
-      <td><strong>${e.name}</strong></td>
-      <td>${e.plan || '—'}</td>
-      <td>${statusPill(e.status)}</td>
-      <td class="td-mono">${(e.id||'').slice(0,8)}…</td>
-      <td><div class="td-actions">
-        <button class="btn btn-ghost btn-sm" onclick="selectEnsemble('${e.id}','${e.name.replace(/'/g,"\\'")}')">Open →</button>
-      </div></td>
-    </tr>`).join('');
+  if (!state.ensembles.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">♪</div><div class="empty-title">No ensembles yet</div></div></td></tr>`; return; }
+  tbody.innerHTML = state.ensembles.map(e => `<tr><td><strong>${e.name}</strong></td><td>${e.plan||'—'}</td><td>${statusPill(e.status)}</td><td class="td-mono">${(e.id||'').slice(0,8)}…</td><td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="selectEnsemble('${e.id}','${e.name.replace(/'/g,"\\'")}')">Open →</button></div></td></tr>`).join('');
 }
 
 function updateSidebar() {
   const wrap = document.getElementById('sidebarEnsembles');
-  if (!state.ensembles.length) {
-    wrap.innerHTML = `<div style="font-size:12px;color:var(--g400);padding:0.25rem 0.6rem;">No ensembles yet</div>`;
-    return;
-  }
-  wrap.innerHTML = state.ensembles.map(e => `
-    <button class="ens-chip ${e.status!=='active'&&e.status!=='trial'?'inactive':''} ${e.id===state.activeEnsembleId?'active':''}" onclick="selectEnsemble('${e.id}','${e.name.replace(/'/g,"\\'")}')">
-      <span class="ens-dot"></span>${e.name}
-    </button>`).join('');
+  if (!state.ensembles.length) { wrap.innerHTML = `<div style="font-size:12px;color:var(--g400);padding:0.25rem 0.6rem;">No ensembles yet</div>`; return; }
+  wrap.innerHTML = state.ensembles.map(e => `<button class="ens-chip ${e.status!=='active'&&e.status!=='trial'?'inactive':''} ${e.id===state.activeEnsembleId?'active':''}" onclick="selectEnsemble('${e.id}','${e.name.replace(/'/g,"\\'")}')"><span class="ens-dot"></span>${e.name}</button>`).join('');
 }
 
 async function createEnsemble() {
@@ -907,30 +503,22 @@ async function createEnsemble() {
   const data = await api('POST', '/ensembles', { name, plan, status });
   setLoading('btn-create-ensemble', false);
   if (!data) return;
-  toast(`Ensemble "${name}" created`);
-  closeModal('modal-add-ensemble');
+  toast(`Ensemble "${name}" created`); closeModal('modal-add-ensemble');
   document.getElementById('ens-name').value = '';
   await loadEnsembles();
 }
 
 async function selectEnsemble(id, name) {
-  state.activeEnsembleId = id;
-  state.people = [];
-  state.circles = [];
+  state.activeEnsembleId = id; state.people = []; state.circles = [];
   document.getElementById('ensemble-nav').style.display = '';
-  ['people','circles','roster'].forEach(p => {
-    const el = document.getElementById(`nav-${p}`);
-    if (el) el.style.display = '';
-  });
+  ['people','circles','roster'].forEach(p => { const el = document.getElementById(`nav-${p}`); if (el) el.style.display = ''; });
   document.getElementById('ph-ens-name').textContent = name;
   document.getElementById('bc-people-ens').textContent = name;
   document.getElementById('bc-circles-ens').textContent = name;
   document.getElementById('bc-roster-ens').textContent = name;
-  updateSidebar();
-  showPage('people');
+  updateSidebar(); showPage('people');
   document.getElementById('nav-people').classList.add('active');
-  await loadPeople();
-  await loadCircles();
+  await loadPeople(); await loadCircles();
 }
 
 // ─── PEOPLE ───
@@ -946,27 +534,14 @@ async function loadPeople() {
 
 function renderPeople() {
   const tbody = document.getElementById('people-tbody');
-  if (!state.people.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">♩</div><div class="empty-title">No people yet</div><div class="empty-sub">Add family members, caregivers, and professionals</div></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = state.people.map(p => `
-    <tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="avatar ${avatarColor(p.p_type)}">${initials(p.name)}</div>
-          <strong>${p.name}</strong>
-        </div>
-      </td>
-      <td>${statusPill(p.p_type)}</td>
-      <td class="td-mono">${p.phone||'—'}</td>
-      <td class="td-mono">${p.email||'—'}</td>
-      <td>${(p.aliases||[]).length ? p.aliases.map(a=>`<span class="pill pill-person" style="margin:1px;">${a}</span>`).join('') : '<span style="color:var(--g400);font-size:12px;">—</span>'}</td>
-      <td class="td-mono">${(p.id||'').slice(0,8)}…</td>
-      <td><div class="td-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openEditPerson('${p.id}')">Edit</button>
-      </div></td>
-    </tr>`).join('');
+  if (!state.people.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">♩</div><div class="empty-title">No people yet</div></div></td></tr>`; return; }
+  tbody.innerHTML = state.people.map(p => `<tr>
+    <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(p.p_type)}">${initials(p.name)}</div><strong>${p.name}</strong></div></td>
+    <td>${statusPill(p.p_type)}</td><td class="td-mono">${p.phone||'—'}</td><td class="td-mono">${p.email||'—'}</td>
+    <td>${(p.aliases||[]).length ? p.aliases.map(a=>`<span class="pill pill-person" style="margin:1px;">${a}</span>`).join('') : '<span style="color:var(--g400);font-size:12px;">—</span>'}</td>
+    <td class="td-mono">${(p.id||'').slice(0,8)}…</td>
+    <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openPersonDetail('${p.id}')">Open →</button></div></td>
+  </tr>`).join('');
 }
 
 async function createPerson() {
@@ -975,32 +550,24 @@ async function createPerson() {
   const phone = document.getElementById('person-phone').value.trim();
   const email = document.getElementById('person-email').value.trim();
   const extId = document.getElementById('person-ext-id').value.trim();
-  const aliasRaw = document.getElementById('person-aliases').value.trim();
+  const aliases = document.getElementById('person-aliases').value.trim().split(',').map(s=>s.trim()).filter(Boolean);
   const notes = document.getElementById('person-notes').value.trim();
-  const aliases = aliasRaw ? aliasRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
   if (!name) { toast('Name is required', true); return; }
   setLoading('btn-create-person', true);
   const body = { name, p_type, aliases };
-  if (phone) body.phone = phone;
-  if (email) body.email = email;
-  if (notes) body.notes = notes;
-  if (extId) body.external_id = extId;
+  if (phone) body.phone = phone; if (email) body.email = email; if (notes) body.notes = notes; if (extId) body.external_id = extId;
   const data = await api('POST', `/ensembles/${state.activeEnsembleId}/people`, body);
   setLoading('btn-create-person', false);
   if (!data) return;
-  toast(`${name} added`);
-  closeModal('modal-add-person');
+  toast(`${name} added`); closeModal('modal-add-person');
   ['person-name','person-phone','person-email','person-ext-id','person-aliases','person-notes'].forEach(id => document.getElementById(id).value='');
   await loadPeople();
 }
 
-
-// ─── EDIT PERSON ───
 async function openEditPerson(personId) {
   state.editingPersonId = personId;
   const person = state.people.find(p => p.id === personId);
   if (!person) { toast('Person not found', true); return; }
-
   document.getElementById('edit-person-name').value = person.name || '';
   document.getElementById('edit-person-type').value = person.type || person.p_type || 'family';
   document.getElementById('edit-person-phone').value = person.phone || '';
@@ -1008,35 +575,25 @@ async function openEditPerson(personId) {
   document.getElementById('edit-person-ext-id').value = person.external_id || '';
   document.getElementById('edit-person-aliases').value = (person.aliases || []).join(', ');
   document.getElementById('edit-person-notes').value = person.notes || '';
-
   openModal('modal-edit-person');
 }
 
 async function savePerson() {
   const personId = state.editingPersonId;
   if (!personId) return;
-
   const name = document.getElementById('edit-person-name').value.trim();
   const p_type = document.getElementById('edit-person-type').value;
   const phone = document.getElementById('edit-person-phone').value.trim();
   const email = document.getElementById('edit-person-email').value.trim();
   const extId = document.getElementById('edit-person-ext-id').value.trim();
-  const aliasRaw = document.getElementById('edit-person-aliases').value.trim();
+  const aliases = document.getElementById('edit-person-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
   const notes = document.getElementById('edit-person-notes').value.trim();
-  const aliases = aliasRaw ? aliasRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
-
   if (!name) { toast('Name is required', true); return; }
-
-  const body = { name, p_type, phone, email, aliases, notes, external_id: extId };
-
   setLoading('btn-save-person', true);
-  const data = await api('PUT', `/people/${personId}`, body);
+  const data = await api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId });
   setLoading('btn-save-person', false);
   if (!data) return;
-
-  toast(`${name} updated`);
-  closeModal('modal-edit-person');
-  await loadPeople();
+  toast(`${name} updated`); closeModal('modal-edit-person'); await loadPeople();
 }
 
 // ─── CIRCLES ───
@@ -1045,69 +602,45 @@ async function loadCircles() {
   const data = await api('GET', `/ensembles/${state.activeEnsembleId}/circles`);
   if (!data) return;
   state.circles = data.circles || [];
-  renderCircles();
-  refreshCircleSelect();
+  renderCircles(); refreshCircleSelect();
   document.getElementById('cnt-circles').textContent = state.circles.length;
   document.getElementById('stat-circles').textContent = state.circles.length;
 }
 
 function renderCircles() {
   const tbody = document.getElementById('circles-tbody');
-  if (!state.circles.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">No circles yet</div><div class="empty-sub">Create a circle and link it to a GroupMe group</div></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = state.circles.map(c => `
-    <tr>
-      <td><strong>${c.name}</strong></td>
-      <td>${statusPill(c.status||'active')}</td>
-      <td class="td-mono">${c.external_id||'—'}</td>
-      <td class="td-mono">${(c.id||'').slice(0,8)}…</td>
-      <td><div class="td-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openEditCircle('${c.id}')">Edit</button>
-        <button class="btn btn-ghost btn-sm" onclick="goToRoster('${c.id}')">Roster →</button>
-      </div></td>
-    </tr>`).join('');
+  if (!state.circles.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">No circles yet</div></div></td></tr>`; return; }
+  tbody.innerHTML = state.circles.map(c => `<tr><td><strong>${c.name}</strong></td><td>${statusPill(c.status||'active')}</td><td class="td-mono">${c.external_id||'—'}</td><td class="td-mono">${(c.id||'').slice(0,8)}…</td><td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openEditCircle('${c.id}')">Edit</button><button class="btn btn-ghost btn-sm" onclick="goToRoster('${c.id}')">Roster →</button></div></td></tr>`).join('');
 }
 
 async function createCircle() {
   const name = document.getElementById('circle-name').value.trim();
   const status = document.getElementById('circle-status').value;
-  
   const extId = document.getElementById('circle-ext-id').value.trim();
   if (!name) { toast('Circle name is required', true); return; }
   setLoading('btn-create-circle', true);
-  const body = { name, status };
-  if (extId) body.external_id = extId;
+  const body = { name, status }; if (extId) body.external_id = extId;
   const data = await api('POST', `/ensembles/${state.activeEnsembleId}/circles`, body);
   setLoading('btn-create-circle', false);
   if (!data) return;
-  toast(`Circle "${name}" created`);
-  closeModal('modal-add-circle');
+  toast(`Circle "${name}" created`); closeModal('modal-add-circle');
   ['circle-name','circle-ext-id'].forEach(id => document.getElementById(id).value='');
   await loadCircles();
 }
 
-// ─── EDIT CIRCLE ───
 function addConfigRow(key='', value='') {
   const wrap = document.getElementById('edit-circle-config-rows');
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;align-items:center;';
-  row.innerHTML = `
-    <input type="text" placeholder="key" value="${key}" style="flex:1;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;">
-    <input type="text" placeholder="value" value="${value}" style="flex:2;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;">
-    <button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--g400);font-size:16px;line-height:1;padding:0 4px;">&times;</button>
-  `;
+  row.innerHTML = `<input type="text" placeholder="key" value="${key}" style="flex:1;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;"><input type="text" placeholder="value" value="${value}" style="flex:2;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;"><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--g400);font-size:16px;line-height:1;padding:0 4px;">&times;</button>`;
   wrap.appendChild(row);
 }
 
 function getConfigFromRows() {
   const config = {};
   document.querySelectorAll('#edit-circle-config-rows > div').forEach(row => {
-    const [keyInput, valInput] = row.querySelectorAll('input');
-    const k = keyInput.value.trim();
-    const v = valInput.value.trim();
-    if (k) config[k] = v;
+    const [k, v] = row.querySelectorAll('input');
+    if (k.value.trim()) config[k.value.trim()] = v.value.trim();
   });
   return config;
 }
@@ -1116,64 +649,43 @@ async function openEditCircle(circleId) {
   state.editingCircleId = circleId;
   const circle = state.circles.find(c => c.id === circleId);
   if (!circle) { toast('Circle not found', true); return; }
-
   document.getElementById('edit-circle-name').value = circle.name || '';
   document.getElementById('edit-circle-status').value = circle.status || 'active';
   document.getElementById('edit-circle-ext-id').value = circle.external_id || '';
-
-  // Populate key-value rows from existing config
-  const wrap = document.getElementById('edit-circle-config-rows');
-  wrap.innerHTML = '';
-  const config = circle.integration_config || {};
-  Object.entries(config).forEach(([k, v]) => addConfigRow(k, v));
-
+  const wrap = document.getElementById('edit-circle-config-rows'); wrap.innerHTML = '';
+  Object.entries(circle.integration_config || {}).forEach(([k, v]) => addConfigRow(k, v));
   openModal('modal-edit-circle');
 }
 
 async function saveCircle() {
-  const circleId = state.editingCircleId;
-  if (!circleId) return;
-
-  const name   = document.getElementById('edit-circle-name').value.trim();
+  const circleId = state.editingCircleId; if (!circleId) return;
+  const name = document.getElementById('edit-circle-name').value.trim();
   const status = document.getElementById('edit-circle-status').value;
-  const extId  = document.getElementById('edit-circle-ext-id').value.trim();
-
+  const extId = document.getElementById('edit-circle-ext-id').value.trim();
   if (!name) { toast('Circle name is required', true); return; }
-
   const integration_config = getConfigFromRows();
-
-  const body = { name, status };
-  if (extId) body.external_id = extId;
+  const body = { name, status }; if (extId) body.external_id = extId;
   if (Object.keys(integration_config).length) body.integration_config = integration_config;
-
   setLoading('btn-save-circle', true);
   const data = await api('PUT', `/circles/${circleId}`, body);
   setLoading('btn-save-circle', false);
   if (!data) return;
-
-  toast(`Circle "${name}" updated`);
-  closeModal('modal-edit-circle');
-  await loadCircles();
+  toast(`Circle "${name}" updated`); closeModal('modal-edit-circle'); await loadCircles();
 }
 
 // ─── ROSTER ───
 function refreshCircleSelect() {
-  const sel = document.getElementById('roster-circle-select');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— choose a circle —</option>' +
-    state.circles.map(c => `<option value="${c.id}" ${c.id===cur?'selected':''}>${c.name}</option>`).join('');
+  const sel = document.getElementById('roster-circle-select'); const cur = sel.value;
+  sel.innerHTML = '<option value="">— choose a circle —</option>' + state.circles.map(c => `<option value="${c.id}" ${c.id===cur?'selected':''}>${c.name}</option>`).join('');
 }
 
 function goToRoster(circleId) {
-  showPage('roster');
-  document.getElementById('nav-roster').classList.add('active');
-  document.getElementById('roster-circle-select').value = circleId;
-  loadRoster();
+  showPage('roster'); document.getElementById('nav-roster').classList.add('active');
+  document.getElementById('roster-circle-select').value = circleId; loadRoster();
 }
 
 async function loadRoster() {
-  const sel = document.getElementById('roster-circle-select');
-  const circleId = sel.value;
+  const sel = document.getElementById('roster-circle-select'); const circleId = sel.value;
   state.currentCircleId = circleId;
   const content = document.getElementById('roster-content');
   if (!circleId) { content.style.display = 'none'; return; }
@@ -1181,54 +693,25 @@ async function loadRoster() {
   document.getElementById('roster-circle-name').textContent = circle?.name || circleId;
   const data = await api('GET', `/circles/${circleId}/people`);
   if (!data) return;
-  content.style.display = '';
-  renderRoster(data.people || []);
+  content.style.display = ''; renderRoster(data.people || []);
 }
 
 function renderRoster(members) {
   const tbody = document.getElementById('roster-tbody');
-  if (!members.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div><div class="empty-sub">Add people from this ensemble to this circle</div></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = members.map(m => `
-    <tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="avatar ${avatarColor(m.p_type)}">${initials(m.member_name||'?')}</div>
-          <strong>${m.member_name||'—'}</strong>
-        </div>
-      </td>
-      <td>${m.p_type ? statusPill(m.p_type) : '—'}</td>
-      <td>${rolePill(m.person_role)}</td>
-      <td class="td-mono">${m.phone||'—'}</td>
-      <td></td>
-    </tr>`).join('');
+  if (!members.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div></div></td></tr>`; return; }
+  tbody.innerHTML = members.map(m => `<tr><td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(m.p_type)}">${initials(m.member_name||'?')}</div><strong>${m.member_name||'—'}</strong></div></td><td>${m.p_type ? statusPill(m.p_type) : '—'}</td><td>${rolePill(m.person_role)}</td><td class="td-mono">${m.phone||'—'}</td><td></td></tr>`).join('');
 }
 
 function openAddMember() {
   if (!state.currentCircleId) { toast('Select a circle first', true); return; }
   const list = document.getElementById('member-pick-list');
   state.selectedMemberId = null;
-  if (!state.people.length) {
-    list.innerHTML = `<div style="padding:1rem;font-size:13px;color:var(--g400);">No people in this ensemble yet. Add people first.</div>`;
-  } else {
-    list.innerHTML = state.people.map(p => `
-      <div class="member-opt" data-id="${p.id}" onclick="pickMember(this,'${p.id}')">
-        <div class="member-opt-check"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div>
-        <div class="avatar ${avatarColor(p.p_type)}" style="width:24px;height:24px;font-size:9px;">${initials(p.name)}</div>
-        <span class="member-opt-name">${p.name}</span>
-        <span class="member-opt-type">${p.p_type}</span>
-      </div>`).join('');
-  }
+  if (!state.people.length) { list.innerHTML = `<div style="padding:1rem;font-size:13px;color:var(--g400);">No people in this ensemble yet.</div>`; }
+  else { list.innerHTML = state.people.map(p => `<div class="member-opt" data-id="${p.id}" onclick="pickMember(this,'${p.id}')"><div class="member-opt-check"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><div class="avatar ${avatarColor(p.p_type)}" style="width:24px;height:24px;font-size:9px;">${initials(p.name)}</div><span class="member-opt-name">${p.name}</span><span class="member-opt-type">${p.p_type}</span></div>`).join(''); }
   openModal('modal-add-member');
 }
 
-function pickMember(el, id) {
-  document.querySelectorAll('.member-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  state.selectedMemberId = id;
-}
+function pickMember(el, id) { document.querySelectorAll('.member-opt').forEach(o => o.classList.remove('selected')); el.classList.add('selected'); state.selectedMemberId = id; }
 
 async function addMember() {
   if (!state.selectedMemberId) { toast('Select a person first', true); return; }
@@ -1237,50 +720,237 @@ async function addMember() {
   const data = await api('POST', `/circles/${state.currentCircleId}/people/${state.selectedMemberId}`, { role });
   setLoading('btn-add-member', false);
   if (!data) return;
-  toast('Member added to circle');
-  closeModal('modal-add-member');
-  await loadRoster();
+  toast('Member added to circle'); closeModal('modal-add-member'); await loadRoster();
 }
 
-// expose for inline onclick
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.addMember = addMember;
-document.getElementById('nav-roster') && (document.getElementById('nav-roster').onclick = () => { showPage('roster'); openAddMember; });
-
-// wire roster add btn
-document.querySelector('[onclick="openModal(\'modal-add-member\')"]') && null;
-// override the inline onclick for add member button to call openAddMember
+window.openModal = openModal; window.closeModal = closeModal; window.addMember = addMember;
 document.querySelectorAll('button').forEach(btn => {
-  if (btn.getAttribute('onclick') === "openModal('modal-add-member')") {
-    btn.onclick = (e) => { e.preventDefault(); openAddMember(); };
+  if (btn.getAttribute('onclick') === "openModal('modal-add-member')") { btn.onclick = (e) => { e.preventDefault(); openAddMember(); }; }
+});
+
+// ─── PERSON DETAIL ───
+async function openPersonDetail(personId) {
+  const person = state.people.find(p => p.id === personId);
+  if (!person) return;
+  state.detailPersonId = personId;
+  if (state.circles.length > 0) state.detailCircleId = state.circles[0].id;
+  const av = document.getElementById('detail-avatar');
+  av.textContent = initials(person.name);
+  av.className = `detail-avatar ${avatarColor(person.p_type)}`;
+  document.getElementById('detail-name').textContent = person.name;
+  document.getElementById('detail-meta').textContent = [person.p_type, person.phone, person.email].filter(Boolean).join(' · ');
+  document.getElementById('dp-name').value    = person.name || '';
+  document.getElementById('dp-type').value    = person.p_type || person.type || 'family';
+  document.getElementById('dp-phone').value   = person.phone || '';
+  document.getElementById('dp-email').value   = person.email || '';
+  document.getElementById('dp-ext-id').value  = person.external_id || '';
+  document.getElementById('dp-aliases').value = (person.aliases || []).join(', ');
+  document.getElementById('dp-notes').value   = person.notes || '';
+  switchPersonTab('profile');
+  const isSenior = (person.p_type || person.type) === 'senior';
+  document.getElementById('tab-clinical').style.display = isSenior ? '' : 'none';
+  showPage('person-detail');
+  document.getElementById('nav-people').classList.add('active');
+}
+
+function backToPeople() { showPage('people'); document.getElementById('nav-people').classList.add('active'); }
+
+function switchPersonTab(tab) {
+  document.getElementById('person-tab-profile').style.display  = tab === 'profile'  ? '' : 'none';
+  document.getElementById('person-tab-clinical').style.display = tab === 'clinical' ? '' : 'none';
+  document.getElementById('tab-profile').classList.toggle('active',  tab === 'profile');
+  document.getElementById('tab-clinical').classList.toggle('active', tab === 'clinical');
+  if (tab === 'clinical') loadCareTeam();
+}
+
+async function savePersonDetail() {
+  const personId = state.detailPersonId; if (!personId) return;
+  const name    = document.getElementById('dp-name').value.trim();
+  const p_type  = document.getElementById('dp-type').value;
+  const phone   = document.getElementById('dp-phone').value.trim();
+  const email   = document.getElementById('dp-email').value.trim();
+  const extId   = document.getElementById('dp-ext-id').value.trim();
+  const aliases = document.getElementById('dp-aliases').value.trim().split(',').map(s=>s.trim()).filter(Boolean);
+  const notes   = document.getElementById('dp-notes').value.trim();
+  if (!name) { toast('Name is required', true); return; }
+  setLoading('btn-dp-save', true);
+  const data = await api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId });
+  setLoading('btn-dp-save', false);
+  if (!data) return;
+  toast(`${name} updated`); await loadPeople();
+  document.getElementById('detail-name').textContent = name;
+  document.getElementById('detail-meta').textContent = [p_type, phone, email].filter(Boolean).join(' · ');
+}
+
+// ─── CARE TEAM ───
+async function loadCareTeam() {
+  if (!state.detailCircleId || !state.detailPersonId) return;
+  const data = await api('GET', `/circles/${state.detailCircleId}/clinical-records?person_id=${state.detailPersonId}&resource_type=CareTeamMember`);
+  if (!data) return;
+  renderCareTeam(data.records || []);
+}
+
+function renderCareTeam(records) {
+  const tbody = document.getElementById('care-team-tbody');
+  if (!records.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No care team members yet</div><div class="empty-sub">Add a doctor to get started</div></div></td></tr>`;
+    return;
   }
-});
+  tbody.innerHTML = records.map(r => {
+    const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    const addr = [d.address, d.city, d.state].filter(Boolean).join(', ');
+    return `<tr>
+      <td><strong>${d.name || '—'}</strong>${d.credential ? ` <span style="color:var(--g400);font-size:11px;">${d.credential}</span>` : ''}</td>
+      <td style="font-size:12px;">${d.specialty || '—'}</td>
+      <td class="td-mono">${d.phone || '—'}</td>
+      <td style="font-size:12px;">${addr || '—'}</td>
+      <td class="td-mono">${d.npi || '—'}</td>
+      <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openEditCareTeam('${r.id}')">Edit</button></div></td>
+    </tr>`;
+  }).join('');
+}
 
-// nav items that need ensemble
-['nav-people','nav-circles','nav-roster'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
-});
+// ─── EDIT CARE TEAM ───
+async function openEditCareTeam(recordId) {
+  const data = await api('GET', `/circles/${state.detailCircleId}/clinical-records?person_id=${state.detailPersonId}&resource_type=CareTeamMember`);
+  if (!data) return;
+  state.editingCareTeamRecords = data.records || [];
+  const rec = state.editingCareTeamRecords.find(r => r.id === recordId);
+  if (!rec) { toast('Record not found', true); return; }
+  state.editingCareTeamRecordId = recordId;
+  const d = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+  document.getElementById('ect-name').value       = d.name || '';
+  document.getElementById('ect-credential').value = d.credential || '';
+  document.getElementById('ect-specialty').value  = d.specialty || '';
+  document.getElementById('ect-phone').value      = d.phone || '';
+  document.getElementById('ect-npi').value        = d.npi || '';
+  document.getElementById('ect-address').value    = d.address || '';
+  document.getElementById('ect-city').value       = d.city || '';
+  document.getElementById('ect-state').value      = d.state || '';
+  document.getElementById('ect-zip').value        = d.postal_code || '';
+  document.getElementById('ect-role').value       = d.role || '';
+  document.getElementById('ect-notes').value      = rec.notes || '';
+  document.getElementById('ect-status').value     = rec.status || 'active';
+  openModal('modal-edit-care-team');
+}
+
+async function updateCareTeamMember() {
+  const recordId = state.editingCareTeamRecordId; if (!recordId) return;
+  const rec = state.editingCareTeamRecords.find(r => r.id === recordId); if (!rec) return;
+  const existing = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+  const updated = {
+    ...existing,
+    name:        document.getElementById('ect-name').value.trim(),
+    credential:  document.getElementById('ect-credential').value.trim(),
+    specialty:   document.getElementById('ect-specialty').value.trim(),
+    phone:       document.getElementById('ect-phone').value.trim(),
+    npi:         document.getElementById('ect-npi').value.trim(),
+    address:     document.getElementById('ect-address').value.trim(),
+    city:        document.getElementById('ect-city').value.trim(),
+    state:       document.getElementById('ect-state').value.trim(),
+    postal_code: document.getElementById('ect-zip').value.trim(),
+    role:        document.getElementById('ect-role').value.trim(),
+  };
+  const notes  = document.getElementById('ect-notes').value.trim();
+  const status = document.getElementById('ect-status').value;
+  setLoading('btn-update-care-team', true);
+  const data = await api('PUT', `/clinical-records/${recordId}`, { data: updated, notes: notes || null, status });
+  setLoading('btn-update-care-team', false);
+  if (!data) return;
+  toast(`${updated.name} updated`); closeModal('modal-edit-care-team'); loadCareTeam();
+}
+
+// ─── NPI SEARCH ───
+async function searchNPI() {
+  const firstName = document.getElementById('ct-first-name').value.trim();
+  const lastName  = document.getElementById('ct-last-name').value.trim();
+  const city      = document.getElementById('ct-city').value.trim();
+  const stateVal  = document.getElementById('ct-state').value;
+  if (!firstName || !lastName) { toast('First and last name are required', true); return; }
+  setLoading('btn-npi-search', true);
+  let url = `/npi/search?first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}`;
+  if (city)     url += `&city=${encodeURIComponent(city)}`;
+  if (stateVal) url += `&state=${encodeURIComponent(stateVal)}`;
+  const data = await api('GET', url);
+  setLoading('btn-npi-search', false);
+  if (!data) return;
+  renderNpiResults(data.results || []);
+}
+
+function renderNpiResults(results) {
+  const wrap = document.getElementById('npi-results-wrap');
+  const list = document.getElementById('npi-results-list');
+  state.selectedNpiResult = null;
+  document.getElementById('care-team-confirm-section').style.display = 'none';
+  document.getElementById('care-team-save-actions').style.display    = 'none';
+  if (!results.length) { list.innerHTML = `<div style="font-size:13px;color:var(--g400);padding:0.5rem;">No results found. Try broadening your search.</div>`; wrap.style.display = ''; return; }
+  list.innerHTML = results.map((r, i) => {
+    const addr = [r.address, r.city, r.state, r.postal_code].filter(Boolean).join(', ');
+    return `<div class="npi-result" onclick="selectNpiResult(${i})" data-index="${i}">
+      <div class="npi-result-name">${r.name}${r.credential ? ` <span style="font-weight:300;">${r.credential}</span>` : ''}</div>
+      <div class="npi-result-specialty">${r.specialty || 'Specialty not listed'}</div>
+      <div class="npi-result-address">${addr}</div>
+      <div class="npi-result-npi">NPI: ${r.npi}</div>
+    </div>`;
+  }).join('');
+  list._results = results;
+  wrap.style.display = '';
+}
+
+function selectNpiResult(index) {
+  document.querySelectorAll('.npi-result').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.npi-result[data-index="${index}"]`);
+  if (el) el.classList.add('selected');
+  const list = document.getElementById('npi-results-list');
+  state.selectedNpiResult = list._results[index];
+  const r = state.selectedNpiResult;
+  const addr = [r.address, r.city, r.state].filter(Boolean).join(', ');
+  document.getElementById('ct-selected-summary').innerHTML =
+    `<strong>${r.name}</strong>${r.credential ? ` · ${r.credential}` : ''}<br>
+     <span style="color:var(--t500);font-size:12px;">${r.specialty}</span><br>
+     <span style="color:var(--g400);font-size:11px;">${addr} · ${r.phone || 'no phone'}</span>`;
+  document.getElementById('ct-role').value = r.specialty || '';
+  document.getElementById('npi-results-wrap').style.display          = 'none';
+  document.getElementById('care-team-confirm-section').style.display = '';
+  document.getElementById('care-team-save-actions').style.display    = '';
+}
+
+async function saveCareTeamMember() {
+  const r = state.selectedNpiResult;
+  if (!r) { toast('Select a provider first', true); return; }
+  if (!state.detailCircleId || !state.detailPersonId) { toast('Missing circle or person context', true); return; }
+  const role  = document.getElementById('ct-role').value.trim();
+  const notes = document.getElementById('ct-notes').value.trim();
+  const addr  = [r.address, r.city, r.state, r.postal_code].filter(Boolean).join(', ');
+  const body = {
+    person_id: state.detailPersonId, resource_type: 'CareTeamMember', status: 'active', notes: notes || null,
+    data: { name: r.name, credential: r.credential, specialty: r.specialty, taxonomy_code: r.taxonomy_code, npi: r.npi, phone: r.phone, address: r.address, city: r.city, state: r.state, postal_code: r.postal_code, full_address: addr, role },
+  };
+  setLoading('btn-save-care-team', true);
+  const data = await api('POST', `/circles/${state.detailCircleId}/clinical-records`, body);
+  setLoading('btn-save-care-team', false);
+  if (!data) return;
+  toast(`${r.name} added to care team`); closeModal('modal-add-care-team'); resetCareTeamModal(); loadCareTeam();
+}
+
+function resetCareTeamModal() {
+  state.selectedNpiResult = null;
+  document.getElementById('npi-results-wrap').style.display          = 'none';
+  document.getElementById('care-team-confirm-section').style.display = 'none';
+  document.getElementById('care-team-save-actions').style.display    = 'none';
+  ['ct-first-name','ct-last-name','ct-city','ct-role','ct-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ct-state').value = 'TX';
+}
+
+// ─── INIT ───
+['nav-people','nav-circles','nav-roster'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
 document.getElementById('ensemble-nav').style.display = 'none';
-
-// stat defaults
 document.getElementById('stat-plan').textContent = 'Family+';
 
-// On API key change, try to load ensembles
-document.getElementById('apiKey').addEventListener('change', () => {
-  if (!apiKey()) {
-    setApiStatus(false, 'Enter your API key in the top right to get started.');
-  } else {
-    loadEnsembles();
-  }
-});
+document.getElementById('apiKey').addEventListener('change', () => { if (!apiKey()) setApiStatus(false, 'Enter your API key in the top right to get started.'); else loadEnsembles(); });
 document.getElementById('apiKey').addEventListener('keydown', e => { if (e.key==='Enter') loadEnsembles(); });
 
-// Init — show unauthenticated banner if no key on load
-if (!apiKey()) {
-  setApiStatus(false, 'Enter your API key in the top right to get started.');
-}
+if (!apiKey()) setApiStatus(false, 'Enter your API key in the top right to get started.');
 loadEnsembles();
 </script>
 </body>

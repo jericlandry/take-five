@@ -347,7 +347,6 @@ class TakeFiveRepository:
 
     def save_clinical_record(
         self,
-        circle_id: str,
         person_id: str,
         resource_type: str,
         data: Dict,
@@ -355,26 +354,27 @@ class TakeFiveRepository:
         status: str = 'active',
         confirmed_by: Optional[str] = None,
         source_message_id: Optional[str] = None,
+        circle_id: Optional[str] = None,   # provenance only — which chat it came from
     ) -> Dict:
         """
-        Insert a clinical record. Called by ask_with_tools() when Claude
-        invokes the save_clinical_record tool after user confirmation.
+        Insert a clinical record. circle_id is optional provenance — pass it
+        when the record originates from a specific chat, omit for admin entry.
 
         resource_type: 'MedicationStatement' | 'Condition' | 'Observation'
                        'Appointment' | 'AllergyIntolerance' | 'Procedure'
+                       'CareTeamMember'
         """
         query = """
             INSERT INTO clinical_records (
-                circle_id, person_id, resource_type, status,
-                data, notes, confirmed_by, confirmed_at, source_message_id
+                person_id, resource_type, status,
+                data, notes, confirmed_by, confirmed_at, source_message_id, circle_id
             ) VALUES (
-                %(circle_id)s, %(person_id)s, %(resource_type)s, %(status)s,
+                %(person_id)s, %(resource_type)s, %(status)s,
                 %(data)s, %(notes)s, %(confirmed_by)s,
-                %(confirmed_at)s, %(source_message_id)s
+                %(confirmed_at)s, %(source_message_id)s, %(circle_id)s
             ) RETURNING *;
         """
         return self._execute(query, {
-            'circle_id':         circle_id,
             'person_id':         person_id,
             'resource_type':     resource_type,
             'status':            status,
@@ -383,33 +383,82 @@ class TakeFiveRepository:
             'confirmed_by':      confirmed_by,
             'confirmed_at':      datetime.utcnow() if confirmed_by else None,
             'source_message_id': source_message_id,
+            'circle_id':         circle_id,
+        })
+
+    def update_clinical_record(
+        self,
+        record_id: str,
+        data: Optional[Dict] = None,
+        notes: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Dict:
+        """Update an existing clinical record's data, notes, or status."""
+        query = """
+            UPDATE clinical_records SET
+                data   = COALESCE(%(data)s,   data),
+                notes  = COALESCE(%(notes)s,  notes),
+                status = COALESCE(%(status)s, status)
+            WHERE id = %(id)s
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'id':     record_id,
+            'data':   Json(data) if data is not None else None,
+            'notes':  notes,
+            'status': status,
         })
 
     def get_clinical_records(
         self,
-        circle_id: str,
-        person_id: Optional[str] = None,
+        person_id: str,
         resource_type: Optional[str] = None,
         status: str = 'active',
     ) -> List[Dict]:
-        """Fetch clinical records for a circle, optionally filtered by person and type."""
+        """Fetch clinical records for a person, optionally filtered by type and status."""
         query = """
             SELECT cr.*, p.name AS person_name
             FROM clinical_records cr
             JOIN people p ON cr.person_id = p.id
-            WHERE cr.circle_id = %(circle_id)s
+            WHERE cr.person_id = %(person_id)s
               AND cr.status = %(status)s
         """
-        params: Dict = {'circle_id': circle_id, 'status': status}
+        params: Dict = {'person_id': person_id, 'status': status}
 
-        if person_id:
-            query += " AND cr.person_id = %(person_id)s"
-            params['person_id'] = person_id
         if resource_type:
             query += " AND cr.resource_type = %(resource_type)s"
             params['resource_type'] = resource_type
 
         query += " ORDER BY cr.created_at DESC"
+        return self._execute(query, params, fetch='all')
+
+    def get_clinical_records_for_circle(
+        self,
+        circle_id: str,
+        resource_type: Optional[str] = None,
+        status: str = 'active',
+    ) -> List[Dict]:
+        """
+        Fetch clinical records for all seniors in a circle.
+        Resolves seniors via circle_memberships — does not filter by circle_id
+        on the clinical_records table.
+        """
+        query = """
+            SELECT cr.*, p.name AS person_name
+            FROM clinical_records cr
+            JOIN people p ON cr.person_id = p.id
+            JOIN circle_memberships cm ON p.id = cm.person_id
+            WHERE cm.circle_id = %(circle_id)s
+              AND cm.role = 'senior'
+              AND cr.status = %(status)s
+        """
+        params: Dict = {'circle_id': circle_id, 'status': status}
+
+        if resource_type:
+            query += " AND cr.resource_type = %(resource_type)s"
+            params['resource_type'] = resource_type
+
+        query += " ORDER BY p.name, cr.created_at DESC"
         return self._execute(query, params, fetch='all')
 
     # --- ENSEMBLES ---

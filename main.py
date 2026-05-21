@@ -1,6 +1,7 @@
 import asyncio
+import httpx
 
-from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Response
+from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Response, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,7 +11,7 @@ import os
 from datetime import datetime
 
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from starlette.responses import FileResponse
 from twilio.twiml.messaging_response import MessagingResponse
 
@@ -101,6 +102,18 @@ class CreateEnsembleRequest(BaseModel):
     name: str
     plan: str
     status: str = "trial"
+
+class UpdateClinicalRecordRequest(BaseModel):
+    data: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+
+class CreateClinicalRecordRequest(BaseModel):
+    person_id: str
+    resource_type: str
+    data: Dict[str, Any]
+    notes: Optional[str] = None
+    status: str = 'active'
 
 class MessageRequest(BaseModel):
     circle_id: str
@@ -205,6 +218,105 @@ async def add_person_to_circle(circle_id: str, person_id: str,
         role=body.role
     )
     return {"membership": row_to_dict(membership)}
+
+@secure_router.get("/npi/search")
+async def npi_search(
+    first_name: str = Query(...),
+    last_name: str = Query(...),
+    city: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+):
+    params = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "limit": 5,
+        "enumeration_type": "NPI-1",
+        "version": "2.1",
+    }
+    if city:
+        params["city"] = city
+    if state:
+        params["state"] = state
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            "https://npiregistry.cms.hhs.gov/api/",
+            params=params,
+            timeout=10,
+        )
+    resp.raise_for_status()
+    raw = resp.json()
+
+    results = []
+    for r in raw.get("results", []):
+        basic      = r.get("basic", {})
+        taxonomies = r.get("taxonomies", [])
+        primary    = next((t for t in taxonomies if t.get("primary")), None)
+        # Fall back to any taxonomy with a description if primary has none
+        if not primary or not primary.get("desc"):
+            primary = next((t for t in taxonomies if t.get("desc")), primary or {})
+        addresses  = r.get("addresses", [])
+        practice   = next((a for a in addresses if a.get("address_purpose") == "LOCATION"), addresses[0] if addresses else {})
+        results.append({
+            "npi":           r.get("number"),
+            "name":          f"{basic.get('first_name', '')} {basic.get('last_name', '')}".strip(),
+            "credential":    basic.get("credential", ""),
+            "specialty":     primary.get("desc", ""),
+            "taxonomy_code": primary.get("code", ""),
+            "phone":         practice.get("telephone_number", ""),
+            "address":       f"{practice.get('address_1', '')} {practice.get('address_2', '')}".strip(),
+            "city":          practice.get("city", ""),
+            "state":         practice.get("state", ""),
+            "postal_code":   practice.get("postal_code", ""),
+        })
+
+    return {"results": results}
+
+
+@secure_router.get("/circles/{circle_id}/clinical-records")
+async def get_clinical_records(
+    circle_id: str,
+    person_id: Optional[str] = Query(None),
+    resource_type: Optional[str] = Query(None),
+):
+    if person_id:
+        records = repo.get_clinical_records(
+            person_id=person_id,
+            resource_type=resource_type,
+        )
+    else:
+        records = repo.get_clinical_records_for_circle(
+            circle_id=circle_id,
+            resource_type=resource_type,
+        )
+    return {"records": [row_to_dict(r) for r in records]}
+
+
+@secure_router.post("/circles/{circle_id}/clinical-records")
+async def create_clinical_record(circle_id: str, body: CreateClinicalRecordRequest):
+    record = repo.save_clinical_record(
+        person_id=body.person_id,
+        resource_type=body.resource_type,
+        data=body.data,
+        notes=body.notes,
+        status=body.status,
+        # circle_id intentionally omitted for admin entry
+    )
+    return {"record": row_to_dict(record)}
+
+
+@secure_router.put("/clinical-records/{record_id}")
+async def update_clinical_record(record_id: str, body: UpdateClinicalRecordRequest):
+    record = repo.update_clinical_record(
+        record_id=record_id,
+        data=body.data,
+        notes=body.notes,
+        status=body.status,
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return {"record": row_to_dict(record)}
+
 
 @secure_router.post("/messages")
 async def message(body: MessageRequest):

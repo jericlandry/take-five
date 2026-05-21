@@ -92,13 +92,13 @@ def save_clinical_record(
 
     try:
         record = repo.save_clinical_record(
-            circle_id=circle_id,
             person_id=person_id,
             resource_type=resource_type,
             data=data,
             notes=notes,
             status=status,
             confirmed_by=confirmed_by,
+            circle_id=circle_id,  # provenance — which chat it came from
         )
         logger.info(
             f"[tools] Clinical record saved — "
@@ -206,32 +206,27 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_clinical_records(self) -> str:
-        seniors = self.repo.get_seniors_in_circle(self.circle_id)
-        if not seniors:
-            return "## Clinical Records\n_No seniors found in circle._\n"
+        records = self.repo.get_clinical_records_for_circle(self.circle_id)
+        if not records:
+            return "## Clinical Records\n_No clinical records on file._\n"
 
         lines = ["## Clinical Records\n"]
-        any_records = False
 
-        for senior in seniors:
-            person_id   = str(senior['id'])
-            person_name = senior['name']
+        # Group by person
+        by_person: dict[str, list] = {}
+        person_names: dict[str, str] = {}
+        for r in records:
+            pid = str(r['person_id'])
+            by_person.setdefault(pid, []).append(r)
+            person_names[pid] = r['person_name']
 
-            records = self.repo.get_clinical_records(
-                circle_id=self.circle_id,
-                person_id=person_id,
-            )
+        for person_id, person_records in by_person.items():
+            person_name = person_names[person_id]
+            lines.append(f"### {person_name}")
 
             by_type: dict[str, list] = {}
-            for r in records:
+            for r in person_records:
                 by_type.setdefault(r['resource_type'], []).append(r)
-
-            if not records:
-                lines.append(f"### {person_name}\n_No clinical records on file._\n")
-                continue
-
-            any_records = True
-            lines.append(f"### {person_name}")
 
             for resource_type, type_records in by_type.items():
                 label = {
@@ -241,6 +236,7 @@ class ContextBuilder:
                     "Appointment":         "Appointments",
                     "AllergyIntolerance":  "Allergies",
                     "Procedure":           "Procedures",
+                    "CareTeamMember":      "Care Team",
                 }.get(resource_type, resource_type)
 
                 lines.append(f"\n**{label}**")
@@ -250,20 +246,32 @@ class ContextBuilder:
                     record_id = str(rec['id'])
                     status    = rec['status']
 
+                    if resource_type == 'CareTeamMember':
+                        name    = data.get('name', 'Unknown')
+                        cred    = data.get('credential', '')
+                        spec    = data.get('specialty', '')
+                        role    = data.get('role', '')
+                        phone   = data.get('phone', '')
+                        primary = f"- **{name}**"
+                        if cred:  primary += f" {cred}"
+                        if spec:  primary += f" \u2014 {spec}"
+                        if role:  primary += f" ({role})"
+                        lines.append(primary)
+                        if phone: lines.append(f"  Phone: {phone}")
+                        lines.append(f"  [record_id: {record_id}]")
+                        continue
+
                     name  = data.get('medication_name') or data.get('condition') or data.get('symptom') or 'Unknown'
                     dose  = data.get('dosage', '')
                     instr = data.get('instructions', '')
                     notes = rec.get('notes') or ''
 
                     primary = f"- **{name}**"
-                    if dose:
-                        primary += f" ({dose})"
-                    if status and status != 'active':
-                        primary += f" — _{status}_"
+                    if dose:                          primary += f" ({dose})"
+                    if status and status != 'active': primary += f" \u2014 _{status}_"
                     lines.append(primary)
 
-                    if instr:
-                        lines.append(f"  Instructions: {instr}")
+                    if instr: lines.append(f"  Instructions: {instr}")
 
                     detail_fields = [
                         ('prescriber',  'Prescriber'),
@@ -273,23 +281,12 @@ class ContextBuilder:
                         ('rx_number',   'Rx#'),
                         ('form',        'Form'),
                     ]
-                    details = [
-                        f"{lbl}: {data[field]}"
-                        for field, lbl in detail_fields
-                        if data.get(field)
-                    ]
-                    if details:
-                        lines.append(f"  {' | '.join(details)}")
-
-                    if notes:
-                        lines.append(f"  Note: {notes}")
-
+                    details = [f"{lbl}: {data[field]}" for field, lbl in detail_fields if data.get(field)]
+                    if details: lines.append(f"  {' | '.join(details)}")
+                    if notes:   lines.append(f"  Note: {notes}")
                     lines.append(f"  [record_id: {record_id}]")
 
             lines.append("")
-
-        if not any_records:
-            lines.append("_No clinical records on file for any senior in this circle._\n")
 
         return "\n".join(lines)
 
