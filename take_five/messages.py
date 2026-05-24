@@ -116,7 +116,66 @@ def save_clinical_record(
         return json.dumps({"success": False, "error": str(e)})
 
 
-TOOLS = [save_clinical_record]
+@tool
+def patch_clinical_record(
+    record_id: str,
+    event_type: str,
+    updated_fields: dict = None,
+    notes: str = None,
+) -> str:
+    """
+    Update an existing clinical record and log the event to the audit trail.
+
+    Use this tool — never save_clinical_record — when a medication or other
+    clinical record already exists in Clinical Records and the user is:
+    - Correcting a field (event_type='updated'): pass updated_fields with only
+      what changed, e.g. {"dosage": "10mg"} or {"instructions": "take twice daily"}.
+    - Reporting a refill (event_type='refilled'): pass no updated_fields.
+      The record is unchanged — the event is the signal.
+    - Discontinuing (event_type='discontinued'): pass no updated_fields.
+      The record status will be set to 'discontinued'.
+
+    Args:
+        record_id:      UUID of the existing clinical_records row to update.
+                        Get this from the [record_id: ...] shown in Clinical Records.
+        event_type:     'updated' | 'refilled' | 'discontinued'
+        updated_fields: Dict of only the fields being changed (for 'updated' only).
+                        Keys must match the field names in the record's data JSONB,
+                        e.g. {"dosage": "10mg"} or {"prescriber": "Dr. Smith"}.
+        notes:          Optional free-text note to attach to the event.
+    """
+    repo         = _tool_context.get('repo')
+    confirmed_by = _tool_context.get('confirmed_by_person_id')
+
+    if not repo:
+        return json.dumps({"success": False, "error": "Missing tool context — repo not set."})
+
+    try:
+        record = repo.patch_clinical_record(
+            record_id=record_id,
+            event_type=event_type,
+            updated_fields=updated_fields,
+            notes=notes,
+            confirmed_by=confirmed_by,
+        )
+        data = record['data'] if isinstance(record['data'], dict) else json.loads(record['data'])
+        logger.info(
+            f"[tools] Clinical record patched — "
+            f"id: {record_id}, event_type: {event_type}, "
+            f"medication: {data.get('medication_name', 'unknown')}"
+        )
+        return json.dumps({
+            "success":    True,
+            "record_id":  str(record['id']),
+            "event_type": event_type,
+            "medication": data.get('medication_name'),
+        })
+    except Exception as e:
+        logger.error(f"[tools] patch_clinical_record failed: {e}", exc_info=True)
+        return json.dumps({"success": False, "error": str(e)})
+
+
+TOOLS = [save_clinical_record, patch_clinical_record]
 
 # ---------------------------------------------------------------------------
 # Context builder
@@ -418,23 +477,55 @@ When the user asks for a pre-visit summary or appointment preparation, follow th
    Keep the tone warm and practical — this is for a family member to bring to the
    appointment, not a clinical document.
 
-Tool use — save_clinical_record:
+Tool use — save_clinical_record and patch_clinical_record:
+
+SAVED vs PENDING:
 - A medication is PENDING when you see a message beginning with "💊 PENDING CONFIRMATION".
   This means the record has NOT been saved to the database yet — it is awaiting confirmation.
 - A medication is SAVED only when you see a message beginning with "[SAVED: record_id=...]"
-  in the conversation history. This marker is written by the system only when the database
-  write actually succeeded. Never infer a record was saved from any other message.
-- Call save_clinical_record when:
-  (a) The user explicitly confirms a PENDING CONFIRMATION medication
-      (e.g. "yes", "save it", "looks good", "that's right"), OR
-  (b) The user directly provides medication details and asks to add or save them
-      (e.g. "add a medication for Gomez", "save this prescription", "please add Metformin 500mg").
-- Do NOT call it if required fields are missing without asking for them first.
+  or "[PATCHED: record_id=...]" in the conversation history. These markers are written by
+  the system only when the database write actually succeeded. Never infer a record was
+  saved from any other message.
+
+Choosing the right tool:
+- Before calling save_clinical_record, check Clinical Records for a medication with the
+  same or similar name for the same senior.
+- If a matching record EXISTS → use patch_clinical_record, not save_clinical_record.
+- If NO matching record exists → use save_clinical_record.
+
+When a medication image or text update matches an existing record, ask:
+  "I already have [name] on file for [senior]. Is this a refill, a correction to the
+  existing record, or a different medication?"
+Wait for the answer before calling any tool. Map the answer to event_type:
+  - refill → event_type='refilled'
+  - correction → event_type='updated', pass only the changed fields in updated_fields
+  - different medication → call save_clinical_record as a new record
+
+Call save_clinical_record when:
+  (a) The user explicitly confirms a PENDING CONFIRMATION medication and no matching
+      record exists, OR
+  (b) The user directly provides medication details for a new medication
+      (e.g. "add a medication for Mel", "save this prescription", "please add Metformin 500mg").
+
+Call patch_clinical_record when:
+  (a) The user confirms a PENDING CONFIRMATION and a matching record already exists, OR
+  (b) The user provides a correction to an existing record
+      (e.g. "actually the dose is 10mg", "update the instructions for Dayvigo"), OR
+  (c) The user reports a refill of an existing medication, OR
+  (d) The user says a medication has been discontinued.
+
+General rules:
+- Do NOT call either tool if required fields are missing without asking for them first.
 - The person_id must be the UUID of the care recipient (senior) from the roster —
   never use a family member's ID.
 - If there is more than one senior in the circle and it is unclear which one the
   medication belongs to, ask before saving.
-- After a successful save, confirm warmly and summarise what was recorded."""
+- After a successful save, confirm warmly and summarise what was recorded.
+- After a successful patch, confirm warmly with the event type:
+  refilled → "Refill logged for [name]."
+  updated  → "Updated [field] for [name] from [old] to [new]."
+  discontinued → "[name] has been marked as discontinued."
+"""
 
 
 def _build_human_message(
@@ -508,8 +599,9 @@ async def ask_with_tools(
     response     = llm.invoke([user_message], config={"system": SYSTEM_PROMPT})
 
     if response.tool_calls:
-        tool_messages    = []
-        saved_record_ids = []
+        tool_messages      = []
+        saved_record_ids   = []
+        patched_record_ids = []
 
         for tc in response.tool_calls:
             logger.info(f"[ask_with_tools] Tool call: {tc['name']} args: {tc['args']}")
@@ -518,6 +610,12 @@ async def ask_with_tools(
                 parsed = json.loads(result)
                 if parsed.get('success'):
                     saved_record_ids.append(parsed['record_id'])
+                tool_messages.append(ToolMessage(content=result, tool_call_id=tc['id']))
+            elif tc['name'] == 'patch_clinical_record':
+                result = patch_clinical_record.invoke(tc['args'])
+                parsed = json.loads(result)
+                if parsed.get('success'):
+                    patched_record_ids.append((parsed['record_id'], parsed.get('event_type', '')))
                 tool_messages.append(ToolMessage(content=result, tool_call_id=tc['id']))
 
         followup = llm.invoke(
@@ -529,6 +627,10 @@ async def ask_with_tools(
         if saved_record_ids:
             record_ids = ", ".join(saved_record_ids)
             reply = f"[SAVED: record_id={record_ids}]\n{reply}"
+
+        if patched_record_ids:
+            markers = ", ".join(f"{rid}:{etype}" for rid, etype in patched_record_ids)
+            reply = f"[PATCHED: record_id={markers}]\n{reply}"
 
         return reply
 

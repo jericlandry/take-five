@@ -1,3 +1,4 @@
+import json
 import psycopg2
 from psycopg2.extras import RealDictCursor, Json
 from typing import List, Dict, Optional
@@ -357,34 +358,60 @@ class TakeFiveRepository:
         circle_id: Optional[str] = None,   # provenance only — which chat it came from
     ) -> Dict:
         """
-        Insert a clinical record. circle_id is optional provenance — pass it
-        when the record originates from a specific chat, omit for admin entry.
+        Insert a clinical record and write the initial 'added' event
+        in a single transaction.
 
         resource_type: 'MedicationStatement' | 'Condition' | 'Observation'
                        'Appointment' | 'AllergyIntolerance' | 'Procedure'
                        'CareTeamMember'
         """
-        query = """
-            INSERT INTO clinical_records (
-                person_id, resource_type, status,
-                data, notes, confirmed_by, confirmed_at, source_message_id, circle_id
-            ) VALUES (
-                %(person_id)s, %(resource_type)s, %(status)s,
-                %(data)s, %(notes)s, %(confirmed_by)s,
-                %(confirmed_at)s, %(source_message_id)s, %(circle_id)s
-            ) RETURNING *;
-        """
-        return self._execute(query, {
-            'person_id':         person_id,
-            'resource_type':     resource_type,
-            'status':            status,
-            'data':              Json(data),
-            'notes':             notes,
-            'confirmed_by':      confirmed_by,
-            'confirmed_at':      datetime.utcnow() if confirmed_by else None,
-            'source_message_id': source_message_id,
-            'circle_id':         circle_id,
-        })
+        confirmed_at = datetime.utcnow() if confirmed_by else None
+
+        with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
+            with conn.cursor() as cur:
+                # 1. Insert the clinical record
+                cur.execute("""
+                    INSERT INTO clinical_records (
+                        person_id, resource_type, status,
+                        data, notes, confirmed_by, confirmed_at,
+                        source_message_id, circle_id
+                    ) VALUES (
+                        %(person_id)s, %(resource_type)s, %(status)s,
+                        %(data)s, %(notes)s, %(confirmed_by)s,
+                        %(confirmed_at)s, %(source_message_id)s, %(circle_id)s
+                    ) RETURNING *;
+                """, {
+                    'person_id':         person_id,
+                    'resource_type':     resource_type,
+                    'status':            status,
+                    'data':              Json(data),
+                    'notes':             notes,
+                    'confirmed_by':      confirmed_by,
+                    'confirmed_at':      confirmed_at,
+                    'source_message_id': source_message_id,
+                    'circle_id':         circle_id,
+                })
+                record = cur.fetchone()
+
+                # 2. Write the 'added' event in the same transaction
+                cur.execute("""
+                    INSERT INTO clinical_events (
+                        record_id, event_type, notes,
+                        confirmed_by, confirmed_at, source_message_id
+                    ) VALUES (
+                        %(record_id)s, 'added', %(notes)s,
+                        %(confirmed_by)s, %(confirmed_at)s, %(source_message_id)s
+                    );
+                """, {
+                    'record_id':         record['id'],
+                    'notes':             notes,
+                    'confirmed_by':      confirmed_by,
+                    'confirmed_at':      confirmed_at,
+                    'source_message_id': source_message_id,
+                })
+
+                conn.commit()
+                return record
 
     def update_clinical_record(
         self,
@@ -393,7 +420,11 @@ class TakeFiveRepository:
         notes: Optional[str] = None,
         status: Optional[str] = None,
     ) -> Dict:
-        """Update an existing clinical record's data, notes, or status."""
+        """
+        Simple field patcher — used by the admin API endpoint only.
+        Does not write a clinical_event. For event-aware updates from
+        the chat pipeline, use patch_clinical_record().
+        """
         query = """
             UPDATE clinical_records SET
                 data   = COALESCE(%(data)s,   data),
@@ -408,6 +439,118 @@ class TakeFiveRepository:
             'notes':  notes,
             'status': status,
         })
+
+    def patch_clinical_record(
+        self,
+        record_id: str,
+        event_type: str,                        # 'updated' | 'refilled' | 'discontinued'
+        updated_fields: Optional[Dict] = None,  # only the changed fields
+        notes: Optional[str] = None,
+        confirmed_by: Optional[str] = None,
+        source_message_id: Optional[str] = None,
+    ) -> Dict:
+        """
+        Update a clinical record and write the corresponding clinical_event
+        in a single transaction.
+
+        event_type='updated':      pass updated_fields with only the changed fields.
+                                   Diff is computed and stored in the event.
+        event_type='refilled':     updated_fields is None — record unchanged,
+                                   event is the signal.
+        event_type='discontinued': updated_fields is None — record status set to
+                                   'discontinued'.
+        """
+        confirmed_at = datetime.utcnow() if confirmed_by else None
+
+        with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
+            with conn.cursor() as cur:
+
+                # 1. Fetch current record for diff
+                cur.execute(
+                    "SELECT * FROM clinical_records WHERE id = %s FOR UPDATE;",
+                    (record_id,)
+                )
+                current = cur.fetchone()
+                if not current:
+                    raise ValueError(f"Clinical record {record_id} not found")
+
+                current_data = (
+                    current['data']
+                    if isinstance(current['data'], dict)
+                    else json.loads(current['data'])
+                )
+
+                # 2. Apply updates to the record
+                if event_type == 'updated' and updated_fields:
+                    previous_values = {
+                        k: current_data.get(k)
+                        for k in updated_fields
+                    }
+                    new_data = {**current_data, **updated_fields}
+                    cur.execute("""
+                        UPDATE clinical_records
+                        SET data = %(data)s
+                        WHERE id = %(id)s
+                        RETURNING *;
+                    """, {
+                        'id':   record_id,
+                        'data': Json(new_data),
+                    })
+                    record = cur.fetchone()
+
+                elif event_type == 'discontinued':
+                    previous_values = None
+                    cur.execute("""
+                        UPDATE clinical_records
+                        SET status = 'discontinued'
+                        WHERE id = %(id)s
+                        RETURNING *;
+                    """, {'id': record_id})
+                    record = cur.fetchone()
+
+                else:
+                    # refilled — record data unchanged
+                    previous_values = None
+                    record = current
+
+                # 3. Write the event
+                cur.execute("""
+                    INSERT INTO clinical_events (
+                        record_id, event_type,
+                        changed_fields, previous_values,
+                        notes, confirmed_by, confirmed_at,
+                        source_message_id
+                    ) VALUES (
+                        %(record_id)s, %(event_type)s,
+                        %(changed_fields)s, %(previous_values)s,
+                        %(notes)s, %(confirmed_by)s, %(confirmed_at)s,
+                        %(source_message_id)s
+                    );
+                """, {
+                    'record_id':       record_id,
+                    'event_type':      event_type,
+                    'changed_fields':  Json(updated_fields) if updated_fields else None,
+                    'previous_values': Json(previous_values) if previous_values else None,
+                    'notes':           notes,
+                    'confirmed_by':    confirmed_by,
+                    'confirmed_at':    confirmed_at,
+                    'source_message_id': source_message_id,
+                })
+
+                conn.commit()
+                return record
+
+    def get_clinical_events(self, record_id: str) -> List[Dict]:
+        """Fetch the full event history for a clinical record, oldest first."""
+        return self._execute("""
+            SELECT
+                ce.*,
+                p.name AS confirmed_by_name
+            FROM clinical_events ce
+            LEFT JOIN people p ON ce.confirmed_by = p.id
+            WHERE ce.record_id = %s
+            ORDER BY ce.created_at ASC;
+        """, (record_id,), fetch='all')
 
     def get_clinical_records(
         self,
