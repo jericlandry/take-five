@@ -624,6 +624,7 @@ async def ask_with_tools(
         )
         reply = followup.content.strip()
 
+        # Prepend sentinel for state tracking — stripped before posting to GroupMe
         if saved_record_ids:
             record_ids = ", ".join(saved_record_ids)
             reply = f"[SAVED: record_id={record_ids}]\n{reply}"

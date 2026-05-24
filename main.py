@@ -335,10 +335,19 @@ async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_i
     """
     Post a reply to GroupMe and log it as an outbound agent_note.
     No-op if bot_id or text is missing.
+
+    Internal sentinels ([SAVED: ...], [PATCHED: ...]) are stripped from the
+    visible GroupMe message but preserved in the logged body so Claude can
+    read them in future turns for state tracking.
     """
     if not bot_id or not text:
         return
-    await send_message_async(bot_id, text)
+    # Strip sentinel lines before posting — users never see them
+    visible_text = "\n".join(
+        line for line in text.splitlines()
+        if not line.startswith("[SAVED:") and not line.startswith("[PATCHED:")
+    ).strip()
+    await send_message_async(bot_id, visible_text)
     if circle_ext_id:
         try:
             repo.log_message(
