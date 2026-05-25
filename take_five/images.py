@@ -58,6 +58,7 @@ If OTHER:
 {
   "classification": "OTHER",
   "description": "Warm one-sentence description suitable for a care log entry",
+  "text_found": "Any readable text visible in the image (book title, author, signage, labels, etc.) — null if none",
   "extracted": null,
   "confidence": "high",
   "notes": null
@@ -149,7 +150,7 @@ def get_missing_required(extracted: dict) -> list[str]:
 # Formatting
 # ---------------------------------------------------------------------------
 
-def format_medication_message(extracted: dict, sender_name: str, confidence: str, notes: str) -> str:
+def format_medication_message(extracted: dict, sender_name: str, confidence: str, notes: str, caption: str = "") -> str:
     """
     Format extracted medication data into a chat-friendly pending confirmation message.
 
@@ -158,6 +159,9 @@ def format_medication_message(extracted: dict, sender_name: str, confidence: str
     without also updating the SYSTEM_PROMPT in messages.py.
     """
     lines = [f"💊 PENDING CONFIRMATION — Medication label read from {sender_name}'s photo:\n"]
+
+    if caption:
+        lines.append(f"Note from {sender_name}: \"{caption}\"\n")
 
     name = extracted.get("medication_name")
     brand = extracted.get("brand_name")
@@ -267,7 +271,7 @@ async def analyze_image(attachment: ImageAttachment) -> dict:
         }
 
 
-async def handle_image_message(attachment: ImageAttachment) -> Optional[str]:
+async def handle_image_message(attachment: ImageAttachment) -> Optional[tuple[str, dict]]:
     logger.info(
         f"[images] Image detected — channel: {attachment.channel}, "
         f"sender: {attachment.sender_name} ({attachment.sender_id}), "
@@ -293,12 +297,14 @@ async def handle_image_message(attachment: ImageAttachment) -> Optional[str]:
             f"patient: {extracted.get('patient_name')}, "
             f"missing required: {missing or 'none'}"
         )
-        return format_medication_message(
+        reply = format_medication_message(
             extracted=extracted,
             sender_name=attachment.sender_name,
             confidence=result.get("confidence", "high"),
             notes=result.get("notes") or "",
+            caption=attachment.message_text,
         )
+        return reply, result
 
-    logger.info(f"[images] OTHER image — {result.get('description')}")
-    return None
+    logger.info(f"[images] OTHER image — {result.get('description')} | text_found: {result.get('text_found')}")
+    return None, result

@@ -409,12 +409,50 @@ async def groupme_webhook(request: Request):
         sender_person    = repo.get_person_by_external_id(person_ext_id)
         sender_person_id = str(sender_person['id']) if sender_person else None
 
-        # 3. Image detection — returns reply text or None
+        # 3. Image detection — returns (reply, vision_result) tuple or None
         image_attachment = extract_groupme_image(data)
         if image_attachment:
             async def process_image():
-                reply = await handle_image_message(image_attachment)
-                await groupme_reply(bot_id, reply, circle_ext_id)
+                result = await handle_image_message(image_attachment)
+                if not result:
+                    return
+                reply, vision_result = result
+                if reply:
+                    await groupme_reply(bot_id, reply, circle_ext_id)
+
+                # Build a clean log body for the messages table
+                classification = vision_result.get("classification")
+                caption = image_attachment.message_text
+                parts = [f"Image received from {image_attachment.sender_name}."]
+                if caption:
+                    parts.append(f"Caption: \"{caption}\".")
+
+                if classification == "MEDICATION":
+                    extracted = vision_result.get("extracted") or {}
+                    name = extracted.get("medication_name")
+                    brand = extracted.get("brand_name")
+                    dosage = extracted.get("dosage", "")
+                    instructions = extracted.get("instructions", "")
+                    kind = "supplement" if extracted.get("is_supplement") else "medication"
+                    label = f"{name}{f' ({brand})' if brand else ''}"
+                    parts.append(f"Extracted: {label}, {dosage}, {kind}, {instructions}.")
+                else:
+                    description = vision_result.get("description", "")
+                    text_found = vision_result.get("text_found")
+                    if description:
+                        parts.append(description)
+                    if text_found:
+                        parts.append(f"Text found: {text_found}.")
+
+                repo.log_message(
+                    circle_ext_id=circle_ext_id,
+                    person_ext_id=None,
+                    body=" ".join(parts),
+                    raw_data=vision_result,
+                    msg_type="agent_note",
+                    direction="outbound",
+                    channel="groupme",
+                )
             asyncio.create_task(process_image())
 
         # 4. T5 ask flow — ask_with_tools handles both Q&A and medication saves
@@ -505,7 +543,13 @@ async def receive_sms(
         }
         image_attachment = extract_sms_image(sms_payload)
         if image_attachment:
-            asyncio.create_task(handle_image_message(image_attachment))
+            async def process_sms_image():
+                result = await handle_image_message(image_attachment)
+                if result:
+                    _reply, _vision_result = result
+                    # SMS reply and logging TBD when SMS channel is active
+                    logger.info(f"[sms] Image processed — classification: {_vision_result.get('classification')}")
+            asyncio.create_task(process_sms_image())
 
     logging.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
     response.message(f"Got it, {person['name']}. Thanks for the update.")
