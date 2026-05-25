@@ -421,7 +421,12 @@ class ContextBuilder:
 # System prompt
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are Take Five, an AI care coordinator supporting a family caring for aging loved ones.
+SYSTEM_PROMPT = fetch_prompt("t5-system-prompt").messages[0].prompt.template
+
+# ---------------------------------------------------------------------------
+# Legacy inline prompt — kept for reference, loaded from LangSmith above
+# ---------------------------------------------------------------------------
+_SYSTEM_PROMPT_INLINE = """You are Take Five, an AI care coordinator supporting a family caring for aging loved ones.
 You answer questions clearly, accurately, and with warmth.
 
 Guidelines:
