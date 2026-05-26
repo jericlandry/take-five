@@ -74,6 +74,7 @@ class CreatePersonRequest(BaseModel):
     aliases: Optional[List[str]] = None
     notes: Optional[str] = None
     external_id: Optional[str] = None
+    date_of_birth: Optional[str] = None
 
 class UpdatePersonRequest(BaseModel):
     name: Optional[str] = None
@@ -83,6 +84,7 @@ class UpdatePersonRequest(BaseModel):
     aliases: Optional[List[str]] = None
     notes: Optional[str] = None
     external_id: Optional[str] = None
+    date_of_birth: Optional[str] = None
 
 class CreateCareCircleRequest(BaseModel):
     name: str
@@ -165,7 +167,8 @@ async def create_person(ensemble_id: str, body: CreatePersonRequest):
         email=body.email,
         aliases=body.aliases or [],
         external_id=body.external_id,
-        notes=body.notes
+        notes=body.notes,
+        date_of_birth=body.date_of_birth,
     )
     return {"person": row_to_dict(person)}
 

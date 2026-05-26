@@ -441,6 +441,11 @@ def _build_human_message(
 ## Care Circle Roster
 {roster}
 ---
+## Clinical Records (Source of Truth)
+The following clinical records have been verified and entered by the care team.
+They are the authoritative source for medications, diagnoses, and care team members.
+If the conversation mentions something that conflicts with these records, trust these records.
+Do not infer or update medication information from conversation alone.
 {clinical_records}
 ---
 ## Recent Messages

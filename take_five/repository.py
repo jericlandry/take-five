@@ -58,13 +58,14 @@ class TakeFiveRepository:
     def update_person(self, person_id: str, updates) -> Dict:
         query = """
             UPDATE people SET
-                name        = COALESCE(%(name)s, name),
-                type        = COALESCE(%(type)s, type),
-                phone       = COALESCE(%(phone)s, phone),
-                email       = COALESCE(%(email)s, email),
-                aliases     = COALESCE(%(aliases)s, aliases),
-                notes       = COALESCE(%(notes)s, notes),
-                external_id = COALESCE(%(external_id)s, external_id)
+                name          = COALESCE(%(name)s, name),
+                type          = COALESCE(%(type)s, type),
+                phone         = COALESCE(%(phone)s, phone),
+                email         = COALESCE(%(email)s, email),
+                aliases       = COALESCE(%(aliases)s, aliases),
+                notes         = COALESCE(%(notes)s, notes),
+                external_id   = COALESCE(%(external_id)s, external_id),
+                date_of_birth = COALESCE(%(date_of_birth)s, date_of_birth)
             WHERE id = %(id)s
             RETURNING *;
         """
@@ -73,12 +74,13 @@ class TakeFiveRepository:
             'phone': updates.phone, 'email': updates.email,
             'aliases': updates.aliases, 'notes': updates.notes,
             'external_id': updates.external_id,
+            'date_of_birth': getattr(updates, 'date_of_birth', None),
         })
 
     def add_person_to_ensemble(self, ensemble_id: str, name: str, p_type: str, **kwargs) -> Dict:
         query = """
-            INSERT INTO people (ensemble_id, name, type, phone, email, timezone, aliases, notes, external_id)
-            VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s)
+            INSERT INTO people (ensemble_id, name, type, phone, email, timezone, aliases, notes, external_id, date_of_birth)
+            VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s, %(dob)s)
             RETURNING *;
         """
         return self._execute(query, {
@@ -87,6 +89,7 @@ class TakeFiveRepository:
             'tz': kwargs.get('timezone', 'America/Chicago'),
             'aliases': kwargs.get('aliases', []), 'notes': kwargs.get('notes'),
             'external_id': kwargs.get('external_id'),
+            'dob': kwargs.get('date_of_birth'),
         })
 
     # --- CARE CIRCLES ---
@@ -428,7 +431,7 @@ class TakeFiveRepository:
         query = """
             UPDATE clinical_records SET
                 data   = COALESCE(%(data)s,   data),
-                notes  = COALESCE(%(notes)s,  notes),
+                notes  = %(notes)s,
                 status = COALESCE(%(status)s, status)
             WHERE id = %(id)s
             RETURNING *;
@@ -626,7 +629,15 @@ class TakeFiveRepository:
         )
 
     def list_people_by_ensemble(self, ensemble_id: str) -> List[Dict]:
-        return self._execute(
-            "SELECT * FROM people WHERE ensemble_id = %s ORDER BY name;",
-            (ensemble_id,), fetch='all'
-        )
+        query = """
+            SELECT
+                id, ensemble_id, name,
+                type            AS p_type,
+                phone, email, aliases, notes,
+                external_id, timezone, created_at,
+                date_of_birth
+            FROM people
+            WHERE ensemble_id = %(ensemble_id)s
+            ORDER BY name;
+        """
+        return self._execute(query, {'ensemble_id': ensemble_id}, fetch='all')

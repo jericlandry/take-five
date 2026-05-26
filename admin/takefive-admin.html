@@ -76,6 +76,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .form-row { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
 .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
 .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--g600); }
 .field input, .field select, .field textarea { padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--g200); background: var(--white); font-family: 'Lato', sans-serif; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s; width: 100%; }
@@ -84,12 +85,22 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .field select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%23B0ADA6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
 .form-hint { font-size: 11px; color: var(--g400); margin-top: 2px; }
 .form-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--g200); }
+/* Time slot grid inside modals */
+.time-slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 0.75rem; }
+.time-slot { border: 1px solid var(--g200); border-radius: var(--radius-md); padding: 0.75rem; background: var(--cream); }
+.time-slot-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--g600); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 6px; }
+.time-slot-label svg { width: 12px; height: 12px; stroke: var(--t500); fill: none; stroke-width: 2; stroke-linecap: round; }
+.time-slot .field { margin-bottom: 0.4rem; }
+.time-slot .field:last-child { margin-bottom: 0; }
+.time-slot .field label { font-size: 10px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--g400); padding: 0 0.75rem 0.6rem; border-bottom: 1px solid var(--g200); white-space: nowrap; }
+thead th.center { text-align: center; }
 tbody tr { transition: background 0.1s; }
 tbody tr:hover { background: var(--cream); }
 tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--g200); color: var(--text); vertical-align: middle; }
+tbody td.center { text-align: center; }
 tbody tr:last-child td { border-bottom: none; }
 .td-mono { font-family: monospace; font-size: 11px; color: var(--g400); }
 .td-actions { display: flex; gap: 6px; justify-content: flex-end; }
@@ -161,6 +172,9 @@ tbody tr:last-child td { border-bottom: none; }
 .npi-result-specialty { font-size: 12px; color: var(--t500); margin-top: 2px; }
 .npi-result-address { font-size: 11px; color: var(--g400); margin-top: 3px; }
 .npi-result-npi { font-size: 10px; color: var(--g400); font-family: monospace; margin-top: 2px; }
+/* Medication schedule cell */
+.sched-cell { font-size: 12px; color: var(--t800); font-weight: 700; }
+.sched-note { font-size: 11px; color: var(--g400); font-weight: 300; display: block; }
 </style>
 </head>
 <body>
@@ -272,7 +286,7 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="card" style="margin-bottom:1rem;"><div class="card-title">Select Circle</div><div class="field" style="max-width:360px;"><select id="roster-circle-select" onchange="loadRoster()"><option value="">— choose a circle —</option></select></div></div>
     <div id="roster-content" style="display:none;">
       <div class="page-header" style="margin-bottom:1rem;"><div class="card-title" style="font-size:14px;" id="roster-circle-name"></div><button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Member</button></div>
-      <div class="card"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Members</div><div class="table-wrap"><table><thead><tr><th>Person</th><th>Type</th><th>Role in Circle</th><th>Phone</th><th></th></tr></thead><tbody id="roster-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Members</div><div class="table-wrap"><table><thead><tr><th>Person</th><th>Role in Circle</th><th>Phone</th><th></th></tr></thead><tbody id="roster-tbody"></tbody></table></div></div>
     </div>
   </div>
 
@@ -286,13 +300,14 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="tabs">
       <button class="tab active" id="tab-profile" onclick="switchPersonTab('profile')">Profile</button>
       <button class="tab" id="tab-clinical" onclick="switchPersonTab('clinical')">Clinical</button>
+      <button class="tab" id="tab-medications" onclick="switchPersonTab('medications')">Medications</button>
     </div>
     <div id="person-tab-profile">
       <div class="card">
         <div class="card-title">Profile</div>
         <div class="form-row cols-2"><div class="field"><label>Full Name</label><input type="text" id="dp-name"/></div><div class="field"><label>Person Type</label><select id="dp-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
         <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="dp-phone"/></div><div class="field"><label>Email</label><input type="email" id="dp-email"/></div></div>
-        <div class="form-row"><div class="field"><label>External ID</label><input type="text" id="dp-ext-id"/></div></div>
+        <div class="form-row cols-2"><div class="field"><label>Date of Birth</label><input type="date" id="dp-dob"/></div><div class="field"><label>External ID</label><input type="text" id="dp-ext-id"/></div></div>
         <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="dp-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
         <div class="form-row"><div class="field"><label>Notes</label><textarea id="dp-notes"></textarea></div></div>
         <div class="form-actions"><button class="btn btn-primary" id="btn-dp-save" onclick="savePersonDetail()">Save Changes</button></div>
@@ -306,6 +321,22 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="card">
         <div class="card-title"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Care Team</div>
         <div class="table-wrap"><table><thead><tr><th>Name</th><th>Specialty</th><th>Phone</th><th>Address</th><th>NPI</th><th></th></tr></thead><tbody id="care-team-tbody"><tr><td colspan="6"><div class="empty"><div class="empty-title">No care team members yet</div><div class="empty-sub">Add a doctor to get started</div></div></td></tr></tbody></table></div>
+      </div>
+    </div>
+    <div id="person-tab-medications" style="display:none;">
+      <div class="page-header" style="margin-bottom:1rem;">
+        <div class="page-sub">Current medications, supplements, and prescriptions.</div>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn btn-ghost btn-sm" onclick="printMedications()"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print / PDF</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-medication')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Medication</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v3"/><circle cx="18" cy="18" r="3"/><path d="m22 22-1.5-1.5"/></svg>Medications</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Medication</th><th>Dosage</th><th class="center">Morning</th><th class="center">Afternoon</th><th class="center">Evening</th><th>Purpose</th><th>Status</th><th></th></tr></thead>
+          <tbody id="medications-tbody"><tr><td colspan="8"><div class="empty"><div class="empty-title">No medications on record</div><div class="empty-sub">Add a medication to get started</div></div></td></tr></tbody>
+        </table></div>
       </div>
     </div>
   </div>
@@ -397,6 +428,62 @@ tbody tr:last-child td { border-bottom: none; }
 </div>
 </div></div>
 
+<!-- Add Medication -->
+<div class="modal-backdrop" id="modal-add-medication"><div class="modal" style="width:560px;"><div class="modal-header"><div class="modal-title">Add Medication</div><button class="modal-close" onclick="closeModal('modal-add-medication')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2"><div class="field"><label>Medication Name *</label><input type="text" id="med-name" placeholder="e.g. Dayvigo"/></div><div class="field"><label>Status</label><select id="med-status"><option value="active">Active</option><option value="as_needed">As needed (PRN)</option><option value="discontinued">Discontinued</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Dosage</label><input type="text" id="med-dosage" placeholder="e.g. 5 mg"/></div><div class="field"><label>Form</label><select id="med-form"><option value="">— select —</option><option value="tablet">Tablet</option><option value="capsule">Capsule</option><option value="liquid">Liquid</option><option value="patch">Patch</option><option value="injection">Injection</option><option value="inhaler">Inhaler</option><option value="topical">Topical</option><option value="supplement">Supplement</option><option value="other">Other</option></select></div></div>
+<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--g600);margin-bottom:0.5rem;">Schedule</div>
+<div class="time-slot-grid">
+  <div class="time-slot">
+    <div class="time-slot-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>Morning</div>
+    <div class="field"><label>Qty</label><select id="med-morning-qty"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="field"><label>Note</label><input type="text" id="med-morning-note" placeholder="e.g. with food"/></div>
+  </div>
+  <div class="time-slot">
+    <div class="time-slot-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M20 12h2"/></svg>Afternoon</div>
+    <div class="field"><label>Qty</label><select id="med-afternoon-qty"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="field"><label>Note</label><input type="text" id="med-afternoon-note" placeholder="optional"/></div>
+  </div>
+  <div class="time-slot">
+    <div class="time-slot-label"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Evening</div>
+    <div class="field"><label>Qty</label><select id="med-evening-qty"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="field"><label>Note</label><input type="text" id="med-evening-note" placeholder="e.g. no food 2hrs before"/></div>
+  </div>
+</div>
+<div class="form-row"><div class="field"><label>Purpose</label><input type="text" id="med-indication" placeholder="e.g. thyroid, cholesterol, sleep"/></div></div>
+<div class="form-row cols-2"><div class="field"><label>Prescriber</label><input type="text" id="med-prescriber" placeholder="e.g. Dr. Burns"/></div><div class="field"><label>Date Prescribed</label><input type="date" id="med-date-prescribed"/></div></div>
+<div class="form-row"><div class="field"><label>Notes</label><textarea id="med-notes" placeholder="e.g. refill due 4/11, add to morning pills starting 4/31…"></textarea></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-save-medication" onclick="saveMedication()">Save Medication</button><button class="btn btn-ghost" onclick="closeModal('modal-add-medication')">Cancel</button></div>
+</div></div>
+
+<!-- Edit Medication -->
+<div class="modal-backdrop" id="modal-edit-medication"><div class="modal" style="width:560px;"><div class="modal-header"><div class="modal-title">Edit Medication</div><button class="modal-close" onclick="closeModal('modal-edit-medication')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2"><div class="field"><label>Medication Name *</label><input type="text" id="emed-name"/></div><div class="field"><label>Status</label><select id="emed-status"><option value="active">Active</option><option value="as_needed">As needed (PRN)</option><option value="discontinued">Discontinued</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Dosage</label><input type="text" id="emed-dosage"/></div><div class="field"><label>Form</label><select id="emed-form"><option value="">— select —</option><option value="tablet">Tablet</option><option value="capsule">Capsule</option><option value="liquid">Liquid</option><option value="patch">Patch</option><option value="injection">Injection</option><option value="inhaler">Inhaler</option><option value="topical">Topical</option><option value="supplement">Supplement</option><option value="other">Other</option></select></div></div>
+<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--g600);margin-bottom:0.5rem;">Schedule</div>
+<div class="time-slot-grid">
+  <div class="time-slot">
+    <div class="time-slot-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>Morning</div>
+    <div class="field"><label>Qty</label><select id="emed-morning-qty"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="field"><label>Note</label><input type="text" id="emed-morning-note" placeholder="e.g. with food"/></div>
+  </div>
+  <div class="time-slot">
+    <div class="time-slot-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M20 12h2"/></svg>Afternoon</div>
+    <div class="field"><label>Qty</label><select id="emed-afternoon-qty"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="field"><label>Note</label><input type="text" id="emed-afternoon-note" placeholder="optional"/></div>
+  </div>
+  <div class="time-slot">
+    <div class="time-slot-label"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Evening</div>
+    <div class="field"><label>Qty</label><select id="emed-evening-qty"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="field"><label>Note</label><input type="text" id="emed-evening-note" placeholder="e.g. no food 2hrs before"/></div>
+  </div>
+</div>
+<div class="form-row"><div class="field"><label>Purpose</label><input type="text" id="emed-indication"/></div></div>
+<div class="form-row cols-2"><div class="field"><label>Prescriber</label><input type="text" id="emed-prescriber"/></div><div class="field"><label>Date Prescribed</label><input type="date" id="emed-date-prescribed"/></div></div>
+<div class="form-row"><div class="field"><label>Notes</label><textarea id="emed-notes"></textarea></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-update-medication" onclick="updateMedication()">Save Changes</button><button class="btn btn-ghost" onclick="closeModal('modal-edit-medication')">Cancel</button></div>
+</div></div>
+
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
@@ -410,6 +497,7 @@ const state = {
   detailPersonId: null, detailCircleId: null,
   selectedNpiResult: null,
   editingCareTeamRecordId: null, editingCareTeamRecords: [],
+  editingMedicationRecordId: null, editingMedicationRecords: [],
 };
 
 function apiKey() { return document.getElementById('apiKey').value.trim(); }
@@ -537,7 +625,7 @@ function renderPeople() {
   if (!state.people.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">♩</div><div class="empty-title">No people yet</div></div></td></tr>`; return; }
   tbody.innerHTML = state.people.map(p => `<tr>
     <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(p.p_type)}">${initials(p.name)}</div><strong>${p.name}</strong></div></td>
-    <td>${statusPill(p.p_type)}</td><td class="td-mono">${p.phone||'—'}</td><td class="td-mono">${p.email||'—'}</td>
+    <td>${rolePill(p.p_type)}</td><td class="td-mono">${p.phone||'—'}</td><td class="td-mono">${p.email||'—'}</td>
     <td>${(p.aliases||[]).length ? p.aliases.map(a=>`<span class="pill pill-person" style="margin:1px;">${a}</span>`).join('') : '<span style="color:var(--g400);font-size:12px;">—</span>'}</td>
     <td class="td-mono">${(p.id||'').slice(0,8)}…</td>
     <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openPersonDetail('${p.id}')">Open →</button></div></td>
@@ -564,23 +652,8 @@ async function createPerson() {
   await loadPeople();
 }
 
-async function openEditPerson(personId) {
-  state.editingPersonId = personId;
-  const person = state.people.find(p => p.id === personId);
-  if (!person) { toast('Person not found', true); return; }
-  document.getElementById('edit-person-name').value = person.name || '';
-  document.getElementById('edit-person-type').value = person.type || person.p_type || 'family';
-  document.getElementById('edit-person-phone').value = person.phone || '';
-  document.getElementById('edit-person-email').value = person.email || '';
-  document.getElementById('edit-person-ext-id').value = person.external_id || '';
-  document.getElementById('edit-person-aliases').value = (person.aliases || []).join(', ');
-  document.getElementById('edit-person-notes').value = person.notes || '';
-  openModal('modal-edit-person');
-}
-
 async function savePerson() {
-  const personId = state.editingPersonId;
-  if (!personId) return;
+  const personId = state.editingPersonId; if (!personId) return;
   const name = document.getElementById('edit-person-name').value.trim();
   const p_type = document.getElementById('edit-person-type').value;
   const phone = document.getElementById('edit-person-phone').value.trim();
@@ -590,7 +663,7 @@ async function savePerson() {
   const notes = document.getElementById('edit-person-notes').value.trim();
   if (!name) { toast('Name is required', true); return; }
   setLoading('btn-save-person', true);
-  const data = await api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId });
+  const data = await api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId, date_of_birth: dob });
   setLoading('btn-save-person', false);
   if (!data) return;
   toast(`${name} updated`); closeModal('modal-edit-person'); await loadPeople();
@@ -699,7 +772,7 @@ async function loadRoster() {
 function renderRoster(members) {
   const tbody = document.getElementById('roster-tbody');
   if (!members.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div></div></td></tr>`; return; }
-  tbody.innerHTML = members.map(m => `<tr><td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(m.p_type)}">${initials(m.member_name||'?')}</div><strong>${m.member_name||'—'}</strong></div></td><td>${m.p_type ? statusPill(m.p_type) : '—'}</td><td>${rolePill(m.person_role)}</td><td class="td-mono">${m.phone||'—'}</td><td></td></tr>`).join('');
+  tbody.innerHTML = members.map(m => { const ptype = m.p_type || m.type; return `<tr><td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(ptype)}">${initials(m.member_name||'?')}</div><strong>${m.member_name||'—'}</strong></div></td><td>${rolePill(m.person_role)}</td><td class="td-mono">${m.phone||'—'}</td><td></td></tr>`; }).join('');
 }
 
 function openAddMember() {
@@ -744,11 +817,13 @@ async function openPersonDetail(personId) {
   document.getElementById('dp-phone').value   = person.phone || '';
   document.getElementById('dp-email').value   = person.email || '';
   document.getElementById('dp-ext-id').value  = person.external_id || '';
+  document.getElementById('dp-dob').value      = person.date_of_birth ? person.date_of_birth.slice(0,10) : '';
   document.getElementById('dp-aliases').value = (person.aliases || []).join(', ');
   document.getElementById('dp-notes').value   = person.notes || '';
   switchPersonTab('profile');
   const isSenior = (person.p_type || person.type) === 'senior';
-  document.getElementById('tab-clinical').style.display = isSenior ? '' : 'none';
+  document.getElementById('tab-clinical').style.display    = isSenior ? '' : 'none';
+  document.getElementById('tab-medications').style.display = isSenior ? '' : 'none';
   showPage('person-detail');
   document.getElementById('nav-people').classList.add('active');
 }
@@ -756,11 +831,14 @@ async function openPersonDetail(personId) {
 function backToPeople() { showPage('people'); document.getElementById('nav-people').classList.add('active'); }
 
 function switchPersonTab(tab) {
-  document.getElementById('person-tab-profile').style.display  = tab === 'profile'  ? '' : 'none';
-  document.getElementById('person-tab-clinical').style.display = tab === 'clinical' ? '' : 'none';
-  document.getElementById('tab-profile').classList.toggle('active',  tab === 'profile');
-  document.getElementById('tab-clinical').classList.toggle('active', tab === 'clinical');
-  if (tab === 'clinical') loadCareTeam();
+  document.getElementById('person-tab-profile').style.display     = tab === 'profile'     ? '' : 'none';
+  document.getElementById('person-tab-clinical').style.display    = tab === 'clinical'    ? '' : 'none';
+  document.getElementById('person-tab-medications').style.display = tab === 'medications' ? '' : 'none';
+  document.getElementById('tab-profile').classList.toggle('active',     tab === 'profile');
+  document.getElementById('tab-clinical').classList.toggle('active',    tab === 'clinical');
+  document.getElementById('tab-medications').classList.toggle('active', tab === 'medications');
+  if (tab === 'clinical')    loadCareTeam();
+  if (tab === 'medications') loadMedications();
 }
 
 async function savePersonDetail() {
@@ -770,6 +848,7 @@ async function savePersonDetail() {
   const phone   = document.getElementById('dp-phone').value.trim();
   const email   = document.getElementById('dp-email').value.trim();
   const extId   = document.getElementById('dp-ext-id').value.trim();
+  const dob     = document.getElementById('dp-dob').value || null;
   const aliases = document.getElementById('dp-aliases').value.trim().split(',').map(s=>s.trim()).filter(Boolean);
   const notes   = document.getElementById('dp-notes').value.trim();
   if (!name) { toast('Name is required', true); return; }
@@ -810,7 +889,6 @@ function renderCareTeam(records) {
   }).join('');
 }
 
-// ─── EDIT CARE TEAM ───
 async function openEditCareTeam(recordId) {
   const data = await api('GET', `/circles/${state.detailCircleId}/clinical-records?person_id=${state.detailPersonId}&resource_type=CareTeamMember`);
   if (!data) return;
@@ -940,6 +1018,265 @@ function resetCareTeamModal() {
   document.getElementById('care-team-save-actions').style.display    = 'none';
   ['ct-first-name','ct-last-name','ct-city','ct-role','ct-notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('ct-state').value = 'TX';
+}
+
+// ─── MEDICATIONS ─────────────────────────────────────────────────────────────
+
+function printMedications() {
+  const person = state.people.find(p => p.id === state.detailPersonId);
+  if (!person) return;
+
+  // Deterministic color per person — sort seniors by id, first gets teal, second gets amber
+  const SENIOR_PALETTE = [
+    { accent: '#085041', accentLight: '#E1F5EE', accentMid: '#5DCAA5' }, // teal
+    { accent: '#633806', accentLight: '#FAEEDA', accentMid: '#FAC775' }, // amber
+  ];
+  const seniors = state.people.filter(p => (p.p_type || p.type) === 'senior').sort((a, b) => a.id.localeCompare(b.id));
+  const paletteIndex = Math.min(seniors.findIndex(p => p.id === state.detailPersonId), SENIOR_PALETTE.length - 1);
+  const { accent, accentLight, accentMid } = SENIOR_PALETTE[paletteIndex];
+
+  api('GET', `/circles/${state.detailCircleId}/clinical-records?person_id=${state.detailPersonId}&resource_type=MedicationStatement`)
+    .then(data => {
+      const records = (data?.records || []).filter(r => r.status !== 'discontinued');
+      const name  = person.name;
+      const dob   = person.date_of_birth ? new Date(person.date_of_birth).toLocaleDateString('en-US', {timeZone:'UTC', month:'long', day:'numeric', year:'numeric'}) : null;
+      const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+      const schedCol = (slot) => {
+        if (!slot || !slot.qty) return '';
+        const qty = parseInt(slot.qty);
+        return qty === 1 ? 'X' : `X (${qty})`;
+      };
+
+      const rows = records.map(r => {
+        const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+        const dosage    = [d.dosage, d.form].filter(Boolean).join(' · ');
+        const mNote     = d.morning?.note   || '';
+        const aNot      = d.afternoon?.note || '';
+        const eNote     = d.evening?.note   || '';
+        const recNotes  = r.notes || '';
+        return `<tr>
+            <td class="med-name">${d.medication_name || ''}${dosage ? `<span class="dosage">${dosage}</span>` : ''}</td>
+            <td class="sched">${schedCol(d.morning)}${mNote   ? `<span class="slot-note">${mNote}</span>`  : ''}</td>
+            <td class="sched">${schedCol(d.afternoon)}${aNot  ? `<span class="slot-note">${aNot}</span>`   : ''}</td>
+            <td class="sched">${schedCol(d.evening)}${eNote   ? `<span class="slot-note">${eNote}</span>`  : ''}</td>
+            <td class="purpose">${d.indication || ''}</td>
+          </tr>`;
+      }).join('');
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Medications · ${name}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lato', sans-serif; font-weight: 400; background: #fff; color: #1A1A18; padding: 0; max-width: 900px; margin: 0 auto; }
+  .person-header { background: ${accent}; color: #fff; padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .brand-name { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: ${accentLight}; letter-spacing: -0.02em; }
+  .brand-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: ${accentMid}; margin-top: 2px; }
+  .patient-name { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: #fff; }
+  .patient-dob { font-size: 14px; color: ${accentLight}; margin-top: 3px; }
+  .content { padding: 2.25rem 2rem 1.5rem; }
+  .updated { font-size: 12px; color: ${accentMid}; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 24px; }
+  thead th { text-align: left; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6B6763; padding: 0 0.75rem 0.7rem; border-bottom: 2px solid ${accent}; }
+  thead th.center { text-align: center; }
+  tbody tr { border-bottom: 1px solid #E8E5DF; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 1rem 0.75rem; vertical-align: top; }
+  .med-name { font-weight: 700; color: ${accent}; min-width: 180px; font-size: 26px; }
+  .dosage { display: block; font-weight: 400; font-size: 20px; color: #6B6763; margin-top: 4px; }
+  .sched { text-align: center; font-weight: 700; color: #1A1A18; font-size: 28px; min-width: 80px; }
+  .slot-note { display: block; font-weight: 400; font-size: 16px; color: #6B6763; margin-top: 2px; }
+  .purpose { color: ${accent}; font-size: 22px; opacity: 0.8; }
+  .footer { margin-top: 1.5rem; padding: 0.75rem 2rem; border-top: 1px solid #E8E5DF; display: flex; justify-content: space-between; align-items: center; }
+  .footer-brand { font-family: 'Playfair Display', serif; font-size: 0.85rem; color: ${accentMid}; }
+  .footer-note { font-size: 11px; color: #B0ADA6; }
+  @media print {
+    @page { margin: 0; }
+    .person-header { position: fixed; top: 0; left: 0; right: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .content { margin-top: 90px; }
+    thead th { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="person-header">
+  <div class="header-left">
+    <svg width="40" height="40" viewBox="0 0 56 56" fill="none">
+      <g stroke="${accentMid}" stroke-width="1.5"><line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/><line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/><line x1="6" y1="21" x2="28" y2="6"/></g>
+      <circle cx="28" cy="6" r="5" fill="${accentMid}"/><circle cx="50" cy="21" r="5" fill="${accentMid}"/><circle cx="42" cy="47" r="5" fill="${accentMid}"/><circle cx="14" cy="47" r="5" fill="${accentMid}"/><circle cx="6" cy="21" r="5" fill="${accentMid}"/>
+      <circle cx="28" cy="28" r="6" fill="${accent}" stroke="${accentMid}" stroke-width="1.5"/>
+    </svg>
+    <div>
+      <div class="brand-name">Take Five</div>
+      <div class="brand-tag">Medications &amp; Supplements · takefive.care</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="patient-name">${name}</div>
+    ${dob ? `<div class="patient-dob">DOB: ${dob}</div>` : ''}
+    <div class="updated">Updated: ${today}</div>
+  </div>
+</div>
+<div class="content">
+<table>
+  <thead><tr>
+    <th>Medication / Supplement</th>
+    <th class="center">Morning</th>
+    <th class="center">Afternoon</th>
+    <th class="center">Evening</th>
+    <th>Purpose</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+</div>
+<script>window.onload = () => window.print();<\/script>
+</body>
+</html>`;
+
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+    });
+}
+
+// Render X / X(n) cell for a time slot
+function schedCell(slot) {
+  if (!slot || !slot.qty) return '<span style="color:var(--g400);">—</span>';
+  const qty = parseInt(slot.qty);
+  const label = qty === 1 ? 'X' : `X (${qty})`;
+  const note = slot.note ? `<span class="sched-note">${slot.note}</span>` : '';
+  return `<span class="sched-cell">${label}</span>${note}`;
+}
+
+// Build a slot object from form prefix ('med' or 'emed') and time ('morning'|'afternoon'|'evening')
+function readSlot(prefix, time) {
+  const qty = document.getElementById(`${prefix}-${time}-qty`).value;
+  const note = document.getElementById(`${prefix}-${time}-note`).value.trim();
+  if (!qty) return null;
+  return { qty: parseInt(qty), note: note || null };
+}
+
+// Populate slot fields from stored data
+function writeSlot(prefix, time, slot) {
+  document.getElementById(`${prefix}-${time}-qty`).value  = slot?.qty  || '';
+  document.getElementById(`${prefix}-${time}-note`).value = slot?.note || '';
+}
+
+async function loadMedications() {
+  if (!state.detailPersonId) return;
+  const data = await api('GET', `/circles/${state.detailCircleId}/clinical-records?person_id=${state.detailPersonId}&resource_type=MedicationStatement`);
+  if (!data) return;
+  renderMedications(data.records || []);
+}
+
+function medStatusPill(status) {
+  const map   = { active:'pill-active', as_needed:'pill-trial', discontinued:'pill-inactive' };
+  const label = { active:'Active', as_needed:'As needed', discontinued:'Discontinued' };
+  return `<span class="pill ${map[status] || 'pill-inactive'}">${label[status] || status}</span>`;
+}
+
+function renderMedications(records) {
+  const tbody = document.getElementById('medications-tbody');
+  if (!records.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-title">No medications on record</div><div class="empty-sub">Add a medication to get started</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = records.map(r => {
+    const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    return `<tr>
+      <td><strong>${d.medication_name || '—'}</strong></td>
+      <td style="font-size:12px;">${[d.dosage, d.form].filter(Boolean).join(' · ') || '—'}</td>
+      <td class="center">${schedCell(d.morning)}</td>
+      <td class="center">${schedCell(d.afternoon)}</td>
+      <td class="center">${schedCell(d.evening)}</td>
+      <td style="font-size:12px;">${d.indication || '—'}</td>
+      <td>${medStatusPill(r.status)}</td>
+      <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openEditMedication('${r.id}')">Edit</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function medDataFromForm(prefix) {
+  return {
+    medication_name:  document.getElementById(`${prefix}-name`).value.trim(),
+    dosage:           document.getElementById(`${prefix}-dosage`).value.trim()         || null,
+    form:             document.getElementById(`${prefix}-form`).value                  || null,
+    morning:          readSlot(prefix, 'morning'),
+    afternoon:        readSlot(prefix, 'afternoon'),
+    evening:          readSlot(prefix, 'evening'),
+    indication:       document.getElementById(`${prefix}-indication`).value.trim()     || null,
+    prescriber:       document.getElementById(`${prefix}-prescriber`).value.trim()     || null,
+    date_prescribed:  document.getElementById(`${prefix}-date-prescribed`).value       || null,
+  };
+}
+
+async function saveMedication() {
+  const name = document.getElementById('med-name').value.trim();
+  if (!name) { toast('Medication name is required', true); return; }
+  if (!state.detailCircleId || !state.detailPersonId) { toast('Missing circle or person context', true); return; }
+  const data   = medDataFromForm('med');
+  const notes  = document.getElementById('med-notes').value.trim() || null;
+  const status = document.getElementById('med-status').value;
+  setLoading('btn-save-medication', true);
+  const result = await api('POST', `/circles/${state.detailCircleId}/clinical-records`, {
+    person_id: state.detailPersonId, resource_type: 'MedicationStatement', data, notes, status,
+  });
+  setLoading('btn-save-medication', false);
+  if (!result) return;
+  toast(`${name} added`);
+  closeModal('modal-add-medication');
+  resetAddMedicationModal();
+  loadMedications();
+}
+
+function resetAddMedicationModal() {
+  ['med-name','med-dosage','med-indication','med-prescriber','med-notes','med-date-prescribed',
+   'med-morning-note','med-afternoon-note','med-evening-note'].forEach(id => document.getElementById(id).value = '');
+  ['med-form','med-morning-qty','med-afternoon-qty','med-evening-qty'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('med-status').value = 'active';
+}
+
+async function openEditMedication(recordId) {
+  const data = await api('GET', `/circles/${state.detailCircleId}/clinical-records?person_id=${state.detailPersonId}&resource_type=MedicationStatement`);
+  if (!data) return;
+  state.editingMedicationRecords = data.records || [];
+  const rec = state.editingMedicationRecords.find(r => r.id === recordId);
+  if (!rec) { toast('Record not found', true); return; }
+  state.editingMedicationRecordId = recordId;
+  const d = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+  document.getElementById('emed-name').value            = d.medication_name  || '';
+  document.getElementById('emed-dosage').value          = d.dosage           || '';
+  document.getElementById('emed-form').value            = d.form             || '';
+  document.getElementById('emed-indication').value      = d.indication       || '';
+  document.getElementById('emed-prescriber').value      = d.prescriber       || '';
+  document.getElementById('emed-date-prescribed').value = d.date_prescribed  || '';
+  document.getElementById('emed-notes').value           = rec.notes          || '';
+  document.getElementById('emed-status').value          = rec.status         || 'active';
+  writeSlot('emed', 'morning',   d.morning);
+  writeSlot('emed', 'afternoon', d.afternoon);
+  writeSlot('emed', 'evening',   d.evening);
+  openModal('modal-edit-medication');
+}
+
+async function updateMedication() {
+  const recordId = state.editingMedicationRecordId; if (!recordId) return;
+  const name = document.getElementById('emed-name').value.trim();
+  if (!name) { toast('Medication name is required', true); return; }
+  const data   = medDataFromForm('emed');
+  const notes  = document.getElementById('emed-notes').value.trim() || null;
+  const status = document.getElementById('emed-status').value;
+  setLoading('btn-update-medication', true);
+  const result = await api('PUT', `/clinical-records/${recordId}`, { data, notes, status });
+  setLoading('btn-update-medication', false);
+  if (!result) return;
+  toast(`${name} updated`);
+  closeModal('modal-edit-medication');
+  loadMedications();
 }
 
 // ─── INIT ───
