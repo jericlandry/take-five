@@ -65,7 +65,7 @@ class TakeFiveRepository:
                 aliases       = COALESCE(%(aliases)s, aliases),
                 notes         = COALESCE(%(notes)s, notes),
                 external_id   = COALESCE(%(external_id)s, external_id),
-                date_of_birth = COALESCE(%(date_of_birth)s, date_of_birth)
+                date_of_birth = %(date_of_birth)s
             WHERE id = %(id)s
             RETURNING *;
         """
@@ -145,6 +145,24 @@ class TakeFiveRepository:
             "SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),)
         )
 
+    def get_circle_by_twilio_number(self, twilio_number: str) -> Optional[Dict]:
+        """Look up a care circle by its dedicated Twilio SMS number."""
+        return self._execute(
+            "SELECT * FROM care_circles WHERE integration_config->>'twilio_number' = %s;",
+            (twilio_number,)
+        )
+
+    def find_caregiver_by_phone_and_circle(self, phone: str, circle_id: str) -> Optional[Dict]:
+        """Find an sms_active circle member by their phone number, scoped to a specific circle."""
+        return self._execute("""
+            SELECT p.*, cm.role, cm.sms_active
+            FROM people p
+            JOIN circle_memberships cm ON p.id = cm.person_id
+            WHERE p.phone = %(phone)s
+              AND cm.circle_id = %(circle_id)s
+              AND cm.sms_active = true;
+        """, {'phone': phone, 'circle_id': circle_id})
+
     def get_circle_by_id(self, circle_id: str) -> Optional[Dict]:
         return self._execute(
             "SELECT * FROM care_circles WHERE id = %s;", (str(circle_id),)
@@ -172,12 +190,21 @@ class TakeFiveRepository:
                 p.notes         AS person_notes,
                 p.external_id,
                 cm.role         AS person_role,
-                c.name          AS circle_name
+                c.name          AS circle_name,
+                COUNT(m.id)     AS msg_count,
+                MAX(m.sent_at)  AS last_active
             FROM care_circles c
             JOIN circle_memberships cm ON c.id = cm.circle_id
             JOIN people p ON cm.person_id = p.id
+            LEFT JOIN messages m
+                ON m.circle_id = c.id
+               AND m.person_id = p.id
+               AND m.direction = 'inbound'
             WHERE c.id = %(circle_id)s
-            ORDER BY cm.role, p.name
+            GROUP BY p.id, p.name, p.type, p.phone, p.email,
+                     p.aliases, p.notes, p.external_id,
+                     cm.role, c.name
+            ORDER BY cm.role, msg_count DESC
         """
         return self._execute(query, {"circle_id": circle_id}, fetch="all")
 
@@ -234,10 +261,13 @@ class TakeFiveRepository:
     def log_message(self, circle_ext_id: str, person_ext_id: Optional[str],
                     body: str, msg_type: str = 'inbound',
                     direction: str = 'inbound', raw_data: Optional[Dict] = None,
-                    channel: str = 'groupme') -> Dict:
+                    channel: str = 'groupme',
+                    person_id: Optional[str] = None) -> Dict:
         """
         Logs a message to the messages table.
 
+        person_id: pass a UUID directly to bypass the external_id subquery.
+                   Takes precedence over person_ext_id when both are provided.
         person_ext_id=None for bot/agent outbound messages — person_id is
         inserted as NULL directly rather than via subquery.
 
@@ -245,7 +275,21 @@ class TakeFiveRepository:
           direction='inbound',  person_id=<uuid> → human message
           direction='outbound', person_id=NULL   → bot/agent message
         """
-        if person_ext_id:
+        if person_id:
+            query = """
+                INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
+                VALUES (
+                    (SELECT id FROM care_circles WHERE external_id = %s),
+                    %s,
+                    %s, %s, %s, %s, %s
+                ) RETURNING *;
+            """
+            params = (
+                str(circle_ext_id), str(person_id),
+                msg_type, direction, body,
+                Json(raw_data) if raw_data else None, channel,
+            )
+        elif person_ext_id:
             query = """
                 INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
                 VALUES (
@@ -641,3 +685,184 @@ class TakeFiveRepository:
             ORDER BY name;
         """
         return self._execute(query, {'ensemble_id': ensemble_id}, fetch='all')
+
+    def get_circle_topics(self, circle_id: str, limit: int = 200, days: int = None) -> Dict:
+        """
+        Keyword-category analysis + word frequency for trending topics
+        and word cloud. Excludes outbound/bot messages and @T5 queries.
+        """
+        date_filter = "AND sent_at >= NOW() - INTERVAL '%(days)s days'" if days else ""
+        rows = self._execute(f"""
+            SELECT body FROM messages
+            WHERE circle_id = %(circle_id)s
+              AND direction = 'inbound'
+              AND body NOT ILIKE '%%@T5%%'
+              AND LENGTH(body) > 10
+              {date_filter}
+            ORDER BY sent_at DESC
+            LIMIT %(limit)s;
+        """, {'circle_id': circle_id, 'limit': limit, 'days': days}, fetch='all')
+
+        if not rows:
+            return {'categories': [], 'word_freq': []}
+
+        CATEGORIES = {
+            'Medical & health': [
+                'appointment', 'appt', 'doctor', 'dr.', 'dr ', 'nurse', 'hospital',
+                'diagnosis', 'dementia', 'memory', 'cognitive', 'hearing', 'audiologist',
+                'sleep', 'anxiety', 'blood pressure', 'weight', 'macular', 'injection',
+                'test', 'labs', 'mri', 'decline', 'assisted living', 'memory care',
+                'physical therapy', 'therapist', 'psychiatrist', 'geriatric',
+                'swallowing', 'fall', 'unsteady', 'wheelchair', 'walker',
+            ],
+            'Medications': [
+                'medication', 'med ', 'meds', 'pill', 'pills', 'prescription',
+                'dose', 'dosage', 'tablet', 'capsule', 'supplement', 'vitamin',
+                'melatonin', 'thyroid', 'temazepam', 'dayvigo', 'mirabegron',
+                'sertraline', 'paroxetine', 'atenolol', 'metoprolol', 'mirtazapine',
+                'pharmacy', 'refill', 'pill box', 'med tray', 'biofreeze', 'tylenol',
+                'side effect', 'taper',
+            ],
+            'Life & engagement': [
+                'book', 'reading', 'novel', 'james patterson', 'grisham', 'sparks',
+                'movie', 'netflix', 'tv show', 'watching',
+                'genealogy', 'family history', 'research',
+                'walk', 'exercise', 'pickleball', 'bingo', 'poker', 'cards',
+                'lunch', 'dinner', 'breakfast', 'restaurant', 'kolache', 'pie',
+                'shopping', 'party', 'event', 'happy hour', 'rosary', 'mass', 'church',
+                'good spirits', 'good day', 'enjoyed', 'laughed', 'excited', 'proud',
+                'mood', 'energy', 'smile',
+            ],
+            'Logistics & coordination': [
+                'visit', 'going down', 'drive', 'driving', 'trip', 'travel',
+                'schedule', 'calendar', 'tuesday', 'wednesday', 'thursday', 'friday',
+                'monday', 'weekend', 'next week', 'this week',
+                'lucy', 'caretaker', 'aide', 'caregiver',
+                'family meeting', 'meeting', 'plan', 'coordinate',
+                'who is going', 'can you go', 'are you going',
+                'eden', 'apartment', 'new braunfels',
+            ],
+            'Home & tech': [
+                'netflix', 'tv', 'television', 'remote', 'spectrum', 'wifi',
+                'internet', 'password', 'computer', 'phone', 'claude', 'ai',
+                'amazon prime', 'streaming', 'channel', 'router',
+                'mattress', 'bed', 'sheets', 'clock', 'hearing aid', 'oticon', 'phonak',
+            ],
+        }
+
+        STOPWORDS = {
+            'the','and','for','that','this','with','have','from','they','will',
+            'been','were','she','her','his','him','our','out','but','not','are',
+            'was','had','can','get','got','did','all','just','also','about','when',
+            'what','who','how','would','could','should','there','their','them',
+            'said','told','told','some','into','than','then','its','mom','dad',
+            'meme','poppy','eric','keith','autumn','monica','lee','anne','john',
+            'mary','ellen','well','still','know','think','back','want','need',
+            'going','went','took','come','came','told','make','like','feel','good',
+            'sure','time','day','week','one','two','let','ask','put','try','use',
+            'now','new','has','him','her','too','more','very','much','next','last',
+            'may','few','any','see','way','hey','yes','yep','nope','haha','lol',
+        }
+
+        import re
+        from collections import Counter
+
+        all_text = ' '.join(r['body'].lower() for r in rows)
+        category_counts = {cat: 0 for cat in CATEGORIES}
+
+        for row in rows:
+            body_lower = row['body'].lower()
+            for cat, keywords in CATEGORIES.items():
+                if any(kw in body_lower for kw in keywords):
+                    category_counts[cat] += 1
+
+        # Word frequency — split on non-alpha, filter short/stopwords
+        words = re.findall(r"[a-z']{3,}", all_text)
+        freq = Counter(w for w in words if w not in STOPWORDS and len(w) > 3)
+        top_words = [{'word': w, 'count': c} for w, c in freq.most_common(60)]
+
+        categories = [
+            {'category': cat, 'count': count}
+            for cat, count in sorted(category_counts.items(), key=lambda x: -x[1])
+            if count > 0
+        ]
+
+        return {'categories': categories, 'word_freq': top_words}
+
+    def get_circle_analytics(self, circle_id: str, days: int = None) -> Dict:
+        """Aggregate analytics for a single care circle."""
+        date_filter = "AND sent_at >= NOW() - INTERVAL '%(days)s days'" if days else ""
+        params = {'circle_id': circle_id, 'days': days}
+
+        weekly = self._execute(f"""
+            SELECT
+                DATE_TRUNC('week', sent_at AT TIME ZONE 'UTC') AS week,
+                COUNT(CASE WHEN direction = 'inbound'  THEN 1 END) AS inbound,
+                COUNT(CASE WHEN direction = 'outbound' THEN 1 END) AS outbound
+            FROM messages
+            WHERE circle_id = %(circle_id)s
+              {date_filter}
+            GROUP BY week
+            ORDER BY week;
+        """, params, fetch='all')
+
+        hourly = self._execute(f"""
+            SELECT
+                EXTRACT(HOUR FROM sent_at AT TIME ZONE 'America/Chicago')::int AS hour,
+                COUNT(*) AS msg_count
+            FROM messages
+            WHERE circle_id = %(circle_id)s
+              AND direction = 'inbound'
+              {date_filter}
+            GROUP BY hour
+            ORDER BY hour;
+        """, params, fetch='all')
+
+        members = self._execute(f"""
+            SELECT
+                p.name,
+                cm.role,
+                COUNT(m.id)                                                          AS msg_count,
+                COUNT(CASE WHEN m.body ILIKE '%%@T5%%' THEN 1 END)                  AS bot_queries,
+                MAX(m.sent_at)                                                       AS last_active
+            FROM circle_memberships cm
+            JOIN people p ON p.id = cm.person_id
+            LEFT JOIN messages m
+                ON m.circle_id = %(circle_id)s
+               AND m.person_id = p.id
+               AND m.direction = 'inbound'
+               {date_filter}
+            WHERE cm.circle_id = %(circle_id)s
+            GROUP BY p.name, cm.role
+            ORDER BY msg_count DESC;
+        """, params, fetch='all')
+
+        totals = self._execute(f"""
+            SELECT
+                COUNT(CASE WHEN direction = 'inbound'  THEN 1 END) AS total_inbound,
+                COUNT(CASE WHEN direction = 'outbound' THEN 1 END) AS total_outbound,
+                COUNT(CASE WHEN direction = 'inbound'
+                            AND body ILIKE '%%@T5%%' THEN 1 END)   AS total_bot_queries,
+                COUNT(DISTINCT DATE_TRUNC('day', sent_at))         AS active_days,
+                MIN(sent_at)                                        AS first_message,
+                MAX(sent_at)                                        AS last_message
+            FROM messages
+            WHERE circle_id = %(circle_id)s
+              {date_filter};
+        """, params)
+
+        clinical = self._execute("""
+            SELECT COUNT(*) AS total
+            FROM clinical_records cr
+            JOIN circle_memberships cm ON cr.person_id = cm.person_id
+            WHERE cm.circle_id = %(circle_id)s
+              AND cm.role = 'senior';
+        """, {'circle_id': circle_id})
+
+        return {
+            'weekly':   [dict(r) for r in (weekly  or [])],
+            'hourly':   [dict(r) for r in (hourly  or [])],
+            'members':  [dict(r) for r in (members or [])],
+            'totals':   dict(totals)   if totals   else {},
+            'clinical': dict(clinical) if clinical else {'total': 0},
+        }

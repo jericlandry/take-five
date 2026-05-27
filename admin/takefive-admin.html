@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Take Five · Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -175,6 +177,7 @@ tbody tr:last-child td { border-bottom: none; }
 /* Medication schedule cell */
 .sched-cell { font-size: 12px; color: var(--t800); font-weight: 700; }
 .sched-note { font-size: 11px; color: var(--g400); font-weight: 300; display: block; }
+.an-period-btn.active { background: var(--t50); color: var(--t800); border-color: var(--t300); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -225,10 +228,7 @@ tbody tr:last-child td { border-bottom: none; }
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
       Circles <span class="badge-count" id="cnt-circles">0</span>
     </button>
-    <button class="sidebar-item" onclick="showPage('roster')" id="nav-roster">
-      <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      Circle Roster
-    </button>
+
   </div>
 </nav>
 
@@ -279,14 +279,96 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
   </div>
 
-  <!-- ROSTER -->
-  <div class="panel" id="page-roster" style="display:none;">
-    <div class="breadcrumb">Take Five <span class="breadcrumb-sep">›</span> Ensembles <span class="breadcrumb-sep">›</span> <span id="bc-roster-ens">—</span> <span class="breadcrumb-sep">›</span> <span>Circle Roster</span></div>
-    <div class="page-header"><div><div class="page-title">Circle <em>Roster</em></div><div class="page-sub">Assign people to a circle with a role.</div></div></div>
-    <div class="card" style="margin-bottom:1rem;"><div class="card-title">Select Circle</div><div class="field" style="max-width:360px;"><select id="roster-circle-select" onchange="loadRoster()"><option value="">— choose a circle —</option></select></div></div>
-    <div id="roster-content" style="display:none;">
-      <div class="page-header" style="margin-bottom:1rem;"><div class="card-title" style="font-size:14px;" id="roster-circle-name"></div><button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Member</button></div>
-      <div class="card"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Members</div><div class="table-wrap"><table><thead><tr><th>Person</th><th>Role in Circle</th><th>Phone</th><th></th></tr></thead><tbody id="roster-tbody"></tbody></table></div></div>
+  <!-- CIRCLE DETAIL -->
+  <div class="panel" id="page-circle-detail" style="display:none;">
+    <button class="detail-back" onclick="backToCircles()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back to Circles</button>
+    <div class="detail-header">
+      <div class="detail-avatar av-teal" id="circle-detail-avatar">C</div>
+      <div>
+        <div class="detail-name" id="circle-detail-name">—</div>
+        <div class="detail-meta" id="circle-detail-meta">—</div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="ctab-roster"    onclick="switchCircleTab('roster')">Roster</button>
+      <button class="tab"        id="ctab-config"    onclick="switchCircleTab('config')">Config</button>
+      <button class="tab"        id="ctab-analytics" onclick="switchCircleTab('analytics')">Analytics</button>
+    </div>
+
+    <!-- ROSTER TAB -->
+    <div id="circle-tab-roster">
+      <div class="page-header" style="margin-bottom:1rem;">
+        <div class="page-sub">Assign people to this circle with a role.</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddMember()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Member</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Members</div>
+        <div class="table-wrap"><table><thead><tr><th>Person</th><th>Role</th><th>Phone</th><th>Messages</th><th>Last active</th></tr></thead><tbody id="circle-roster-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- CONFIG TAB -->
+    <div id="circle-tab-config" style="display:none;">
+      <div class="card">
+        <div class="card-title">Circle settings</div>
+        <div class="form-row"><div class="field"><label>Circle Name *</label><input type="text" id="cd-circle-name"/></div></div>
+        <div class="form-row cols-2">
+          <div class="field"><label>Status</label><select id="cd-circle-status"><option value="active">Active</option><option value="archived">Archived</option></select></div>
+          <div class="field"><label>External Group ID</label><input type="text" id="cd-circle-ext-id"/><div class="form-hint">Format: channel:id</div></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--g600);margin-bottom:0.5rem;">Integration Config</div>
+        <div id="cd-config-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addCdConfigRow()">+ Add key</button>
+        <div class="form-hint" style="margin-top:4px;">e.g. groupme_bot_id</div>
+        <div class="form-actions"><button class="btn btn-primary" id="btn-cd-save-circle" onclick="saveCdCircle()">Save Changes</button></div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS TAB -->
+    <div id="circle-tab-analytics" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <div style="font-size:12px;color:var(--g600);" id="an-period-label">All time</div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-ghost btn-sm an-period-btn active" data-days="30"  onclick="setAnalyticsPeriod(30)">30d</button>
+          <button class="btn btn-ghost btn-sm an-period-btn"        data-days="60"  onclick="setAnalyticsPeriod(60)">60d</button>
+          <button class="btn btn-ghost btn-sm an-period-btn"        data-days="90"  onclick="setAnalyticsPeriod(90)">90d</button>
+          <button class="btn btn-ghost btn-sm an-period-btn"        data-days="0"   onclick="setAnalyticsPeriod(0)">All</button>
+        </div>
+      </div>
+      <div class="stats" id="analytics-stats">
+        <div class="stat-card"><div class="stat-val" id="an-inbound">—</div><div class="stat-label">Family messages</div></div>
+        <div class="stat-card"><div class="stat-val" id="an-outbound">—</div><div class="stat-label">T5 responses</div></div>
+        <div class="stat-card"><div class="stat-val" id="an-queries">—</div><div class="stat-label">@T5 queries</div></div>
+        <div class="stat-card"><div class="stat-val" id="an-days">—</div><div class="stat-label">Active days</div></div>
+      </div>
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-title">Weekly message volume</div>
+        <div style="position:relative;height:180px;"><canvas id="an-weekly-chart" role="img" aria-label="Weekly message volume">Weekly message volume.</canvas></div>
+        <div style="display:flex;gap:12px;font-size:11px;color:var(--g600);margin-top:8px;">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:#1D9E75;display:inline-block;"></span>Family</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:#9FE1CB;display:inline-block;"></span>T5 responses</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div class="card">
+          <div class="card-title">Activity by hour (CST)</div>
+          <div style="position:relative;height:140px;"><canvas id="an-hourly-chart" role="img" aria-label="Messages by hour">Hourly distribution.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Member participation</div>
+          <div id="an-member-bars"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div class="card">
+          <div class="card-title">Topic breakdown</div>
+          <div style="position:relative;height:160px;"><canvas id="an-topic-chart" role="img" aria-label="Messages by topic category">Topic breakdown.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Trending words</div>
+          <div style="position:relative;height:160px;"><canvas id="an-word-cloud"></canvas></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -305,7 +387,7 @@ tbody tr:last-child td { border-bottom: none; }
     <div id="person-tab-profile">
       <div class="card">
         <div class="card-title">Profile</div>
-        <div class="form-row cols-2"><div class="field"><label>Full Name</label><input type="text" id="dp-name"/></div><div class="field"><label>Person Type</label><select id="dp-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
+        <div class="form-row cols-2"><div class="field"><label>Full Name</label><input type="text" id="dp-name"/></div><div class="field"><label>Person Type</label><select id="dp-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="aide">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
         <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="dp-phone"/></div><div class="field"><label>Email</label><input type="email" id="dp-email"/></div></div>
         <div class="form-row cols-2"><div class="field"><label>Date of Birth</label><input type="date" id="dp-dob"/></div><div class="field"><label>External ID</label><input type="text" id="dp-ext-id"/></div></div>
         <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="dp-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
@@ -355,7 +437,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- Add Person -->
 <div class="modal-backdrop" id="modal-add-person"><div class="modal"><div class="modal-header"><div class="modal-title">Add Person</div><button class="modal-close" onclick="closeModal('modal-add-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"><label>Person Type *</label><select id="person-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional (nurse, doctor)</option><option value="bot">Bot / System</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"><label>Person Type *</label><select id="person-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="aide">Caregiver / Aide</option><option value="professional">Professional (nurse, doctor)</option><option value="bot">Bot / System</option></select></div></div>
 <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="person-phone" placeholder="+1 555 000 0000"/></div><div class="field"><label>Email</label><input type="email" id="person-email" placeholder="name@example.com"/></div></div>
 <div class="form-row"><div class="field"><label>External ID</label><input type="text" id="person-ext-id" placeholder="groupme:12345678"/><div class="form-hint">Format: groupme:sender_id</div></div></div>
 <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
@@ -365,7 +447,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- Edit Person -->
 <div class="modal-backdrop" id="modal-edit-person"><div class="modal"><div class="modal-header"><div class="modal-title">Edit Person</div><button class="modal-close" onclick="closeModal('modal-edit-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="edit-person-name"/></div><div class="field"><label>Person Type *</label><select id="edit-person-type"><option value="senior">Senior</option><option value="family">Family member</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="edit-person-name"/></div><div class="field"><label>Person Type *</label><select id="edit-person-type"><option value="senior">Senior</option><option value="family">Family member</option><option value="aide">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
 <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="edit-person-phone"/></div><div class="field"><label>Email</label><input type="email" id="edit-person-email"/></div></div>
 <div class="form-row"><div class="field"><label>External ID</label><input type="text" id="edit-person-ext-id"/></div></div>
 <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="edit-person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
@@ -548,7 +630,7 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
 });
 
 function showPage(name) {
-  ['ensembles','people','circles','roster','person-detail'].forEach(p => {
+  ['ensembles','people','circles','circle-detail','person-detail'].forEach(p => {
     document.getElementById('page-'+p).style.display = p === name ? '' : 'none';
     document.getElementById('nav-'+p)?.classList.toggle('active', p === name);
   });
@@ -599,11 +681,10 @@ async function createEnsemble() {
 async function selectEnsemble(id, name) {
   state.activeEnsembleId = id; state.people = []; state.circles = [];
   document.getElementById('ensemble-nav').style.display = '';
-  ['people','circles','roster'].forEach(p => { const el = document.getElementById(`nav-${p}`); if (el) el.style.display = ''; });
+  ['people','circles'].forEach(p => { const el = document.getElementById(`nav-${p}`); if (el) el.style.display = ''; });
   document.getElementById('ph-ens-name').textContent = name;
   document.getElementById('bc-people-ens').textContent = name;
   document.getElementById('bc-circles-ens').textContent = name;
-  document.getElementById('bc-roster-ens').textContent = name;
   updateSidebar(); showPage('people');
   document.getElementById('nav-people').classList.add('active');
   await loadPeople(); await loadCircles();
@@ -675,7 +756,7 @@ async function loadCircles() {
   const data = await api('GET', `/ensembles/${state.activeEnsembleId}/circles`);
   if (!data) return;
   state.circles = data.circles || [];
-  renderCircles(); refreshCircleSelect();
+  renderCircles();
   document.getElementById('cnt-circles').textContent = state.circles.length;
   document.getElementById('stat-circles').textContent = state.circles.length;
 }
@@ -683,7 +764,7 @@ async function loadCircles() {
 function renderCircles() {
   const tbody = document.getElementById('circles-tbody');
   if (!state.circles.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">No circles yet</div></div></td></tr>`; return; }
-  tbody.innerHTML = state.circles.map(c => `<tr><td><strong>${c.name}</strong></td><td>${statusPill(c.status||'active')}</td><td class="td-mono">${c.external_id||'—'}</td><td class="td-mono">${(c.id||'').slice(0,8)}…</td><td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openEditCircle('${c.id}')">Edit</button><button class="btn btn-ghost btn-sm" onclick="goToRoster('${c.id}')">Roster →</button></div></td></tr>`).join('');
+  tbody.innerHTML = state.circles.map(c => `<tr><td><strong>${c.name}</strong></td><td>${statusPill(c.status||'active')}</td><td class="td-mono">${c.external_id||'—'}</td><td class="td-mono">${(c.id||'').slice(0,8)}…</td><td><div class="td-actions"><button class="btn btn-primary btn-sm" onclick="openCircleDetail('${c.id}')">Open →</button></div></td></tr>`).join('');
 }
 
 async function createCircle() {
@@ -746,37 +827,265 @@ async function saveCircle() {
   toast(`Circle "${name}" updated`); closeModal('modal-edit-circle'); await loadCircles();
 }
 
-// ─── ROSTER ───
-function refreshCircleSelect() {
-  const sel = document.getElementById('roster-circle-select'); const cur = sel.value;
-  sel.innerHTML = '<option value="">— choose a circle —</option>' + state.circles.map(c => `<option value="${c.id}" ${c.id===cur?'selected':''}>${c.name}</option>`).join('');
-}
+// ─── CIRCLE DETAIL ───
+let anWeeklyChart = null;
+let anHourlyChart = null;
+let anTopicChart  = null;
+let analyticsDays = 30; // default to last 30 days
 
-function goToRoster(circleId) {
-  showPage('roster'); document.getElementById('nav-roster').classList.add('active');
-  document.getElementById('roster-circle-select').value = circleId; loadRoster();
-}
-
-async function loadRoster() {
-  const sel = document.getElementById('roster-circle-select'); const circleId = sel.value;
+async function openCircleDetail(circleId) {
+  const circle = state.circles.find(c => c.id === circleId);
+  if (!circle) return;
   state.currentCircleId = circleId;
-  const content = document.getElementById('roster-content');
-  if (!circleId) { content.style.display = 'none'; return; }
-  const circle = state.circles.find(c=>c.id===circleId);
-  document.getElementById('roster-circle-name').textContent = circle?.name || circleId;
-  const data = await api('GET', `/circles/${circleId}/people`);
+  document.getElementById('circle-detail-avatar').textContent = initials(circle.name);
+  document.getElementById('circle-detail-name').textContent = circle.name;
+  document.getElementById('circle-detail-meta').textContent = [circle.status, circle.external_id].filter(Boolean).join(' · ');
+  // Pre-fill config tab
+  document.getElementById('cd-circle-name').value   = circle.name || '';
+  document.getElementById('cd-circle-status').value = circle.status || 'active';
+  document.getElementById('cd-circle-ext-id').value = circle.external_id || '';
+  const cdRows = document.getElementById('cd-config-rows'); cdRows.innerHTML = '';
+  Object.entries(circle.integration_config || {}).forEach(([k, v]) => addCdConfigRow(k, v));
+  switchCircleTab('roster');
+  showPage('circle-detail');
+  document.getElementById('nav-circles').classList.add('active');
+  // Reset period selector to default
+  analyticsDays = 30;
+  document.querySelectorAll('.an-period-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.days === '30');
+  });
+  document.getElementById('an-period-label').textContent = 'Last 30 days';
+  await loadCircleRoster();
+}
+
+function backToCircles() {
+  showPage('circles');
+  document.getElementById('nav-circles').classList.add('active');
+}
+
+function switchCircleTab(tab) {
+  ['roster','config','analytics'].forEach(t => {
+    document.getElementById('circle-tab-'+t).style.display = t === tab ? '' : 'none';
+    document.getElementById('ctab-'+t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'analytics') { loadCircleAnalytics(); loadCircleTopics(); }
+}
+
+function setAnalyticsPeriod(days) {
+  analyticsDays = days;
+  document.querySelectorAll('.an-period-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.days) === days);
+  });
+  const label = days === 0 ? 'All time' : `Last ${days} days`;
+  document.getElementById('an-period-label').textContent = label;
+  loadCircleAnalytics();
+  loadCircleTopics();
+}
+
+async function loadCircleRoster() {
+  if (!state.currentCircleId) return;
+  const data = await api('GET', `/circles/${state.currentCircleId}/people`);
   if (!data) return;
-  content.style.display = ''; renderRoster(data.people || []);
+  renderCircleRoster(data.people || []);
 }
 
-function renderRoster(members) {
-  const tbody = document.getElementById('roster-tbody');
-  if (!members.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div></div></td></tr>`; return; }
-  tbody.innerHTML = members.map(m => { const ptype = m.p_type || m.type; return `<tr><td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(ptype)}">${initials(m.member_name||'?')}</div><strong>${m.member_name||'—'}</strong></div></td><td>${rolePill(m.person_role)}</td><td class="td-mono">${m.phone||'—'}</td><td></td></tr>`; }).join('');
+function renderCircleRoster(members) {
+  const tbody = document.getElementById('circle-roster-tbody');
+  if (!members.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div><div class="empty-sub">Add someone to this circle to get started</div></div></td></tr>`; return; }
+  tbody.innerHTML = members.map(m => {
+    const ptype = m.p_type || m.type;
+    const lastActive = m.last_active
+      ? new Date(m.last_active).toLocaleDateString('en-US', {month:'short', day:'numeric'})
+      : '—';
+    const msgCount = m.msg_count > 0 ? m.msg_count : '—';
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(ptype)}">${initials(m.member_name||'?')}</div><strong>${m.member_name||'—'}</strong></div></td>
+      <td>${rolePill(m.person_role)}</td>
+      <td class="td-mono">${m.phone||'—'}</td>
+      <td style="font-size:13px;color:var(--text);">${msgCount}</td>
+      <td style="font-size:12px;color:var(--g600);">${lastActive}</td>
+    </tr>`;
+  }).join('');
 }
 
+async function loadCircleTopics() {
+  const circleId = state.currentCircleId; if (!circleId) return;
+  const qs = analyticsDays > 0 ? `?days=${analyticsDays}` : '';
+  const data = await api('GET', `/circles/${circleId}/topics${qs}`);
+  if (!data) return;
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const tc = isDark ? '#9c9a92' : '#6B6763';
+  const gc = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+
+  // Topic category horizontal bar chart
+  if (anTopicChart) anTopicChart.destroy();
+  const cats = data.categories || [];
+  const TOPIC_COLORS = {
+    'Medical & health':       '#1D9E75',
+    'Medications':            '#5DCAA5',
+    'Life & engagement':      '#FAC775',
+    'Logistics & coordination': '#85B7EB',
+    'Home & tech':            '#B4B2A9',
+  };
+  anTopicChart = new Chart(document.getElementById('an-topic-chart'), {
+    type: 'bar',
+    data: {
+      labels: cats.map(c => c.category),
+      datasets: [{
+        data:            cats.map(c => c.count),
+        backgroundColor: cats.map(c => TOPIC_COLORS[c.category] || '#9FE1CB'),
+        borderRadius: 4,
+        barPercentage: 0.65,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks:{color:tc,font:{size:10}}, grid:{color:gc}, border:{display:false} },
+        y: { ticks:{color:tc,font:{size:11}}, grid:{display:false}, border:{display:false} }
+      }
+    }
+  });
+
+  // Word cloud via wordcloud2.js
+  const words = data.word_freq || [];
+  const wcCanvas = document.getElementById('an-word-cloud');
+  if (!words.length) {
+    const ctx = wcCanvas.getContext('2d');
+    ctx.clearRect(0,0,wcCanvas.width,wcCanvas.height);
+    return;
+  }
+  const isDarkWc = matchMedia('(prefers-color-scheme: dark)').matches;
+  const wcColors = isDarkWc
+    ? ['#9FE1CB','#5DCAA5','#1D9E75','#FAC775','#EF9F27','#B5D4F4','#85B7EB']
+    : ['#085041','#0F6E56','#1D9E75','#5DCAA5','#633806','#854F0B','#185FA5'];
+  const maxCount = words[0].count;
+  const list = words.slice(0, 50).map(w => [
+    w.word,
+    Math.round(10 + (w.count / maxCount) * 28)
+  ]);
+  // Size canvas to its rendered container
+  const card = wcCanvas.parentElement;
+  wcCanvas.width  = card.offsetWidth  || 280;
+  wcCanvas.height = card.offsetHeight || 160;
+  WordCloud(wcCanvas, {
+    list,
+    gridSize:        6,
+    weightFactor:    1,
+    fontFamily:      'Lato, sans-serif',
+    color:           () => wcColors[Math.floor(Math.random() * wcColors.length)],
+    rotateRatio:     0,
+    backgroundColor: 'transparent',
+    shuffle:         true,
+    drawOutOfBound:  false,
+    shrinkToFit:     true,
+  });
+}
+
+function addCdConfigRow(key='', value='') {
+  const wrap = document.getElementById('cd-config-rows');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `<input type="text" placeholder="key" value="${key}" style="flex:1;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;"><input type="text" placeholder="value" value="${value}" style="flex:2;padding:0.4rem 0.6rem;border:1px solid var(--g200);border-radius:var(--radius-sm);font-size:13px;font-family:Lato,sans-serif;"><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--g400);font-size:16px;line-height:1;padding:0 4px;">&times;</button>`;
+  wrap.appendChild(row);
+}
+
+function getCdConfig() {
+  const config = {};
+  document.querySelectorAll('#cd-config-rows > div').forEach(row => {
+    const [k, v] = row.querySelectorAll('input');
+    if (k.value.trim()) config[k.value.trim()] = v.value.trim();
+  });
+  return config;
+}
+
+async function saveCdCircle() {
+  const circleId = state.currentCircleId; if (!circleId) return;
+  const name   = document.getElementById('cd-circle-name').value.trim();
+  const status = document.getElementById('cd-circle-status').value;
+  const extId  = document.getElementById('cd-circle-ext-id').value.trim();
+  if (!name) { toast('Circle name is required', true); return; }
+  const body = { name, status };
+  if (extId) body.external_id = extId;
+  const cfg = getCdConfig();
+  if (Object.keys(cfg).length) body.integration_config = cfg;
+  setLoading('btn-cd-save-circle', true);
+  const data = await api('PUT', `/circles/${circleId}`, body);
+  setLoading('btn-cd-save-circle', false);
+  if (!data) return;
+  toast(`Circle "${name}" updated`);
+  document.getElementById('circle-detail-name').textContent = name;
+  await loadCircles();
+}
+
+async function loadCircleAnalytics() {
+  const circleId = state.currentCircleId; if (!circleId) return;
+  const qs = analyticsDays > 0 ? `?days=${analyticsDays}` : '';
+  const data = await api('GET', `/circles/${circleId}/analytics${qs}`);
+  if (!data) return;
+
+  const t = data.totals || {};
+  document.getElementById('an-inbound').textContent  = t.total_inbound  ?? '—';
+  document.getElementById('an-outbound').textContent = t.total_outbound ?? '—';
+  document.getElementById('an-queries').textContent  = t.total_bot_queries ?? '—';
+  document.getElementById('an-days').textContent     = t.active_days ?? '—';
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const tc = isDark ? '#9c9a92' : '#6B6763';
+  const gc = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+
+  // Weekly chart
+  if (anWeeklyChart) anWeeklyChart.destroy();
+  const weeklyLabels  = (data.weekly || []).map(r => { const d = new Date(r.week); return (d.getMonth()+1)+'/'+(d.getDate()); });
+  const weeklyFamily  = (data.weekly || []).map(r => r.inbound  || 0);
+  const weeklyT5      = (data.weekly || []).map(r => r.outbound || 0);
+  anWeeklyChart = new Chart(document.getElementById('an-weekly-chart'), {
+    type: 'bar',
+    data: { labels: weeklyLabels, datasets: [
+      { label: 'Family', data: weeklyFamily,  backgroundColor: '#1D9E75', borderRadius: 3, barPercentage: 0.65 },
+      { label: 'T5',     data: weeklyT5,      backgroundColor: '#9FE1CB', borderRadius: 3, barPercentage: 0.65 },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }},
+      scales: { x: { ticks:{color:tc,font:{size:10}}, grid:{display:false}, border:{display:false} },
+                y: { ticks:{color:tc,font:{size:10},maxTicksLimit:4}, grid:{color:gc}, border:{display:false} }} }
+  });
+
+  // Hourly chart
+  if (anHourlyChart) anHourlyChart.destroy();
+  const allHours = Array.from({length:18}, (_,i)=>i+6); // 6am–11pm
+  const hourMap  = {};
+  (data.hourly || []).forEach(r => { hourMap[r.hour] = r.msg_count; });
+  const hourlyData = allHours.map(h => hourMap[h] || 0);
+  const hourlyLabels = allHours.map(h => h < 12 ? h+'a' : h === 12 ? '12p' : (h-12)+'p');
+  anHourlyChart = new Chart(document.getElementById('an-hourly-chart'), {
+    type: 'bar',
+    data: { labels: hourlyLabels, datasets: [{ data: hourlyData, backgroundColor: '#1D9E75', borderRadius: 3, barPercentage: 0.7 }]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }},
+      scales: { x: { ticks:{color:tc,font:{size:10}}, grid:{display:false}, border:{display:false} },
+                y: { ticks:{color:tc,font:{size:10},maxTicksLimit:3}, grid:{color:gc}, border:{display:false} }} }
+  });
+
+  // Member participation bars — exclude seniors
+  const members = (data.members || []).filter(m => m.role !== 'senior');
+  const maxMsgs = Math.max(...members.map(m => m.msg_count || 0), 1);
+  document.getElementById('an-member-bars').innerHTML = members.map(m => {
+    const pct = Math.round(((m.msg_count || 0) / maxMsgs) * 100);
+    const lastActive = m.last_active ? new Date(m.last_active).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--g200);">
+      <div style="width:70px;font-size:12px;color:var(--g600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.name.split(' ')[0]}</div>
+      <div style="flex:1;height:16px;background:var(--cream);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:#1D9E75;border-radius:3px;"></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--text);min-width:24px;text-align:right;">${m.msg_count||0}</div>
+      <div style="font-size:11px;color:var(--g400);min-width:52px;text-align:right;">${m.bot_queries > 0 ? m.bot_queries+' queries' : '—'}</div>
+    </div>`;
+  }).join('');
+}
 function openAddMember() {
-  if (!state.currentCircleId) { toast('Select a circle first', true); return; }
+  if (!state.currentCircleId) { toast('No circle selected', true); return; }
   const list = document.getElementById('member-pick-list');
   state.selectedMemberId = null;
   if (!state.people.length) { list.innerHTML = `<div style="padding:1rem;font-size:13px;color:var(--g400);">No people in this ensemble yet.</div>`; }
@@ -793,13 +1102,10 @@ async function addMember() {
   const data = await api('POST', `/circles/${state.currentCircleId}/people/${state.selectedMemberId}`, { role });
   setLoading('btn-add-member', false);
   if (!data) return;
-  toast('Member added to circle'); closeModal('modal-add-member'); await loadRoster();
+  toast('Member added to circle'); closeModal('modal-add-member'); await loadCircleRoster();
 }
 
 window.openModal = openModal; window.closeModal = closeModal; window.addMember = addMember;
-document.querySelectorAll('button').forEach(btn => {
-  if (btn.getAttribute('onclick') === "openModal('modal-add-member')") { btn.onclick = (e) => { e.preventDefault(); openAddMember(); }; }
-});
 
 // ─── PERSON DETAIL ───
 async function openPersonDetail(personId) {
@@ -847,13 +1153,13 @@ async function savePersonDetail() {
   const p_type  = document.getElementById('dp-type').value;
   const phone   = document.getElementById('dp-phone').value.trim();
   const email   = document.getElementById('dp-email').value.trim();
-  const extId   = document.getElementById('dp-ext-id').value.trim();
   const dob     = document.getElementById('dp-dob').value || null;
+  const extId   = document.getElementById('dp-ext-id').value.trim() || null;
   const aliases = document.getElementById('dp-aliases').value.trim().split(',').map(s=>s.trim()).filter(Boolean);
   const notes   = document.getElementById('dp-notes').value.trim();
   if (!name) { toast('Name is required', true); return; }
   setLoading('btn-dp-save', true);
-  const data = await api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId });
+  const data = await api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId, date_of_birth: dob });
   setLoading('btn-dp-save', false);
   if (!data) return;
   toast(`${name} updated`); await loadPeople();
@@ -1060,6 +1366,7 @@ function printMedications() {
             <td class="sched">${schedCol(d.morning)}${mNote   ? `<span class="slot-note">${mNote}</span>`  : ''}</td>
             <td class="sched">${schedCol(d.afternoon)}${aNot  ? `<span class="slot-note">${aNot}</span>`   : ''}</td>
             <td class="sched">${schedCol(d.evening)}${eNote   ? `<span class="slot-note">${eNote}</span>`  : ''}</td>
+            <td class="prescriber">${d.prescriber || ''}</td>
             <td class="purpose">${d.indication || ''}</td>
           </tr>`;
       }).join('');
@@ -1092,6 +1399,7 @@ function printMedications() {
   .sched { text-align: center; font-weight: 700; color: #1A1A18; font-size: 28px; min-width: 80px; }
   .slot-note { display: block; font-weight: 400; font-size: 16px; color: #6B6763; margin-top: 2px; }
   .purpose { color: ${accent}; font-size: 22px; opacity: 0.8; }
+  .prescriber { font-size: 18px; color: #6B6763; }
   .footer { margin-top: 1.5rem; padding: 0.75rem 2rem; border-top: 1px solid #E8E5DF; display: flex; justify-content: space-between; align-items: center; }
   .footer-brand { font-family: 'Playfair Display', serif; font-size: 0.85rem; color: ${accentMid}; }
   .footer-note { font-size: 11px; color: #B0ADA6; }
@@ -1129,6 +1437,7 @@ function printMedications() {
     <th class="center">Morning</th>
     <th class="center">Afternoon</th>
     <th class="center">Evening</th>
+    <th>Prescriber</th>
     <th>Purpose</th>
   </tr></thead>
   <tbody>${rows}</tbody>
@@ -1280,7 +1589,7 @@ async function updateMedication() {
 }
 
 // ─── INIT ───
-['nav-people','nav-circles','nav-roster'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+['nav-people','nav-circles'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
 document.getElementById('ensemble-nav').style.display = 'none';
 document.getElementById('stat-plan').textContent = 'Family+';
 

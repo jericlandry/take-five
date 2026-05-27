@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from starlette.responses import FileResponse
 from twilio.twiml.messaging_response import MessagingResponse
+from anthropic import AsyncAnthropic
 
 from take_five.memory import process_message_for_memory
 from take_five.repository import TakeFiveRepository
@@ -321,6 +322,23 @@ async def update_clinical_record(record_id: str, body: UpdateClinicalRecordReque
     return {"record": row_to_dict(record)}
 
 
+@secure_router.get("/circles/{circle_id}/analytics")
+async def get_circle_analytics(circle_id: str, days: Optional[int] = Query(None)):
+    raw = repo.get_circle_analytics(circle_id, days=days)
+    return {
+        'weekly':   [row_to_dict(r) for r in raw['weekly']],
+        'hourly':   [row_to_dict(r) for r in raw['hourly']],
+        'members':  [row_to_dict(r) for r in raw['members']],
+        'totals':   row_to_dict(raw['totals'])   if raw['totals']   else {},
+        'clinical': row_to_dict(raw['clinical']) if raw['clinical'] else {'total': 0},
+    }
+
+
+@secure_router.get("/circles/{circle_id}/topics")
+async def get_circle_topics(circle_id: str, days: Optional[int] = Query(None)):
+    return repo.get_circle_topics(circle_id, days=days)
+
+
 @secure_router.post("/messages")
 async def message(body: MessageRequest):
     logging.info("Message received")
@@ -501,29 +519,33 @@ async def receive_sms(
 ):
     response = MessagingResponse()
 
-    person        = repo.find_person_by_phone(From)
-    circle_ext_id = f"sms:{To}"
-    person_ext_id = f"sms:{From}"
+    # 1. Identify care circle by the Twilio number that received the message
+    circle = repo.get_circle_by_twilio_number(To)
+    if not circle:
+        logging.warning(f"SMS received on unrecognized Twilio number: {To}")
+        response.message("We don't recognize this number. Contact your care circle administrator.")
+        return Response(content=str(response), media_type="application/xml")
+
+    circle_id     = str(circle['id'])
+    circle_ext_id = circle['external_id']  # use the circle's real external_id for logging
+
+    # 2. Identify sender — must be an sms_active member of this specific circle
+    person = repo.find_caregiver_by_phone_and_circle(From, circle_id)
 
     if not person:
-        logging.info(f"SMS received from unknown number: {From}")
-        response.message("Sorry, I don't recognize your number. Please contact support to be added to the system.")
+        logging.warning(f"SMS from unrecognized number {From} for circle {circle['name']}")
+        response.message("We don't recognize this number. Contact your care circle administrator.")
         return Response(content=str(response), media_type="application/xml")
 
-    logging.info(f"SMS received from known person: {person['name']} ({From})")
-    circle = repo.get_circle_by_external_id(circle_ext_id)
-
-    if not circle:
-        logging.warning(f"No circles found for person {person['name']} ({From})")
-        response.message("Sorry, I couldn't find your care circle. Please contact support.")
-        return Response(content=str(response), media_type="application/xml")
+    logging.info(f"SMS received from {person['name']} ({From}) for circle {circle['name']}")
 
     new_msg = repo.log_message(
         circle_ext_id=circle_ext_id,
-        person_ext_id=person_ext_id,
+        person_ext_id=None,
         body=Body,
         raw_data={"from": From, "to": To, "body": Body},
-        channel="sms"
+        channel="sms",
+        person_id=str(person['id']),
     )
 
     asyncio.create_task(process_message_for_memory(
@@ -534,6 +556,40 @@ async def receive_sms(
         sent_at=new_msg['sent_at'],
         repo=repo
     ))
+
+    # Synthesize and post to GroupMe
+    bot_id          = (circle.get('integration_config') or {}).get('groupme_bot_id')
+    groupme_ext_id  = circle.get('external_id')  # groupme:{group_id}
+
+    if bot_id and groupme_ext_id:
+        async def post_caregiver_update():
+            try:
+                client = AsyncAnthropic()
+                result = await client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=256,
+                    system=(
+                        "You summarize caregiver check-in messages for a family care circle. "
+                        "Write a single short paragraph (2-3 sentences max). "
+                        "Be warm and specific — include what the senior did, how they seemed, "
+                        "and anything worth knowing. No bullet points. No greeting. "
+                        "Do not invent details not present in the message."
+                    ),
+                    messages=[{
+                        "role": "user",
+                        "content": f"{person['name']} checked in: {Body}"
+                    }]
+                )
+                summary = result.content[0].text.strip()
+                await groupme_reply(
+                    bot_id,
+                    f"{person['name']} (via Take Five): {summary}",
+                    groupme_ext_id
+                )
+                logging.info(f"[sms] Caregiver update posted to GroupMe for circle {circle['name']}")
+            except Exception as e:
+                logging.error(f"[sms] Failed to synthesize or post caregiver update: {e}")
+        asyncio.create_task(post_caregiver_update())
 
     # MMS image detection
     if int(NumMedia) > 0:
