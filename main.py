@@ -26,6 +26,7 @@ from take_five.images import extract_groupme_image, extract_sms_image, handle_im
 from take_five.integrations.groupme import send_message_async
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -33,7 +34,7 @@ security = HTTPBearer()
 
 TAKE_FIVE_ADMIN_API_KEY = os.getenv("TAKE_FIVE_ADMIN_API_KEY")
 if not TAKE_FIVE_ADMIN_API_KEY:
-    logging.warning("TAKE_FIVE_ADMIN_API_KEY not set in environment variables. Admin endpoints will be unsecured.")
+    logger.warning("TAKE_FIVE_ADMIN_API_KEY not set in environment variables. Admin endpoints will be unsecured.")
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     if credentials.credentials != TAKE_FIVE_ADMIN_API_KEY:
@@ -131,7 +132,7 @@ class DigestRequest(BaseModel):
 
 @secure_router.post("/digest")
 async def summary(body: DigestRequest):
-    logging.info("Digest request received")
+    logger.info("Digest request received")
     kwargs = {}
     if body.start_date:
         kwargs['start_date'] = body.start_date
@@ -142,19 +143,19 @@ async def summary(body: DigestRequest):
 
 @secure_router.post("/ensembles")
 async def create_ensemble(body: CreateEnsembleRequest):
-    logging.info(f"Create ensemble request received: {body.name}")
+    logger.info(f"Create ensemble request received: {body.name}")
     ensemble = repo.create_ensemble(body.name, body.plan, body.status)
     return {"ensemble": row_to_dict(ensemble)}
 
 @secure_router.get("/ensembles")
 async def get_ensembles():
-    logging.info("Get ensembles request received")
+    logger.info("Get ensembles request received")
     ensembles = repo.list_ensembles()
     return {"ensembles": row_list_to_dict_list(ensembles)}
 
 @secure_router.get("/ensembles/{ensemble_id}/people")
 async def get_ensemble_people(ensemble_id: str):
-    logging.info(f"Get people for ensemble {ensemble_id}")
+    logger.info(f"Get people for ensemble {ensemble_id}")
     people = repo.list_people_by_ensemble(ensemble_id)
     return {"people": [row_to_dict(row) for row in people]}
 
@@ -341,7 +342,7 @@ async def get_circle_topics(circle_id: str, days: Optional[int] = Query(None)):
 
 @secure_router.post("/messages")
 async def message(body: MessageRequest):
-    logging.info("Message received")
+    logger.info("Message received")
     response = await ask_with_tools(
         question=body.message,
         circle_id=body.circle_id,
@@ -380,19 +381,19 @@ async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_i
                 direction="outbound",
                 channel="groupme",
             )
-            logging.info(f"[groupme] Bot reply logged to {circle_ext_id}")
+            logger.info(f"[groupme] Bot reply logged to {circle_ext_id}")
         except Exception as e:
-            logging.error(f"[groupme] Failed to log bot reply: {e}")
+            logger.error(f"[groupme] Failed to log bot reply: {e}")
 
 @open_router.post("/groupme/webhook")
 async def groupme_webhook(request: Request):
     data = await request.json()
-    logging.info("GroupMe webhook received")
-    logging.info(f"Webhook data: {data}")
+    logger.info("GroupMe webhook received")
+    logger.info(f"Webhook data: {data}")
 
     # 1. Guard: ignore bot's own messages to avoid infinite loops
     if data.get("sender_type") == "bot":
-        logging.info("Bot message ignored")
+        logger.info("Bot message ignored")
         return {"status": "ignored"}
 
     # 2. Extract fields
@@ -401,7 +402,7 @@ async def groupme_webhook(request: Request):
     person_name   = data.get("name", "Unknown User")
     text          = data.get("text", "")
 
-    logging.info(f"Processing message from {person_name} in group {circle_ext_id}")
+    logger.info(f"Processing message from {person_name} in group {circle_ext_id}")
 
     try:
         new_msg = repo.log_message(
@@ -480,16 +481,16 @@ async def groupme_webhook(request: Request):
         if '@T5' in text:
             question = text.split('@T5', 1)[1].strip()
             if not question:
-                logging.warning("T5 command detected but no question found.")
+                logger.warning("T5 command detected but no question found.")
                 return {"status": "ok"}
             if not circle_id:
-                logging.error(f"Circle with external_id {circle_ext_id} not found.")
+                logger.error(f"Circle with external_id {circle_ext_id} not found.")
                 return {"status": "ok"}
             if not bot_id:
-                logging.error(f"No groupme_bot_id in integration_config for circle {circle_ext_id}.")
+                logger.error(f"No groupme_bot_id in integration_config for circle {circle_ext_id}.")
                 return {"status": "ok"}
 
-            logging.info("T5 question command detected, generating response...")
+            logger.info("T5 question command detected, generating response...")
             bot_response = await ask_with_tools(
                 question=question,
                 circle_id=circle_id,
@@ -498,13 +499,13 @@ async def groupme_webhook(request: Request):
             )
             await groupme_reply(bot_id, bot_response, circle_ext_id)
 
-        logging.info(f"Message stored. Internal ID: {new_msg['id']}")
+        logger.info(f"Message stored. Internal ID: {new_msg['id']}")
 
     except Exception as e:
-        logging.error(f"Failed to sync or log message: {e}")
+        logger.error(f"Failed to sync or log message: {e}")
         return {"status": "error", "message": str(e)}
 
-    logging.info("Webhook processed successfully")
+    logger.info("Webhook processed successfully")
     return {"status": "ok"}
 
 
@@ -522,7 +523,7 @@ async def receive_sms(
     # 1. Identify care circle by the Twilio number that received the message
     circle = repo.get_circle_by_twilio_number(To)
     if not circle:
-        logging.warning(f"SMS received on unrecognized Twilio number: {To}")
+        logger.warning(f"SMS received on unrecognized Twilio number: {To}")
         response.message("We don't recognize this number. Contact your care circle administrator.")
         return Response(content=str(response), media_type="application/xml")
 
@@ -533,11 +534,11 @@ async def receive_sms(
     person = repo.find_caregiver_by_phone_and_circle(From, circle_id)
 
     if not person:
-        logging.warning(f"SMS from unrecognized number {From} for circle {circle['name']}")
+        logger.warning(f"SMS from unrecognized number {From} for circle {circle['name']}")
         response.message("We don't recognize this number. Contact your care circle administrator.")
         return Response(content=str(response), media_type="application/xml")
 
-    logging.info(f"SMS received from {person['name']} ({From}) for circle {circle['name']}")
+    logger.info(f"SMS received from {person['name']} ({From}) for circle {circle['name']}")
 
     new_msg = repo.log_message(
         circle_ext_id=circle_ext_id,
@@ -586,9 +587,9 @@ async def receive_sms(
                     f"{person['name']} (via Take Five): {summary}",
                     groupme_ext_id
                 )
-                logging.info(f"[sms] Caregiver update posted to GroupMe for circle {circle['name']}")
+                logger.info(f"[sms] Caregiver update posted to GroupMe for circle {circle['name']}")
             except Exception as e:
-                logging.error(f"[sms] Failed to synthesize or post caregiver update: {e}")
+                logger.error(f"[sms] Failed to synthesize or post caregiver update: {e}")
         asyncio.create_task(post_caregiver_update())
 
     # MMS image detection
@@ -610,7 +611,7 @@ async def receive_sms(
                     logger.info(f"[sms] Image processed — classification: {_vision_result.get('classification')}")
             asyncio.create_task(process_sms_image())
 
-    logging.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
+    logger.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
     response.message(f"Got it, {person['name']}. Thanks for the update.")
     return Response(content=str(response), media_type="application/xml")
 
@@ -619,7 +620,7 @@ app.include_router(secure_router)
 
 @open_router.get("/health")
 async def health():
-    logging.info("Health check requested")
+    logger.info("Health check requested")
     return {"status": "ok"}
 
 @open_router.get("/admin/{file_name}")
