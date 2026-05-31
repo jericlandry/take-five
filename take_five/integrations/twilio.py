@@ -58,7 +58,6 @@ async def handle_sms(
         body=Body,
         sender=person['name'],
         sent_at=new_msg['sent_at'],
-        repo=repo
     ))
 
     # Synthesize and post to GroupMe

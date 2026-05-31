@@ -1,22 +1,21 @@
 # take_five/memory.py
-import re
-import os
-import logging
 import asyncio
+import logging
+import os
+import re
 from datetime import datetime
 
+from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
-logger = logging.getLogger(__name__)
-
-from dotenv import load_dotenv
-
+from take_five.repository import repo
 from take_five.utils import fetch_prompt
-from take_five.repository import TakeFiveRepository
 
-load_dotenv()  # Load environment variables from the .env file
+load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 SUMMARY_MODEL = os.getenv("SUMMARY_MODEL", "claude-haiku-4-5-20251001")
 CHUNK_THRESHOLD = 300
@@ -72,7 +71,6 @@ async def process_message_for_memory(
     body: str,
     sender: str,
     sent_at: datetime,
-    repo: TakeFiveRepository,
 ):
     """Chunks + embeds + extracts entities. Fire-and-forget from webhook."""
     try:

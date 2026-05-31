@@ -118,7 +118,6 @@ async def handle_groupme_webhook(data: dict):
             body=text,
             sender=person_name,
             sent_at=new_msg['sent_at'],
-            repo=repo
         ))
 
         # Resolve circle once — used by both image and ask branches

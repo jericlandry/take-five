@@ -9,7 +9,7 @@ from take_five.utils import fetch_prompt, RESPONSE_FORMATS
 
 SUMMARY_PROMPT_NAME = os.getenv("LANGSMITH_PROMPT_NAME", "t5-week-summary")
 
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 chain = fetch_prompt(SUMMARY_PROMPT_NAME) | ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
 
@@ -26,7 +26,7 @@ def generate_weekly_digest(
     if end_date is None:
         end_date = datetime.now() + timedelta(days=1)
 
-    logging.info(f"Generating digest for circle_id={circle_id} from {start_date} to {end_date}")
+    logger.info(f"Generating digest for circle_id={circle_id} from {start_date} to {end_date}")
 
     ctx = ContextBuilder.create_for_digest(circle_id, start_date, end_date)
     messages = ctx.get_recent_messages()

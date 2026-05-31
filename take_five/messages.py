@@ -7,7 +7,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, ToolMessage
 
-from take_five.repository import TakeFiveRepository
+from take_five.repository import repo
 from take_five.memory import get_embedding
 from take_five.utils import fetch_prompt, RESPONSE_FORMATS
 
@@ -183,7 +183,7 @@ TOOLS = [save_clinical_record, patch_clinical_record]
 
 class ContextBuilder:
     def __init__(self, circle_id: str, question: str):
-        self.repo = TakeFiveRepository()
+        self.repo = repo
         self.circle_id = circle_id
         self.question = question
 
@@ -472,8 +472,6 @@ async def ask_with_tools(
     confirmed_by_person_id: str = None,
 ) -> str:
     global _tool_context
-
-    repo = TakeFiveRepository()
 
     _tool_context = {
         'repo':                   repo,

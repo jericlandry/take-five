@@ -99,12 +99,6 @@ class TakeFiveRepository:
     def get_person_by_id(self, person_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM people WHERE id = %s;", (person_id,))
 
-    def find_person_by_phone(self, phone: str) -> Optional[Dict]:
-        return self._execute(
-            "SELECT * FROM people WHERE phone = %(phone)s LIMIT 1;",
-            {'phone': phone}
-        )
-
     def update_person(self, person_id: str, name: Optional[str] = None, p_type: Optional[str] = None,
                         phone: Optional[str] = None, email: Optional[str] = None,
                         aliases: Optional[List[str]] = None, notes: Optional[str] = None,
@@ -146,15 +140,6 @@ class TakeFiveRepository:
         })
 
     # --- CARE CIRCLES ---
-
-    def upsert_circle(self, external_id: str, name: str) -> Dict:
-        query = """
-            INSERT INTO care_circles (external_id, name)
-            VALUES (%s, %s)
-            ON CONFLICT (external_id) DO UPDATE SET name = EXCLUDED.name
-            RETURNING *;
-        """
-        return self._execute(query, (str(external_id), name))
 
     def create_care_circle(self, ensemble_id: str, name: str, status: str = 'active',
                            external_id: Optional[str] = None) -> Dict:
@@ -220,16 +205,6 @@ class TakeFiveRepository:
         return self._execute(
             "SELECT * FROM care_circles WHERE id = %s;", (str(circle_id),)
         )
-
-    def find_circles_by_person(self, person_external_id: str) -> List[Dict]:
-        query = """
-            SELECT c.*, m.role
-            FROM care_circles c
-            JOIN circle_memberships m ON c.id = m.circle_id
-            JOIN people p ON m.person_id = p.id
-            WHERE p.external_id = %(ext_id)s;
-        """
-        return self._execute(query, {'ext_id': str(person_external_id)}, fetch='all')
 
     def fetch_circle_roster(self, circle_id: str) -> list:
         query = """
@@ -774,10 +749,11 @@ class TakeFiveRepository:
 
     def get_circle_analytics(self, circle_id: str, days: int = None) -> Dict:
         """Aggregate analytics for a single care circle."""
-        date_filter = "AND sent_at >= NOW() - INTERVAL '%(days)s days'" if days else ""
         params: dict = {'circle_id': circle_id}
         if days:
             params['days'] = days
+
+        date_filter = "AND sent_at >= NOW() - INTERVAL '%(days)s days'" if days else ""
 
         weekly = self._execute(f"""
             SELECT
