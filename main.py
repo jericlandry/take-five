@@ -1,13 +1,18 @@
-import httpx
-
-from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Response, Query
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.middleware.cors import CORSMiddleware
-
-from dotenv import load_dotenv
 import logging
 import os
-from starlette.responses import FileResponse
+from typing import Optional
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from take_five.integrations.groupme import handle_groupme_webhook
+from take_five.integrations.npi import search_npi
+from take_five.integrations.twilio import handle_sms
+from take_five.messages import ask_with_tools
+from take_five.repository import TakeFiveRepository
 from take_five.schemas import (
     CreatePersonRequest, UpdatePersonRequest,
     CreateCareCircleRequest, UpdateCareCircleRequest,
@@ -16,12 +21,8 @@ from take_five.schemas import (
     CreateClinicalRecordRequest, UpdateClinicalRecordRequest,
     MessageRequest, DigestRequest,
 )
-from take_five.repository import TakeFiveRepository
 from take_five.summaries import generate_weekly_digest
-from take_five.messages import ask_with_tools
 from take_five.utils import row_to_dict, row_list_to_dict_list
-from take_five.integrations.groupme import handle_groupme_webhook
-from take_five.integrations.twilio import handle_sms
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -164,51 +165,9 @@ async def npi_search(
     last_name: str = Query(...),
     city: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
+    enumeration_type: Optional[str] = Query(default="NPI-1", description="NPI-1 (individual), NPI-2 (organization), or omit for both"),
 ):
-    params = {
-        "first_name": first_name,
-        "last_name": last_name,
-        "limit": 5,
-        "enumeration_type": "NPI-1",
-        "version": "2.1",
-    }
-    if city:
-        params["city"] = city
-    if state:
-        params["state"] = state
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://npiregistry.cms.hhs.gov/api/",
-            params=params,
-            timeout=10,
-        )
-    resp.raise_for_status()
-    raw = resp.json()
-
-    results = []
-    for r in raw.get("results", []):
-        basic      = r.get("basic", {})
-        taxonomies = r.get("taxonomies", [])
-        primary    = next((t for t in taxonomies if t.get("primary")), None)
-        # Fall back to any taxonomy with a description if primary has none
-        if not primary or not primary.get("desc"):
-            primary = next((t for t in taxonomies if t.get("desc")), primary or {})
-        addresses  = r.get("addresses", [])
-        practice   = next((a for a in addresses if a.get("address_purpose") == "LOCATION"), addresses[0] if addresses else {})
-        results.append({
-            "npi":           r.get("number"),
-            "name":          f"{basic.get('first_name', '')} {basic.get('last_name', '')}".strip(),
-            "credential":    basic.get("credential", ""),
-            "specialty":     primary.get("desc", ""),
-            "taxonomy_code": primary.get("code", ""),
-            "phone":         practice.get("telephone_number", ""),
-            "address":       f"{practice.get('address_1', '')} {practice.get('address_2', '')}".strip(),
-            "city":          practice.get("city", ""),
-            "state":         practice.get("state", ""),
-            "postal_code":   practice.get("postal_code", ""),
-        })
-
+    results = await search_npi(first_name, last_name, city, state, enumeration_type)
     return {"results": results}
 
 
