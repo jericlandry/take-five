@@ -1,12 +1,76 @@
 import json
+import os
+import re
+from collections import Counter
+from datetime import datetime
+from typing import Dict, List, Optional
+
+from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor, Json
-from typing import List, Dict, Optional
-from datetime import datetime
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
+
+# --- Topic analysis constants (used by get_circle_topics) ---
+
+TOPIC_CATEGORIES: Dict[str, list] = {
+    'Medical & health': [
+        'appointment', 'appt', 'doctor', 'dr.', 'dr ', 'nurse', 'hospital',
+        'diagnosis', 'dementia', 'memory', 'cognitive', 'hearing', 'audiologist',
+        'sleep', 'anxiety', 'blood pressure', 'weight', 'macular', 'injection',
+        'test', 'labs', 'mri', 'decline', 'assisted living', 'memory care',
+        'physical therapy', 'therapist', 'psychiatrist', 'geriatric',
+        'swallowing', 'fall', 'unsteady', 'wheelchair', 'walker',
+    ],
+    'Medications': [
+        'medication', 'med ', 'meds', 'pill', 'pills', 'prescription',
+        'dose', 'dosage', 'tablet', 'capsule', 'supplement', 'vitamin',
+        'melatonin', 'thyroid', 'temazepam', 'dayvigo', 'mirabegron',
+        'sertraline', 'paroxetine', 'atenolol', 'metoprolol', 'mirtazapine',
+        'pharmacy', 'refill', 'pill box', 'med tray', 'biofreeze', 'tylenol',
+        'side effect', 'taper',
+    ],
+    'Life & engagement': [
+        'book', 'reading', 'novel', 'james patterson', 'grisham', 'sparks',
+        'movie', 'netflix', 'tv show', 'watching',
+        'genealogy', 'family history', 'research',
+        'walk', 'exercise', 'pickleball', 'bingo', 'poker', 'cards',
+        'lunch', 'dinner', 'breakfast', 'restaurant', 'kolache', 'pie',
+        'shopping', 'party', 'event', 'happy hour', 'rosary', 'mass', 'church',
+        'good spirits', 'good day', 'enjoyed', 'laughed', 'excited', 'proud',
+        'mood', 'energy', 'smile',
+    ],
+    'Logistics & coordination': [
+        'visit', 'going down', 'drive', 'driving', 'trip', 'travel',
+        'schedule', 'calendar', 'tuesday', 'wednesday', 'thursday', 'friday',
+        'monday', 'weekend', 'next week', 'this week',
+        'lucy', 'caretaker', 'aide', 'caregiver',
+        'family meeting', 'meeting', 'plan', 'coordinate',
+        'who is going', 'can you go', 'are you going',
+        'eden', 'apartment', 'new braunfels',
+    ],
+    'Home & tech': [
+        'netflix', 'tv', 'television', 'remote', 'spectrum', 'wifi',
+        'internet', 'password', 'computer', 'phone', 'claude', 'ai',
+        'amazon prime', 'streaming', 'channel', 'router',
+        'mattress', 'bed', 'sheets', 'clock', 'hearing aid', 'oticon', 'phonak',
+    ],
+}
+
+TOPIC_STOPWORDS: frozenset = frozenset({
+    'the','and','for','that','this','with','have','from','they','will',
+    'been','were','she','her','his','him','our','out','but','not','are',
+    'was','had','can','get','got','did','all','just','also','about','when',
+    'what','who','how','would','could','should','there','their','them',
+    'said','told','told','some','into','than','then','its','mom','dad',
+    'meme','poppy','eric','keith','autumn','monica','lee','anne','john',
+    'mary','ellen','well','still','know','think','back','want','need',
+    'going','went','took','come','came','told','make','like','feel','good',
+    'sure','time','day','week','one','two','let','ask','put','try','use',
+    'now','new','has','him','her','too','more','very','much','next','last',
+    'may','few','any','see','way','hey','yes','yep','nope','haha','lol',
+})
+
 
 class TakeFiveRepository:
     def __init__(self):
@@ -29,20 +93,6 @@ class TakeFiveRepository:
 
     # --- PEOPLE ---
 
-    def upsert_person(self, external_id: str, name: str, p_type: str, **kwargs) -> Dict:
-        query = """
-            INSERT INTO people (external_id, name, type, email, phone, timezone)
-            VALUES (%(ext_id)s, %(name)s, %(type)s, %(email)s, %(phone)s, %(tz)s)
-            ON CONFLICT (external_id)
-            DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type
-            RETURNING *;
-        """
-        return self._execute(query, {
-            'ext_id': str(external_id), 'name': name, 'type': p_type,
-            'email': kwargs.get('email'), 'phone': kwargs.get('phone'),
-            'tz': kwargs.get('timezone', 'America/Chicago')
-        })
-
     def get_person_by_external_id(self, external_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM people WHERE external_id = %s;", (str(external_id),))
 
@@ -55,7 +105,10 @@ class TakeFiveRepository:
             {'phone': phone}
         )
 
-    def update_person(self, person_id: str, updates) -> Dict:
+    def update_person(self, person_id: str, name: Optional[str] = None, p_type: Optional[str] = None,
+                        phone: Optional[str] = None, email: Optional[str] = None,
+                        aliases: Optional[List[str]] = None, notes: Optional[str] = None,
+                        external_id: Optional[str] = None, date_of_birth: Optional[str] = None) -> Dict:
         query = """
             UPDATE people SET
                 name          = COALESCE(%(name)s, name),
@@ -70,11 +123,11 @@ class TakeFiveRepository:
             RETURNING *;
         """
         return self._execute(query, {
-            'id': person_id, 'name': updates.name, 'type': updates.p_type,
-            'phone': updates.phone, 'email': updates.email,
-            'aliases': updates.aliases, 'notes': updates.notes,
-            'external_id': updates.external_id,
-            'date_of_birth': getattr(updates, 'date_of_birth', None),
+            'id': person_id, 'name': name, 'type': p_type,
+            'phone': phone, 'email': email,
+            'aliases': aliases, 'notes': notes,
+            'external_id': external_id,
+            'date_of_birth': date_of_birth,
         })
 
     def add_person_to_ensemble(self, ensemble_id: str, name: str, p_type: str, **kwargs) -> Dict:
@@ -243,19 +296,6 @@ class TakeFiveRepository:
             'circle_id': circle_id, 'person_id': person_id, 'role': role
         })
 
-    def add_to_circle(self, circle_ext_id: str, person_ext_id: str, role: str) -> Dict:
-        query = """
-            INSERT INTO circle_memberships (circle_id, person_id, role)
-            VALUES (
-                (SELECT id FROM care_circles WHERE external_id = %s),
-                (SELECT id FROM people WHERE external_id = %s),
-                %s
-            )
-            ON CONFLICT (circle_id, person_id) DO UPDATE SET role = EXCLUDED.role
-            RETURNING *;
-        """
-        return self._execute(query, (str(circle_ext_id), str(person_ext_id), role))
-
     # --- MESSAGES ---
 
     def log_message(self, circle_ext_id: str, person_ext_id: Optional[str],
@@ -331,7 +371,7 @@ class TakeFiveRepository:
                 COALESCE(p.name, 'Take Five') AS author_name
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
-            WHERE m.circle_id = (SELECT id FROM care_circles WHERE id = %s)
+            WHERE m.circle_id = %s
         """
         params = [str(circle_id)]
 
@@ -691,8 +731,9 @@ class TakeFiveRepository:
         Keyword-category analysis + word frequency for trending topics
         and word cloud. Excludes outbound/bot messages and @T5 queries.
         """
-        date_filter = "AND sent_at >= NOW() - INTERVAL '%(days)s days'" if days else ""
-        rows = self._execute(f"""
+        date_filter = "AND sent_at >= NOW() - INTERVAL '%s days'" if days else ""
+        base_params: dict = {'circle_id': circle_id, 'limit': limit}
+        query = f"""
             SELECT body FROM messages
             WHERE circle_id = %(circle_id)s
               AND direction = 'inbound'
@@ -701,84 +742,26 @@ class TakeFiveRepository:
               {date_filter}
             ORDER BY sent_at DESC
             LIMIT %(limit)s;
-        """, {'circle_id': circle_id, 'limit': limit, 'days': days}, fetch='all')
+        """
+        if days:
+            base_params['days'] = days
+        rows = self._execute(query, base_params, fetch='all')
 
         if not rows:
             return {'categories': [], 'word_freq': []}
 
-        CATEGORIES = {
-            'Medical & health': [
-                'appointment', 'appt', 'doctor', 'dr.', 'dr ', 'nurse', 'hospital',
-                'diagnosis', 'dementia', 'memory', 'cognitive', 'hearing', 'audiologist',
-                'sleep', 'anxiety', 'blood pressure', 'weight', 'macular', 'injection',
-                'test', 'labs', 'mri', 'decline', 'assisted living', 'memory care',
-                'physical therapy', 'therapist', 'psychiatrist', 'geriatric',
-                'swallowing', 'fall', 'unsteady', 'wheelchair', 'walker',
-            ],
-            'Medications': [
-                'medication', 'med ', 'meds', 'pill', 'pills', 'prescription',
-                'dose', 'dosage', 'tablet', 'capsule', 'supplement', 'vitamin',
-                'melatonin', 'thyroid', 'temazepam', 'dayvigo', 'mirabegron',
-                'sertraline', 'paroxetine', 'atenolol', 'metoprolol', 'mirtazapine',
-                'pharmacy', 'refill', 'pill box', 'med tray', 'biofreeze', 'tylenol',
-                'side effect', 'taper',
-            ],
-            'Life & engagement': [
-                'book', 'reading', 'novel', 'james patterson', 'grisham', 'sparks',
-                'movie', 'netflix', 'tv show', 'watching',
-                'genealogy', 'family history', 'research',
-                'walk', 'exercise', 'pickleball', 'bingo', 'poker', 'cards',
-                'lunch', 'dinner', 'breakfast', 'restaurant', 'kolache', 'pie',
-                'shopping', 'party', 'event', 'happy hour', 'rosary', 'mass', 'church',
-                'good spirits', 'good day', 'enjoyed', 'laughed', 'excited', 'proud',
-                'mood', 'energy', 'smile',
-            ],
-            'Logistics & coordination': [
-                'visit', 'going down', 'drive', 'driving', 'trip', 'travel',
-                'schedule', 'calendar', 'tuesday', 'wednesday', 'thursday', 'friday',
-                'monday', 'weekend', 'next week', 'this week',
-                'lucy', 'caretaker', 'aide', 'caregiver',
-                'family meeting', 'meeting', 'plan', 'coordinate',
-                'who is going', 'can you go', 'are you going',
-                'eden', 'apartment', 'new braunfels',
-            ],
-            'Home & tech': [
-                'netflix', 'tv', 'television', 'remote', 'spectrum', 'wifi',
-                'internet', 'password', 'computer', 'phone', 'claude', 'ai',
-                'amazon prime', 'streaming', 'channel', 'router',
-                'mattress', 'bed', 'sheets', 'clock', 'hearing aid', 'oticon', 'phonak',
-            ],
-        }
-
-        STOPWORDS = {
-            'the','and','for','that','this','with','have','from','they','will',
-            'been','were','she','her','his','him','our','out','but','not','are',
-            'was','had','can','get','got','did','all','just','also','about','when',
-            'what','who','how','would','could','should','there','their','them',
-            'said','told','told','some','into','than','then','its','mom','dad',
-            'meme','poppy','eric','keith','autumn','monica','lee','anne','john',
-            'mary','ellen','well','still','know','think','back','want','need',
-            'going','went','took','come','came','told','make','like','feel','good',
-            'sure','time','day','week','one','two','let','ask','put','try','use',
-            'now','new','has','him','her','too','more','very','much','next','last',
-            'may','few','any','see','way','hey','yes','yep','nope','haha','lol',
-        }
-
-        import re
-        from collections import Counter
-
         all_text = ' '.join(r['body'].lower() for r in rows)
-        category_counts = {cat: 0 for cat in CATEGORIES}
+        category_counts = {cat: 0 for cat in TOPIC_CATEGORIES}
 
         for row in rows:
             body_lower = row['body'].lower()
-            for cat, keywords in CATEGORIES.items():
+            for cat, keywords in TOPIC_CATEGORIES.items():
                 if any(kw in body_lower for kw in keywords):
                     category_counts[cat] += 1
 
         # Word frequency — split on non-alpha, filter short/stopwords
         words = re.findall(r"[a-z']{3,}", all_text)
-        freq = Counter(w for w in words if w not in STOPWORDS and len(w) > 3)
+        freq = Counter(w for w in words if w not in TOPIC_STOPWORDS and len(w) > 3)
         top_words = [{'word': w, 'count': c} for w, c in freq.most_common(60)]
 
         categories = [
@@ -792,7 +775,9 @@ class TakeFiveRepository:
     def get_circle_analytics(self, circle_id: str, days: int = None) -> Dict:
         """Aggregate analytics for a single care circle."""
         date_filter = "AND sent_at >= NOW() - INTERVAL '%(days)s days'" if days else ""
-        params = {'circle_id': circle_id, 'days': days}
+        params: dict = {'circle_id': circle_id}
+        if days:
+            params['days'] = days
 
         weekly = self._execute(f"""
             SELECT

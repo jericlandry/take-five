@@ -114,7 +114,17 @@ async def get_person(person_id: str):
 
 @secure_router.put("/people/{person_id}")
 async def update_person(person_id: str, body: UpdatePersonRequest):
-    person = repo.update_person(person_id, body)
+    person = repo.update_person(
+        person_id=person_id,
+        name=body.name,
+        p_type=body.p_type,
+        phone=body.phone,
+        email=body.email,
+        aliases=body.aliases,
+        notes=body.notes,
+        external_id=body.external_id,
+        date_of_birth=body.date_of_birth,
+    )
     return {"person": row_to_dict(person)}
 
 @secure_router.get("/ensembles/{ensemble_id}/circles")
