@@ -4,7 +4,7 @@ import logging
 import httpx
 from typing import Optional
 
-from take_five.repository import TakeFiveRepository
+from take_five.repository import repo
 from take_five.memory import process_message_for_memory
 from take_five.messages import ask_with_tools
 from take_five.images import extract_groupme_image, handle_image_message
@@ -16,9 +16,6 @@ GROUPME_HEADERS = {
     "User-Agent": "curl/7.68.0",
     "Content-Type": "application/json"
 }
-
-repo = TakeFiveRepository()
-
 
 def send_message(bot_id: str, text: str) -> bool:
     """Send a message to a GroupMe bot. Returns True on success.

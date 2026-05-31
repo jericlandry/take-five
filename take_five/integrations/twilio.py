@@ -6,15 +6,12 @@ from fastapi import Response
 from twilio.twiml.messaging_response import MessagingResponse
 from typing import Optional
 
-from take_five.repository import TakeFiveRepository
+from take_five.repository import repo
 from take_five.memory import process_message_for_memory
 from take_five.images import extract_sms_image, handle_image_message
 from take_five.integrations.groupme import groupme_reply
 
 logger = logging.getLogger(__name__)
-
-repo = TakeFiveRepository()
-
 
 async def handle_sms(
     From: str,

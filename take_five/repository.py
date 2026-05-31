@@ -866,3 +866,7 @@ class TakeFiveRepository:
             'totals':   dict(totals)   if totals   else {},
             'clinical': dict(clinical) if clinical else {'total': 0},
         }
+
+
+# Module-level singleton — import this instead of instantiating directly.
+repo = TakeFiveRepository()

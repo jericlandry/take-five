@@ -12,7 +12,7 @@ from take_five.integrations.groupme import handle_groupme_webhook
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms
 from take_five.messages import ask_with_tools
-from take_five.repository import TakeFiveRepository
+from take_five.repository import repo
 from take_five.schemas import (
     CreatePersonRequest, UpdatePersonRequest,
     CreateCareCircleRequest, UpdateCareCircleRequest,
@@ -62,8 +62,6 @@ app.add_middleware(
 
 open_router = APIRouter()
 secure_router = APIRouter(dependencies=[Depends(verify_token)])
-
-repo = TakeFiveRepository()
 
 @secure_router.post("/digest")
 async def summary(body: DigestRequest):
