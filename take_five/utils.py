@@ -1,14 +1,11 @@
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict, List
+from uuid import UUID
 
 from dotenv import load_dotenv
-
 from langsmith import Client
 
-from uuid import UUID
-import os
-
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()
 
 ls_client = Client()
 
@@ -18,12 +15,15 @@ RESPONSE_FORMATS = {
     "json":     "Format your response as a JSON object with keys: 'summary' (string), 'details' (list of strings), 'flags' (list of any concerns worth raising).",
 }
 
-def fetch_prompt(prompt_name):
+
+def fetch_prompt(prompt_name: str):
     """
-    Pull the named prompt from LangSmith Hub and return a runnable chain
-    ready to invoke with Claude Haiku.
+    Pull the named prompt from LangSmith Hub.
+    Used for both digest generation (t5-week-summary) and
+    memory chunking (chunk-context-summary).
     """
     return ls_client.pull_prompt(prompt_name)
+
 
 def row_to_dict(row) -> dict:
     """Converts a RealDictRow to a plain dict with serializable types."""
@@ -32,6 +32,7 @@ def row_to_dict(row) -> dict:
         if isinstance(val, datetime): return val.isoformat()
         return val
     return {key: convert(val) for key, val in row.items()}
+
 
 def row_list_to_dict_list(rows) -> List[Dict]:
     """Converts a list of RealDictRows to a list of plain dicts."""

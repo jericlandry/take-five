@@ -706,7 +706,7 @@ class TakeFiveRepository:
         Keyword-category analysis + word frequency for trending topics
         and word cloud. Excludes outbound/bot messages and @T5 queries.
         """
-        date_filter = "AND sent_at >= NOW() - INTERVAL '%s days'" if days else ""
+        date_filter = "AND sent_at >= NOW() - INTERVAL '%(days)s days'" if days else ""
         base_params: dict = {'circle_id': circle_id, 'limit': limit}
         query = f"""
             SELECT body FROM messages

@@ -56,4 +56,3 @@ sentence-transformers
 
 # Twilio
 twilio
-python-multipart
