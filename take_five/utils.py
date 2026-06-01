@@ -15,6 +15,11 @@ RESPONSE_FORMATS = {
     "json":     "Format your response as a JSON object with keys: 'summary' (string), 'details' (list of strings), 'flags' (list of any concerns worth raising).",
 }
 
+CHANNEL_CONSTRAINTS = {
+    "groupme": "Keep your response under 600 characters. If the topic warrants more depth, give a focused answer and offer to continue.",
+    "sms":     "Keep your response under 300 characters.",
+}
+
 
 def fetch_prompt(prompt_name: str):
     """

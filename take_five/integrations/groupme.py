@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 
 import httpx
 from typing import Optional
@@ -16,6 +17,44 @@ GROUPME_HEADERS = {
     "User-Agent": "curl/7.68.0",
     "Content-Type": "application/json"
 }
+
+GROUPME_MAX_CHARS = 4000
+
+
+def split_for_groupme(text: str, limit: int = GROUPME_MAX_CHARS) -> list[str]:
+    """Split text into chunks at sentence boundaries, each within `limit` chars.
+
+    Splits on '. ', '! ', '? ' followed by a capital letter or digit, which
+    avoids false positives on abbreviations like 'Dr.' or 'e.g.'
+    If a single sentence exceeds the limit it is hard-split at the limit.
+    """
+    if len(text) <= limit:
+        return [text]
+
+    # Tokenize into sentences using a regex that avoids common abbreviations
+    sentence_re = re.compile(r'(?<=[.!?])\s+(?=[A-Z0-9])')
+    sentences = sentence_re.split(text)
+
+    chunks = []
+    current = ""
+    for sentence in sentences:
+        # +1 for the space we'll add between sentences
+        candidate = f"{current} {sentence}".strip() if current else sentence
+        if len(candidate) <= limit:
+            current = candidate
+        else:
+            if current:
+                chunks.append(current)
+            # Single sentence longer than limit — hard split
+            while len(sentence) > limit:
+                chunks.append(sentence[:limit])
+                sentence = sentence[limit:]
+            current = sentence
+    if current:
+        chunks.append(current)
+
+    return chunks
+
 
 def send_message(bot_id: str, text: str) -> bool:
     """Send a message to a GroupMe bot. Returns True on success.
@@ -39,18 +78,24 @@ async def send_message_async(bot_id: str, text: str) -> bool:
     """Async version for use inside the FastAPI webhook.
 
     bot_id comes from care_circles.integration_config['groupme_bot_id'].
+    Automatically splits text that exceeds GROUPME_MAX_CHARS at sentence
+    boundaries and sends each chunk sequentially.
     """
+    chunks = split_for_groupme(text)
+    all_ok = True
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            GROUPME_URL,
-            json={"bot_id": bot_id, "text": text},
-            headers=GROUPME_HEADERS
-        )
-    if response.status_code == 202:
-        logger.info("Message sent successfully to GroupMe")
-        return True
-    logger.error(f"Failed to send to GroupMe: {response.status_code} - {response.text}")
-    return False
+        for chunk in chunks:
+            response = await client.post(
+                GROUPME_URL,
+                json={"bot_id": bot_id, "text": chunk},
+                headers=GROUPME_HEADERS
+            )
+            if response.status_code == 202:
+                logger.info(f"Message chunk sent successfully to GroupMe ({len(chunk)} chars)")
+            else:
+                logger.error(f"Failed to send to GroupMe: {response.status_code} - {response.text}")
+                all_ok = False
+    return all_ok
 
 
 async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_id: Optional[str] = None):
@@ -193,6 +238,7 @@ async def handle_groupme_webhook(data: dict):
                 question=question,
                 circle_id=circle_id,
                 response_format="text",
+                channel="groupme",
                 confirmed_by_person_id=sender_person_id,
             )
             await groupme_reply(bot_id, bot_response, circle_ext_id)

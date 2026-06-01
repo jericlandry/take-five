@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 
 from take_five.repository import repo
 from take_five.memory import get_embedding
-from take_five.utils import fetch_prompt, RESPONSE_FORMATS
+from take_five.utils import fetch_prompt, RESPONSE_FORMATS, CHANNEL_CONSTRAINTS
 
 logger = logging.getLogger(__name__)
 
@@ -469,6 +469,7 @@ async def ask_with_tools(
     question: str,
     circle_id: str,
     response_format: str = "text",
+    channel: str = None,
     confirmed_by_person_id: str = None,
 ) -> str:
     global _tool_context
@@ -481,6 +482,10 @@ async def ask_with_tools(
 
     ctx = await ContextBuilder.create(circle_id, question)
 
+    format_instruction = RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["text"])
+    channel_constraint = CHANNEL_CONSTRAINTS.get(channel, "") if channel else ""
+    combined_format    = f"{format_instruction} {channel_constraint}".strip()
+
     human_content = _build_human_message(
         today            = datetime.now().strftime("%B %d, %Y"),
         circle_context   = ctx.get_circle_context(),
@@ -488,7 +493,7 @@ async def ask_with_tools(
         clinical_records = ctx.get_clinical_records(),
         recent_messages  = ctx.get_recent_messages(),
         semantic_chunks  = ctx.get_semantic(),
-        response_format  = RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["text"]),
+        response_format  = combined_format,
         question         = question,
     )
 

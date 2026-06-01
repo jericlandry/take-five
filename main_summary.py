@@ -7,6 +7,7 @@ and sends it to the circle's GroupMe group via its bot.
 Render cron schedule: 0 22 * * 0  (Sundays at 10pm UTC)
 """
 
+import argparse
 import logging
 from dotenv import load_dotenv
 
@@ -20,7 +21,18 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    circles = repo.get_active_circles()
+    parser = argparse.ArgumentParser(description="Generate and send weekly care circle digests.")
+    parser.add_argument("--circle-id", dest="circle_id", default=None, help="Internal UUID of a single care circle to process. Omit to process all active circles.")
+    args = parser.parse_args()
+
+    if args.circle_id:
+        circle = repo.get_circle_by_id(args.circle_id)
+        if not circle:
+            logger.error(f"No circle found with id {args.circle_id}.")
+            return
+        circles = [circle]
+    else:
+        circles = repo.get_active_circles()
 
     if not circles:
         logger.info("No active circles found. Nothing to send.")
