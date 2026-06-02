@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Take Five · Family Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --t900: #04342C; --t800: #085041; --t600: #0F6E56;
+  --t500: #1D9E75; --t400: #2DB888; --t300: #5DCAA5;
+  --t100: #9FE1CB; --t50: #E1F5EE;
+  --amber: #FAC775; --amber-dk: #633806; --amber-bg: #FAEEDA;
+  --cream: #F9F6F0; --white: #FFFFFF;
+  --g200: #E8E5DF; --g400: #B0ADA6; --g600: #6B6763; --text: #1A1A18;
+  --danger: #E24B4A; --danger-bg: #FCEBEB; --danger-dk: #501313;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
+  --sidebar-w: 220px;
+}
+html, body { height: 100%; }
+body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--cream); color: var(--text); display: flex; flex-direction: column; }
+
+/* ─── TOPBAR ─── */
+.topbar { height: 52px; background: var(--t800); display: flex; align-items: center; padding: 0 1.5rem; gap: 1rem; flex-shrink: 0; border-bottom: 1px solid rgba(93,202,165,0.2); }
+.topbar-brand { display: flex; align-items: center; gap: 9px; text-decoration: none; }
+.topbar-logo { width: 26px; height: 26px; }
+.topbar-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--t100); letter-spacing: -0.02em; }
+.topbar-sep { width: 1px; height: 20px; background: rgba(93,202,165,0.2); margin: 0 0.25rem; }
+.topbar-ensemble { font-size: 12px; color: var(--t300); font-weight: 400; font-style: italic; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+.topbar-user { display: flex; align-items: center; gap: 7px; }
+.topbar-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--t600); border: 1.5px solid var(--t300); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 11px; color: var(--white); }
+.topbar-user-name { font-size: 12px; color: var(--t100); }
+.topbar-role-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; border-radius: 100px; background: rgba(93,202,165,0.2); color: var(--t300); }
+
+/* ─── LAYOUT ─── */
+.app { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: var(--sidebar-w); flex-shrink: 0; background: var(--white); border-right: 1px solid var(--g200); display: flex; flex-direction: column; overflow-y: auto; }
+.sidebar-section { padding: 1.25rem 0.75rem 0.5rem; }
+.sidebar-label { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--g400); padding: 0 0.5rem; margin-bottom: 6px; display: block; }
+.sidebar-item { display: flex; align-items: center; gap: 8px; padding: 0.45rem 0.6rem; border-radius: var(--radius-sm); font-size: 13px; color: var(--g600); cursor: pointer; transition: background 0.15s, color 0.15s; margin-bottom: 1px; border: none; background: none; width: 100%; text-align: left; }
+.sidebar-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar-item:hover { background: var(--t50); color: var(--t800); }
+.sidebar-item.active { background: var(--t50); color: var(--t800); font-weight: 700; }
+.sidebar-divider { height: 1px; background: var(--g200); margin: 0.5rem 0.75rem; }
+.sidebar-footer { margin-top: auto; padding: 1rem 0.75rem; border-top: 1px solid var(--g200); }
+.sidebar-footer-note { font-size: 11px; color: var(--g400); line-height: 1.5; padding: 0 0.5rem; }
+
+/* ─── MAIN ─── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.panel { flex: 1; overflow-y: auto; padding: 1.75rem 2rem; }
+
+/* ─── PAGE HEADER ─── */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.75rem; }
+.page-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 400; color: var(--t800); line-height: 1.2; }
+.page-title em { font-style: italic; color: var(--t500); }
+.page-sub { font-size: 13px; color: var(--g600); margin-top: 4px; line-height: 1.5; }
+
+/* ─── BUTTONS ─── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-family: 'Lato', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: background 0.15s, transform 0.1s; text-decoration: none; }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--t500); color: var(--white); }
+.btn-primary:hover { background: var(--t600); }
+.btn-ghost { background: transparent; color: var(--t600); border: 1px solid var(--t300); }
+.btn-ghost:hover { background: var(--t50); }
+.btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(226,75,74,0.3); }
+.btn-danger:hover { background: #f7c1c1; }
+.btn-sm { padding: 0.3rem 0.65rem; font-size: 12px; border-radius: var(--radius-sm); }
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ─── CARDS ─── */
+.card { background: var(--white); border: 1px solid var(--g200); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
+.card-title { font-size: 13px; font-weight: 700; color: var(--t800); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+.card-title svg { width: 15px; height: 15px; stroke: var(--t500); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ─── STAT ROW ─── */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.stat-card { background: var(--white); border: 1px solid var(--g200); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; }
+.stat-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--g400); margin-bottom: 0.4rem; }
+.stat-value { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--t800); line-height: 1; }
+.stat-sub { font-size: 11px; color: var(--g400); margin-top: 3px; }
+
+/* ─── CIRCLE CARDS ─── */
+.circles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem; }
+.circle-card { background: var(--white); border: 1px solid var(--g200); border-radius: var(--radius-lg); padding: 1.25rem; border-top: 3px solid var(--t500); transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }
+.circle-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.circle-card.inactive { border-top-color: var(--g400); opacity: 0.7; }
+.circle-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.75rem; }
+.circle-card-name { font-family: 'Playfair Display', serif; font-size: 1.05rem; color: var(--t800); }
+.circle-status { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; border-radius: 100px; }
+.circle-status.active { background: var(--t50); color: var(--t600); }
+.circle-status.archived { background: var(--g200); color: var(--g600); }
+.circle-meta { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.circle-meta-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--g600); }
+.circle-meta-row svg { width: 13px; height: 13px; stroke: var(--g400); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.circle-members { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1rem; }
+.member-pip { width: 28px; height: 28px; border-radius: 50%; background: var(--t50); border: 1.5px solid var(--t100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 10px; color: var(--t800); }
+.member-pip.senior { background: var(--t500); border-color: var(--t300); color: var(--white); }
+.member-pip.more { background: var(--g200); border-color: var(--g400); color: var(--g600); font-family: 'Lato', sans-serif; font-size: 9px; font-weight: 700; }
+.circle-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--g200); }
+.circle-footer-stat { font-size: 11px; color: var(--g400); }
+.circle-footer-stat strong { color: var(--t600); font-weight: 700; }
+
+/* ─── PEOPLE TABLE ─── */
+.people-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.people-table th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--g400); padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--g200); }
+.people-table td { padding: 0.75rem; border-bottom: 1px solid var(--g200); vertical-align: middle; }
+.people-table tr:last-child td { border-bottom: none; }
+.people-table tr:hover td { background: var(--t50); }
+.person-name-cell { display: flex; align-items: center; gap: 10px; }
+.person-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--t50); border: 1.5px solid var(--t100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 12px; color: var(--t800); flex-shrink: 0; }
+.person-avatar.senior { background: var(--t500); border-color: var(--t300); color: var(--white); }
+.person-name { font-weight: 700; color: var(--t800); }
+.person-email { font-size: 11px; color: var(--g400); }
+
+/* ─── PILLS ─── */
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 100px; }
+.pill-care.senior { background: var(--t800); color: var(--t100); }
+.pill-care.family { background: var(--t50); color: var(--t600); }
+.pill-care.caregiver { background: var(--amber-bg); color: var(--amber-dk); }
+.pill-care.professional { background: #EEF0FB; color: #3949AB; }
+.pill-user.admin { background: var(--t800); color: var(--t300); }
+.pill-user.member { background: var(--g200); color: var(--g600); }
+.pill-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+
+/* ─── DIGEST PREVIEW ─── */
+.digest-preview { background: var(--t800); border-radius: var(--radius-md); padding: 1.25rem; }
+.digest-label { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--t300); margin-bottom: 0.75rem; }
+.digest-body { font-size: 13px; line-height: 1.7; color: var(--white); }
+.digest-body em { color: var(--t100); font-style: italic; }
+
+/* ─── EMPTY STATES ─── */
+.empty { text-align: center; padding: 3rem 1rem; }
+.empty-icon { width: 40px; height: 40px; margin: 0 auto 0.75rem; stroke: var(--g400); fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.empty-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--g600); margin-bottom: 0.35rem; }
+.empty-sub { font-size: 13px; color: var(--g400); }
+
+/* ─── MODAL ─── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-backdrop.open { display: flex; }
+.modal { background: var(--white); border-radius: var(--radius-lg); padding: 1.75rem; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: modalIn 0.2s ease; }
+@keyframes modalIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.modal-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--t800); margin-bottom: 1.25rem; }
+.modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--g200); }
+.form-group { margin-bottom: 0.875rem; }
+.form-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--g600); margin-bottom: 5px; display: block; }
+.form-input { width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--g200); border-radius: var(--radius-sm); font-family: 'Lato', sans-serif; font-size: 13px; color: var(--text); background: var(--white); outline: none; transition: border-color 0.15s; }
+.form-input:focus { border-color: var(--t300); }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.form-hint { font-size: 11px; color: var(--g400); margin-top: 4px; }
+
+/* ─── AUTH GATE ─── */
+.auth-gate { position: fixed; inset: 0; background: var(--t900); display: flex; align-items: center; justify-content: center; z-index: 300; }
+.auth-box { background: var(--t800); border: 1px solid rgba(93,202,165,0.2); border-radius: 20px; padding: 2.5rem; width: 380px; text-align: center; }
+.auth-logo { margin: 0 auto 1.25rem; }
+.auth-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--white); margin-bottom: 0.5rem; }
+.auth-sub { font-size: 13px; color: var(--t100); line-height: 1.6; margin-bottom: 1.75rem; }
+.auth-input { width: 100%; padding: 0.7rem 1rem; border-radius: 100px; border: 1px solid rgba(93,202,165,0.3); background: rgba(0,0,0,0.2); color: var(--white); font-family: 'Lato', sans-serif; font-size: 14px; outline: none; text-align: center; transition: border-color 0.2s; }
+.auth-input:focus { border-color: var(--t300); }
+.auth-input::placeholder { color: rgba(159,225,203,0.4); }
+.auth-btn { width: 100%; margin-top: 0.75rem; padding: 0.7rem; border-radius: 100px; border: none; background: var(--t300); color: var(--t900); font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+.auth-btn:hover { background: var(--white); }
+.auth-error { margin-top: 0.75rem; font-size: 12px; color: #FF8A80; display: none; }
+.auth-error.show { display: block; }
+
+/* ─── TOAST ─── */
+.toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--t800); color: var(--white); font-size: 13px; padding: 0.75rem 1.25rem; border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(0,0,0,0.15); transform: translateY(8px); opacity: 0; transition: all 0.25s; z-index: 500; border-left: 3px solid var(--t300); max-width: 320px; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { border-left-color: var(--danger); }
+
+/* ─── TABS ─── */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--g200); margin-bottom: 1.5rem; }
+.tab { padding: 0.6rem 1rem; font-size: 13px; font-weight: 700; color: var(--g600); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Lato', sans-serif; }
+.tab:hover { color: var(--t600); }
+.tab.active { color: var(--t600); border-bottom-color: var(--t500); }
+
+/* ─── INTEGRATION TAG ─── */
+.integration-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--g600); background: var(--g200); padding: 2px 8px; border-radius: 100px; }
+.integration-tag.connected { background: var(--t50); color: var(--t600); }
+.integration-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--g400); }
+.integration-tag.connected .integration-dot { background: var(--t500); }
+
+/* ─── ACTIVITY FEED ─── */
+.activity-item { display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--g200); }
+.activity-item:last-child { border-bottom: none; }
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--t300); flex-shrink: 0; margin-top: 5px; }
+.activity-dot.dim { background: var(--g400); }
+.activity-content { flex: 1; }
+.activity-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+.activity-text strong { color: var(--t800); font-weight: 700; }
+.activity-time { font-size: 11px; color: var(--g400); margin-top: 2px; }
+
+/* ─── DIGEST HISTORY ─── */
+.digest-history-item { border-bottom: 1px solid var(--g200); overflow: hidden; }
+.digest-history-item:last-child { border-bottom: none; }
+.digest-history-row { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1rem; cursor: pointer; transition: background 0.15s; gap: 1rem; }
+.digest-history-row:hover { background: var(--t50); }
+.digest-history-row.open { background: var(--t50); }
+.digest-history-meta { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.digest-history-circle { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--t500); flex-shrink: 0; }
+.digest-history-preview { font-size: 13px; color: var(--g600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.digest-history-date { font-size: 11px; color: var(--g400); flex-shrink: 0; }
+.digest-chevron { width: 14px; height: 14px; stroke: var(--g400); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; transition: transform 0.2s; }
+.digest-history-row.open .digest-chevron { transform: rotate(180deg); }
+.digest-history-body { display: none; padding: 0 1rem 1.25rem; }
+.digest-history-body.open { display: block; }
+.digest-history-text { font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .stat-row { grid-template-columns: 1fr 1fr; }
+  .panel { padding: 1.25rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div class="auth-gate" id="auth-gate">
+  <div class="auth-box">
+    <svg class="auth-logo" width="44" height="44" viewBox="0 0 56 56" fill="none">
+      <g stroke="#5DCAA5" stroke-width="1.5">
+        <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
+        <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
+        <line x1="6" y1="21" x2="28" y2="6"/>
+      </g>
+      <circle cx="28" cy="6" r="5" fill="#5DCAA5"/>
+      <circle cx="50" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="42" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="14" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
+    </svg>
+    <div class="auth-title">Take Five</div>
+    <div class="auth-sub">Enter the email address associated with your care circle to continue.</div>
+    <input class="auth-input" id="auth-email" type="email" placeholder="your@email.com" autocomplete="email"/>
+    <button class="auth-btn" onclick="doAuth()">Continue</button>
+    <div class="auth-error" id="auth-error">We couldn't find an account with that email address.</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <a href="#" class="topbar-brand">
+    <svg class="topbar-logo" viewBox="0 0 56 56" fill="none">
+      <g stroke="#5DCAA5" stroke-width="1.5">
+        <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
+        <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
+        <line x1="6" y1="21" x2="28" y2="6"/>
+      </g>
+      <circle cx="28" cy="6" r="5" fill="#5DCAA5"/>
+      <circle cx="50" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="42" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="14" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
+    </svg>
+    <span class="topbar-name">Take Five</span>
+  </a>
+  <div class="topbar-sep"></div>
+  <span class="topbar-ensemble" id="topbar-ensemble-name">—</span>
+  <div class="topbar-right">
+    <div class="topbar-user">
+      <div class="topbar-avatar" id="topbar-avatar" onclick="openMyProfile()" style="cursor:pointer;" title="Edit my profile">—</div>
+      <span class="topbar-user-name" id="topbar-user-name">—</span>
+    </div>
+    <span class="topbar-role-badge" id="topbar-role-badge">—</span>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-section">
+      <span class="sidebar-label">Navigation</span>
+      <button class="sidebar-item active" id="nav-overview" onclick="showPanel('overview')">
+        <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Overview
+      </button>
+      <button class="sidebar-item" id="nav-people" onclick="showPanel('people')">
+        <svg viewBox="0 0 16 16"><circle cx="6" cy="5" r="3"/><path d="M1 14c0-3 2-4.5 5-4.5s5 1.5 5 4.5"/><circle cx="12" cy="5" r="2"/><path d="M14 13c0-2-1-3.5-2-3.5"/></svg>
+        People
+      </button>
+      <button class="sidebar-item" id="nav-activity" onclick="showPanel('activity')">
+        <svg viewBox="0 0 16 16"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg>
+        Activity
+      </button>
+      <button class="sidebar-item" id="nav-digests" onclick="showPanel('digests')">
+        <svg viewBox="0 0 16 16"><path d="M2 3h12v10H2z"/><path d="M5 7h6M5 10h4"/></svg>
+        Digests
+      </button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section" id="admin-only-nav">
+      <span class="sidebar-label">Admin</span>
+      <button class="sidebar-item" id="nav-settings" onclick="showPanel('settings')">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+        Settings
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-note">takefive.care · pilot</div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- OVERVIEW PANEL -->
+    <div class="panel" id="panel-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Good to see you, <em id="greeting-name">—</em></div>
+          <div class="page-sub" id="ensemble-sub">Loading your care circles…</div>
+        </div>
+        <button class="btn btn-primary" id="btn-add-circle" onclick="openModal('modal-add-circle')" style="display:none;">
+          <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
+          Add circle
+        </button>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-label">Circles</div>
+          <div class="stat-value" id="stat-circles">—</div>
+          <div class="stat-sub">in this ensemble</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">People</div>
+          <div class="stat-value" id="stat-people">—</div>
+          <div class="stat-sub">in care circles</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Last digest</div>
+          <div class="stat-value" id="stat-digest" style="font-size:1.1rem;padding-top:4px;">—</div>
+          <div class="stat-sub" id="stat-digest-sub">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Plan</div>
+          <div class="stat-value" id="stat-plan" style="font-size:1.1rem;padding-top:4px;">—</div>
+          <div class="stat-sub" id="stat-status">—</div>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-bottom:0.75rem;">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7"/><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="5"/><line x1="8" y1="11" x2="8" y2="15"/><line x1="1" y1="8" x2="5" y2="8"/><line x1="11" y1="8" x2="15" y2="8"/></svg>
+        Care circles
+      </div>
+      <div class="circles-grid" id="circles-grid">
+        <div class="empty">
+          <svg class="empty-icon" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><circle cx="20" cy="20" r="6"/></svg>
+          <div class="empty-title">No circles yet</div>
+          <div class="empty-sub">Add a care circle to get started</div>
+        </div>
+      </div>
+
+      <div id="medications-section" style="display:none;">
+        <div class="card-title" style="margin-bottom:0.75rem;margin-top:0.5rem;">
+          <svg viewBox="0 0 16 16"><path d="M6 2h4l2 3v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5l2-3z"/><path d="M9 6H7M9 9H7M9 12H7"/></svg>
+          Medications
+        </div>
+        <div id="medications-cards"></div>
+      </div>
+    </div>
+
+    <!-- PEOPLE PANEL -->
+    <div class="panel" id="panel-people" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">People</div>
+          <div class="page-sub">Everyone in your care circles and their roles.</div>
+        </div>
+        <button class="btn btn-primary" id="btn-invite-person" onclick="openModal('modal-invite')" style="display:none;">
+          <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
+          Invite person
+        </button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" onclick="filterPeople('all', this)">All</button>
+        <button class="tab" onclick="filterPeople('senior', this)">Seniors</button>
+        <button class="tab" onclick="filterPeople('family', this)">Family</button>
+        <button class="tab" onclick="filterPeople('caregiver', this)">Caregivers</button>
+        <button class="tab" onclick="filterPeople('professional', this)">Professional</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="people-table">
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Care role</th>
+              <th>User role</th>
+              <th>Circle</th>
+              <th>Contact</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="people-tbody">
+            <tr><td colspan="6"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ACTIVITY PANEL -->
+    <div class="panel" id="panel-activity" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Activity</div>
+          <div class="page-sub">Recent check-ins and updates across your care circles.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 16 16"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg>
+          Recent activity
+        </div>
+        <div id="activity-feed">
+          <div class="empty">
+            <svg class="empty-icon" viewBox="0 0 40 40"><path d="M5 20h5l5-12 7 24 5-16 5 4h8"/></svg>
+            <div class="empty-title">No recent activity</div>
+            <div class="empty-sub">Activity will appear as caregivers check in</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIGESTS PANEL -->
+    <div class="panel" id="panel-digests" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Digests</div>
+          <div class="page-sub">Weekly summaries from your care circles.</div>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div id="digest-history-list">
+          <div class="empty">
+            <svg class="empty-icon" viewBox="0 0 40 40"><path d="M5 5h30v30H5z"/><path d="M12 15h16M12 20h16M12 25h10"/></svg>
+            <div class="empty-title">No digests yet</div>
+            <div class="empty-sub">Digests will appear here after the weekly summary runs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS PANEL (admin only) -->
+    <div class="panel" id="panel-settings" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Settings</div>
+          <div class="page-sub">Ensemble configuration and integrations.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M5 8h6M8 5v6"/></svg>
+          Ensemble details
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ensemble name</label>
+          <input class="form-input" id="settings-name" type="text" placeholder="e.g. The Landry Family"/>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Plan</label>
+            <select class="form-input" id="settings-plan">
+              <option value="family">Family</option>
+              <option value="family_plus">Family Plus</option>
+              <option value="agency">Agency</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-input" id="settings-status">
+              <option value="trial">Trial</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="toast('Settings saved')">Save changes</button>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 16 16"><path d="M10 3l3 3-3 3M6 13l-3-3 3-3M9 5l-2 6"/></svg>
+          Integrations
+        </div>
+        <div id="integrations-list" style="display:flex;flex-direction:column;gap:0.75rem;"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: Add Circle -->
+<div class="modal-backdrop" id="modal-add-circle">
+  <div class="modal">
+    <div class="modal-title">Add care circle</div>
+    <div class="form-group">
+      <label class="form-label">Circle name</label>
+      <input class="form-input" id="new-circle-name" type="text" placeholder="e.g. Mom's Circle"/>
+      <div class="form-hint">Typically named after the senior being cared for.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-circle')">Cancel</button>
+      <button class="btn btn-primary" onclick="toast('Circle added');closeModal('modal-add-circle')">Add circle</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Invite Person -->
+<div class="modal-backdrop" id="modal-invite">
+  <div class="modal">
+    <div class="modal-title">Invite someone to the circle</div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" id="invite-name" type="text" placeholder="Full name"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="invite-email" type="email" placeholder="email@example.com"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone</label>
+      <input class="form-input" id="invite-phone" type="tel" placeholder="+1 (555) 000-0000"/>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Care role</label>
+        <select class="form-input" id="invite-care-role">
+          <option value="family">Family</option>
+          <option value="senior">Senior</option>
+          <option value="caregiver">Caregiver</option>
+          <option value="professional">Professional</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">User role</label>
+        <select class="form-input" id="invite-user-role">
+          <option value="member">Member</option>
+          <option value="admin">Admin</option>
+        </select>
+        <div class="form-hint">Admins can manage people and settings.</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Circle</label>
+      <select class="form-input" id="invite-circle"></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-invite')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInvite()">Add &amp; copy invite link</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Person detail -->
+<div class="modal-backdrop" id="modal-person">
+  <div class="modal">
+    <div class="modal-title" id="modal-person-title">Person</div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Care role</label>
+        <select class="form-input" id="edit-care-role">
+          <option value="family">Family</option>
+          <option value="senior">Senior</option>
+          <option value="caregiver">Caregiver</option>
+          <option value="professional">Professional</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">User role</label>
+        <select class="form-input" id="edit-user-role">
+          <option value="member">Member</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" id="edit-email" type="email"/>
+      <div class="form-hint">This is also their login identifier.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone</label>
+      <input class="form-input" id="edit-phone" type="tel"/>
+    </div>
+    <div style="margin-top:0.5rem;">
+      <div class="form-label" style="margin-bottom:6px;">Invite link</div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <input class="form-input" id="edit-invite-link" readonly style="font-size:11px;font-family:monospace;background:var(--cream);"/>
+        <button class="btn btn-ghost btn-sm" onclick="copyInviteLink()">Copy</button>
+      </div>
+      <div class="form-hint">Share this link with the person to give them access.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="toast('Person removed');closeModal('modal-person')">Remove</button>
+      <div style="display:flex;gap:0.75rem;">
+        <button class="btn btn-ghost" onclick="closeModal('modal-person')">Cancel</button>
+        <button class="btn btn-primary" onclick="toast('Changes saved');closeModal('modal-person')">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: My Profile -->
+<div class="modal-backdrop" id="modal-my-profile">
+  <div class="modal">
+    <div class="modal-title">My profile</div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="my-name" type="text" disabled style="background:var(--cream);color:var(--g400);"/>
+      <div class="form-hint">Name can only be changed by an admin.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone</label>
+      <input class="form-input" id="my-phone" type="tel" placeholder="+1 (555) 000-0000"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date of birth</label>
+      <input class="form-input" id="my-dob" type="date"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nicknames / aliases</label>
+      <input class="form-input" id="my-aliases" type="text" placeholder="e.g. Mom, Dorothy, Dot (comma-separated)"/>
+      <div class="form-hint">Helps Take Five recognize you in conversations.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="my-notes" rows="3" placeholder="Anything the care team should know about you…" style="resize:vertical;"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-my-profile')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMyProfile()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:10000'
+  : 'https://take-five.onrender.com';
+
+const state = {
+  person: null, ensemble: null, circles: [],
+  allPeople: [], activity: [], lastDigests: [], digestHistory: [], medications: [], userRole: null,
+};
+
+// ─── AUTH ───
+async function doAuth() {
+  const email = document.getElementById('auth-email').value.trim().toLowerCase();
+  if (!email) return;
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.remove('show');
+  try {
+    const res = await fetch(`${BASE}/auth/lookup?email=${encodeURIComponent(email)}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    state.person = data.person;
+    state.ensemble = data.ensemble;
+    state.userRole = data.user_role;
+    bootApp();
+  } catch {
+    errEl.classList.add('show');
+  }
+}
+
+document.getElementById('auth-email').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const emailParam = params.get('email');
+  if (emailParam) { document.getElementById('auth-email').value = emailParam; doAuth(); }
+  if (params.get('demo') === '1') loadDemo();
+});
+
+// ─── BOOT ───
+function bootApp() {
+  document.getElementById('auth-gate').style.display = 'none';
+  const p = state.person;
+  const av = p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  document.getElementById('topbar-avatar').textContent = av;
+  document.getElementById('topbar-user-name').textContent = p.name;
+  document.getElementById('topbar-role-badge').textContent = state.userRole;
+  document.getElementById('topbar-ensemble-name').textContent = state.ensemble?.name || '—';
+  document.getElementById('greeting-name').textContent = p.name.split(' ')[0];
+  const isAdmin = state.userRole === 'admin';
+  document.getElementById('admin-only-nav').style.display = isAdmin ? '' : 'none';
+  document.getElementById('btn-add-circle').style.display = isAdmin ? '' : 'none';
+  document.getElementById('btn-invite-person').style.display = isAdmin ? '' : 'none';
+  loadData();
+}
+
+// ─── DATA ───
+async function loadData() {
+  const email = encodeURIComponent(state.person.email);
+  const id = state.ensemble.id;
+  const [cr, pr, ar, mr] = await Promise.all([
+    fetch(`${BASE}/app/ensembles/${id}/circles?email=${email}`).then(r => r.ok ? r.json() : {circles:[]}),
+    fetch(`${BASE}/app/ensembles/${id}/people?email=${email}`).then(r => r.ok ? r.json() : {people:[]}),
+    fetch(`${BASE}/app/ensembles/${id}/activity?email=${email}`).then(r => r.ok ? r.json() : {messages:[],last_digests:[]}),
+    fetch(`${BASE}/app/ensembles/${id}/medications?email=${email}`).then(r => r.ok ? r.json() : {medications:[]}),
+  ]);
+  state.circles = cr.circles || [];
+  state.allPeople = pr.people || [];
+  state.activity = ar.messages || [];
+  state.lastDigests = ar.last_digests || [];
+  state.medications = mr.medications || [];
+  renderAll();
+}
+
+// ─── RENDER ───
+function renderAll() {
+  const { circles, allPeople, ensemble, lastDigest } = state;
+  document.getElementById('stat-circles').textContent = circles.length;
+  document.getElementById('stat-people').textContent = allPeople.length;
+  document.getElementById('stat-plan').textContent = capitalize(ensemble?.plan || '—');
+  document.getElementById('stat-status').textContent = capitalize(ensemble?.status || '—');
+  document.getElementById('ensemble-sub').textContent =
+    `${circles.length} care circle${circles.length !== 1 ? 's' : ''} · ${allPeople.length} people`;
+
+  // Last digest stat only (full history in Digests panel)
+  const digests = state.lastDigests;
+  if (digests.length) {
+    const mostRecent = digests.reduce((a, b) => a.sent_at > b.sent_at ? a : b);
+    document.getElementById('stat-digest').textContent = relativeTime(mostRecent.sent_at);
+    document.getElementById('stat-digest-sub').textContent = 'last sent';
+  } else {
+    document.getElementById('stat-digest').textContent = 'None yet';
+    document.getElementById('stat-digest-sub').textContent = '';
+  }
+
+  renderCircles();
+  renderPeople();
+  renderActivity();
+  renderMedications();
+  renderSettings();
+  populateInviteCircleSelect();
+}
+
+function renderCircles() {
+  const grid = document.getElementById('circles-grid');
+  if (!state.circles.length) {
+    grid.innerHTML = `<div class="empty">
+      <svg class="empty-icon" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><circle cx="20" cy="20" r="6"/></svg>
+      <div class="empty-title">No circles yet</div><div class="empty-sub">Add a care circle to get started</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = state.circles.map(c => {
+    const members = state.allPeople.filter(p => p.circle_id === c.id);
+    const senior = members.find(p => p.care_role === 'senior');
+    const others = members.filter(p => p.care_role !== 'senior');
+    const overflow = others.length > 4 ? others.length - 4 : 0;
+    const gm = c.integration_config?.groupme_bot_id;
+    return `<div class="circle-card ${c.status !== 'active' ? 'inactive' : ''}">
+      <div class="circle-card-header">
+        <div class="circle-card-name">${c.name}</div>
+        <span class="circle-status ${c.status}">${capitalize(c.status)}</span>
+      </div>
+      <div class="circle-meta">
+        ${senior ? `<div class="circle-meta-row">
+          <svg viewBox="0 0 13 13"><circle cx="6.5" cy="4" r="2.5"/><path d="M1 12c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5"/></svg>
+          ${senior.name}</div>` : ''}
+        <div class="circle-meta-row">
+          <svg viewBox="0 0 13 13"><rect x="1" y="2" width="11" height="9" rx="1"/><path d="M4 6h5M4 8.5h3"/></svg>
+          <span class="integration-tag ${gm ? 'connected' : ''}">
+            <span class="integration-dot"></span>${gm ? 'GroupMe connected' : 'No integration'}
+          </span>
+        </div>
+      </div>
+      <div class="circle-members">
+        ${senior ? `<div class="member-pip senior" title="${senior.name}">${initials(senior.name)}</div>` : ''}
+        ${others.slice(0,4).map(p => `<div class="member-pip" title="${p.name}">${initials(p.name)}</div>`).join('')}
+        ${overflow ? `<div class="member-pip more">+${overflow}</div>` : ''}
+      </div>
+      <div class="circle-footer">
+        <span class="circle-footer-stat"><strong>${members.length}</strong> member${members.length !== 1 ? 's' : ''}</span>
+        <button class="btn btn-ghost btn-sm" onclick="showPanel('people')">View people</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let currentFilter = 'all';
+function renderPeople(filter) {
+  if (filter) currentFilter = filter;
+  const people = currentFilter === 'all'
+    ? state.allPeople
+    : state.allPeople.filter(p => p.care_role === currentFilter);
+  const isAdmin = state.userRole === 'admin';
+  const tbody = document.getElementById('people-tbody');
+  if (!people.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No people found</div><div class="empty-sub">Invite someone to get started</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = people.map(p => {
+    const circleName = state.circles.find(c => c.id === p.circle_id)?.name || '—';
+    return `<tr>
+      <td><div class="person-name-cell">
+        <div class="person-avatar ${p.care_role === 'senior' ? 'senior' : ''}">${initials(p.name)}</div>
+        <div><div class="person-name">${p.name}</div><div class="person-email">${p.email || '—'}</div></div>
+      </div></td>
+      <td><span class="pill pill-care ${p.care_role}"><span class="pill-dot"></span>${capitalize(p.care_role)}</span></td>
+      <td><span class="pill pill-user ${p.user_role || 'member'}">${capitalize(p.user_role || 'member')}</span></td>
+      <td style="font-size:12px;color:var(--g600);">${circleName}</td>
+      <td style="font-size:12px;color:var(--g600);">${p.phone || p.email || '—'}</td>
+      <td>${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick='openPersonModal(${JSON.stringify(p)})'>Edit</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterPeople(role, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderPeople(role);
+}
+
+function renderActivity() {
+  const feed = document.getElementById('activity-feed');
+  const msgs = (state.activity || []).slice(0, 20);
+  if (!msgs.length) {
+    feed.innerHTML = `<div class="empty">
+      <svg class="empty-icon" viewBox="0 0 40 40"><path d="M5 20h5l5-12 7 24 5-16 5 4h8"/></svg>
+      <div class="empty-title">No recent activity</div><div class="empty-sub">Activity will appear as caregivers check in</div>
+    </div>`;
+    return;
+  }
+  feed.innerHTML = msgs.map((m, i) => {
+    const full = (m.message || '').replace(/\n/g, '<br>');
+    const rawShort = (m.message || '').slice(0, 300);
+    const short = (m.message || '').length > 300 ? rawShort.replace(/\n/g, '<br>') + '…' : rawShort.replace(/\n/g, '<br>');
+    const hasMore = (m.message || '').length > 300;
+    return `
+    <div class="activity-item">
+      <div class="activity-dot ${m.author_type === 'bot' ? 'dim' : ''}"></div>
+      <div class="activity-content">
+        <div class="activity-text"><strong>${m.sender_name || 'Unknown'}</strong> — <span id="msg-${i}">${short}</span>
+          ${hasMore ? `
+            <button id="msg-btn-${i}"
+              onclick="
+                const el = document.getElementById('msg-${i}');
+                const btn = document.getElementById('msg-btn-${i}');
+                if (btn.dataset.expanded === '1') {
+                  el.innerHTML = this.dataset.short;
+                  btn.textContent = 'more';
+                  btn.dataset.expanded = '0';
+                } else {
+                  el.innerHTML = this.dataset.full;
+                  btn.textContent = 'less';
+                  btn.dataset.expanded = '1';
+                }"
+              data-full="${full.replace(/"/g,'&quot;')}"
+              data-short="${short.replace(/"/g,'&quot;')}"
+              data-expanded="0"
+              style="background:none;border:none;color:var(--t500);font-size:11px;cursor:pointer;padding:0;margin-left:4px;">more</button>` : ''}
+        </div>
+        <div class="activity-time">${relativeTime(m.created_at)} · ${state.circles.find(c => c.id === m.circle_id)?.name || 'Unknown circle'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── DIGESTS ───
+async function loadDigests() {
+  const email = encodeURIComponent(state.person.email);
+  const id = state.ensemble.id;
+  try {
+    const res = await fetch(`${BASE}/app/ensembles/${id}/digests?email=${email}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    state.digestHistory = data.digests || [];
+  } catch {
+    state.digestHistory = [];
+  }
+  renderDigests();
+}
+
+function renderDigests() {
+  const list = document.getElementById('digest-history-list');
+  const digests = state.digestHistory;
+  if (!digests.length) {
+    list.innerHTML = `<div class="empty">
+      <svg class="empty-icon" viewBox="0 0 40 40"><path d="M5 5h30v30H5z"/><path d="M12 15h16M12 20h16M12 25h10"/></svg>
+      <div class="empty-title">No digests yet</div>
+      <div class="empty-sub">Digests will appear here after the weekly summary runs</div>
+    </div>`;
+    return;
+  }
+  list.innerHTML = digests.map((d, i) => {
+    const preview = (d.body || '').split('\n').find(l => l.trim().length > 20) || '';
+    const date = new Date(d.sent_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    return `<div class="digest-history-item">
+      <div class="digest-history-row" id="drow-${i}" onclick="toggleDigest(${i})">
+        <div class="digest-history-meta">
+          <span class="digest-history-circle">${d.circle_name}</span>
+          <span class="digest-history-preview">${preview}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
+          <span class="digest-history-date">${date}</span>
+          <svg class="digest-chevron" viewBox="0 0 14 14"><path d="M2 4l5 6 5-6"/></svg>
+        </div>
+      </div>
+      <div class="digest-history-body" id="dbody-${i}">
+        <div class="digest-history-text">${(d.body || '').replace(/[\u200B-\u200D\uFEFF\u202A-\u202E]/g, '').replace(/\n/g, '<br>')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDigest(i) {
+  const row = document.getElementById(`drow-${i}`);
+  const body = document.getElementById(`dbody-${i}`);
+  const isOpen = row.classList.contains('open');
+  row.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
+}
+
+// ─── MEDICATIONS ───
+function renderMedications() {
+  const meds = state.medications;
+  const section = document.getElementById('medications-section');
+  const container = document.getElementById('medications-cards');
+  if (!meds.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  // Group by person
+  const byPerson = {};
+  meds.forEach(m => {
+    const d = typeof m.data === 'string' ? JSON.parse(m.data) : m.data;
+    if (!byPerson[m.person_name]) byPerson[m.person_name] = [];
+    byPerson[m.person_name].push(d);
+  });
+
+  const strip = s => (s || '').replace(/[\u200B-\u200D\uFEFF\u202A-\u202E]/g, '');
+
+  const schedCell = (slot) => {
+    if (!slot || !slot.qty) return '<span style="color:var(--g400);">—</span>';
+    const qty = parseInt(slot.qty);
+    const label = qty === 1 ? 'X' : `X (${qty})`;
+    const note = slot.note ? `<div style="font-size:10px;color:var(--g400);font-weight:300;margin-top:2px;">${strip(slot.note)}</div>` : '';
+    return `<span style="font-weight:700;color:var(--t800);">${label}</span>${note}`;
+  };
+
+  container.innerHTML = Object.entries(byPerson).map(([name, drugs]) => `
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:0.75rem;">
+      <div style="display:flex;align-items:center;gap:8px;padding:0.875rem 1rem;border-bottom:1px solid var(--g200);">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--t500);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:11px;color:white;flex-shrink:0;">${initials(name)}</div>
+        <span style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--t800);">${name}</span>
+        <span style="font-size:11px;color:var(--g400);margin-left:auto;">${drugs.length} medication${drugs.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);white-space:nowrap;">Medication / Supplement</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);white-space:nowrap;">Morning</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);white-space:nowrap;">Afternoon</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);white-space:nowrap;">Evening</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);white-space:nowrap;">Prescriber</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);white-space:nowrap;">Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${drugs.map((d, i) => {
+              const isLast = i === drugs.length - 1;
+              const dosage = [d.dosage, d.form].filter(Boolean).join(' · ');
+              return `<tr style="${isLast ? '' : 'border-bottom:1px solid var(--g200);'}">
+                <td style="padding:0.65rem 0.75rem;vertical-align:top;">
+                  <strong style="color:var(--t800);">${strip(d.medication_name) || '—'}</strong>
+                  ${dosage ? `<div style="font-size:11px;color:var(--g400);margin-top:2px;">${strip(dosage)}</div>` : ''}
+                </td>
+                <td style="padding:0.65rem 0.75rem;text-align:center;vertical-align:top;">${schedCell(d.morning)}</td>
+                <td style="padding:0.65rem 0.75rem;text-align:center;vertical-align:top;">${schedCell(d.afternoon)}</td>
+                <td style="padding:0.65rem 0.75rem;text-align:center;vertical-align:top;">${schedCell(d.evening)}</td>
+                <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${strip(d.prescriber) || '—'}</td>
+                <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${strip(d.indication) || '—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`).join('');
+}
+
+function renderSettings() {
+  const ens = state.ensemble;
+  document.getElementById('settings-name').value = ens.name || '';
+  document.getElementById('settings-plan').value = ens.plan || 'family';
+  document.getElementById('settings-status').value = ens.status || 'trial';
+  document.getElementById('integrations-list').innerHTML = state.circles.map(c => {
+    const gm = c.integration_config?.groupme_bot_id;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--g200);">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--t800);">${c.name}</div>
+        <div style="font-size:12px;color:var(--g600);margin-top:2px;">GroupMe: ${gm ? `<span style="font-family:monospace;">${gm}</span>` : 'not connected'}</div>
+      </div>
+      <span class="integration-tag ${gm ? 'connected' : ''}"><span class="integration-dot"></span>${gm ? 'Connected' : 'Not connected'}</span>
+    </div>`;
+  }).join('') || '<div style="font-size:13px;color:var(--g400);">No circles yet.</div>';
+}
+
+// ─── PANEL NAV ───
+function showPanel(name) {
+  ['overview','people','activity','digests','settings'].forEach(p => {
+    document.getElementById(`panel-${p}`).style.display = p === name ? '' : 'none';
+    const nav = document.getElementById(`nav-${p}`);
+    if (nav) nav.classList.toggle('active', p === name);
+  });
+  if (name === 'digests' && !state.digestHistory.length) loadDigests();
+}
+
+// ─── MODALS ───
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+function openPersonModal(p) {
+  document.getElementById('modal-person-title').textContent = p.name;
+  document.getElementById('edit-care-role').value = p.care_role || 'family';
+  document.getElementById('edit-user-role').value = p.user_role || 'member';
+  document.getElementById('edit-email').value = p.email || '';
+  document.getElementById('edit-phone').value = p.phone || '';
+  const link = p.email
+    ? `${window.location.origin}${window.location.pathname}?email=${encodeURIComponent(p.email)}`
+    : '—';
+  document.getElementById('edit-invite-link').value = link;
+  openModal('modal-person');
+}
+
+function copyInviteLink() {
+  navigator.clipboard.writeText(document.getElementById('edit-invite-link').value)
+    .then(() => toast('Invite link copied'));
+}
+
+function populateInviteCircleSelect() {
+  document.getElementById('invite-circle').innerHTML =
+    state.circles.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function saveInvite() {
+  const email = document.getElementById('invite-email').value.trim();
+  if (!email) { toast('Email is required', true); return; }
+  const link = `${window.location.origin}${window.location.pathname}?email=${encodeURIComponent(email)}`;
+  navigator.clipboard.writeText(link).then(() => {
+    toast('Invite link copied — send this to the person');
+    closeModal('modal-invite');
+  });
+}
+
+// ─── TOAST ───
+let toastTimer;
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ─── DEMO MODE ───
+function loadDemo() {
+  state.person = { name: 'Eric Landry', email: 'jericlandry@gmail.com' };
+  state.ensemble = { id: 'demo', name: 'The Landry Family', plan: 'family_plus', status: 'trial' };
+  state.userRole = 'admin';
+  state.circles = [
+    { id: 'c1', name: "Mom's Circle", status: 'active', integration_config: { groupme_bot_id: 'bot_abc123' } },
+    { id: 'c2', name: "Dad's Circle", status: 'active', integration_config: {} },
+  ];
+  state.allPeople = [
+    { id: 'p1', name: 'Dorothy Landry', email: null, phone: '(512) 555-0101', care_role: 'senior', user_role: 'member', circle_id: 'c1' },
+    { id: 'p2', name: 'Eric Landry', email: 'jericlandry@gmail.com', phone: '(512) 555-0102', care_role: 'family', user_role: 'admin', circle_id: 'c1' },
+    { id: 'p3', name: 'Marie Landry', email: 'marie@gmail.com', phone: '(512) 555-0103', care_role: 'family', user_role: 'member', circle_id: 'c1' },
+    { id: 'p4', name: 'Rosa Gutierrez', email: 'rosa@care.com', phone: '(512) 555-0104', care_role: 'caregiver', user_role: 'member', circle_id: 'c1' },
+    { id: 'p5', name: 'Dr. Patricia Yiou', email: 'pyiou@clinic.com', phone: null, care_role: 'professional', user_role: 'member', circle_id: 'c1' },
+    { id: 'p6', name: 'Robert Landry', email: 'robert@gmail.com', phone: '(512) 555-0105', care_role: 'senior', user_role: 'member', circle_id: 'c2' },
+  ];
+  state.activity = [
+    { id: 'm1', sender_name: 'Rosa Gutierrez', message: 'Good morning! Dorothy finished her mystery novel — seemed really satisfied. Good appetite, all meds taken.', author_type: 'human', created_at: new Date(Date.now() - 3600000).toISOString(), circle_id: 'c1' },
+    { id: 'm2', sender_name: 'Take Five', message: 'Milestone: Dorothy has finished 8 books since joining Take Five.', author_type: 'bot', created_at: new Date(Date.now() - 7200000).toISOString(), circle_id: 'c1' },
+    { id: 'm3', sender_name: 'Rosa Gutierrez', message: 'Afternoon walk — made it to the corner and back. Good energy today.', author_type: 'human', created_at: new Date(Date.now() - 18000000).toISOString(), circle_id: 'c1' },
+    { id: 'm4', sender_name: 'Eric Landry', message: 'Called Dad this afternoon, he sounded great.', author_type: 'human', created_at: new Date(Date.now() - 86400000).toISOString(), circle_id: 'c2' },
+  ];
+  state.lastDigests = [
+    {
+      circle_id: 'c1', circle_name: "Mom's Circle",
+      sent_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+      body: `Great week overall. Mood was positive across most check-ins — a couple of standout moments, including Dorothy finishing her 8th book and a lovely afternoon walk. Medications on track. One item to flag: Thursday aide visit unconfirmed. Worth a quick check.`
+    },
+  ];
+  bootApp();
+}
+
+// ─── MY PROFILE ───
+function openMyProfile() {
+  const p = state.person;
+  if (!p) return;
+  document.getElementById('my-name').value    = p.name || '';
+  document.getElementById('my-phone').value   = p.phone || '';
+  document.getElementById('my-dob').value     = p.date_of_birth ? p.date_of_birth.slice(0, 10) : '';
+  document.getElementById('my-aliases').value = (p.aliases || []).join(', ');
+  document.getElementById('my-notes').value   = p.notes || '';
+  openModal('modal-my-profile');
+}
+
+async function saveMyProfile() {
+  const phone   = document.getElementById('my-phone').value.trim() || null;
+  const dob     = document.getElementById('my-dob').value || null;
+  const aliases = document.getElementById('my-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
+  const notes   = document.getElementById('my-notes').value.trim() || null;
+  const email   = encodeURIComponent(state.person.email);
+  try {
+    const res = await fetch(`${BASE}/app/people/me?email=${email}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, date_of_birth: dob, aliases, notes }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    // Update local state
+    state.person.phone         = data.person.phone;
+    state.person.date_of_birth = data.person.date_of_birth;
+    state.person.aliases       = data.person.aliases;
+    state.person.notes         = data.person.notes;
+    toast('Profile updated');
+    closeModal('modal-my-profile');
+  } catch {
+    toast('Failed to save profile', true);
+  }
+}
+
+// ─── UTILS ───
+function initials(name) { return (name||'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function capitalize(s) { return s ? s.charAt(0).toUpperCase()+s.slice(1).replace(/_/g,' ') : '—'; }
+function truncate(str, n) { return str && str.length > n ? str.slice(0,n)+'…' : (str||''); }
+function relativeTime(iso) {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff/60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins/60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs/24)}d ago`;
+}
+</script>
+</body>
+</html>

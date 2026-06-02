@@ -829,5 +829,223 @@ class TakeFiveRepository:
         }
 
 
+    # --- USER-FACING (ensemble admin / member pages) ---
+
+    def lookup_person_by_email(self, email: str) -> Optional[Dict]:
+        """
+        Look up a person by email and return their ensemble membership context.
+        Used by /auth/lookup to authenticate the ensemble admin/member page.
+        Returns person + ensemble + user_role, or None if not found.
+        """
+        return self._execute("""
+            SELECT
+                p.id            AS person_id,
+                p.name          AS person_name,
+                p.email,
+                p.phone,
+                p.aliases,
+                p.notes,
+                p.date_of_birth,
+                e.id            AS ensemble_id,
+                e.name          AS ensemble_name,
+                e.plan          AS ensemble_plan,
+                e.status        AS ensemble_status,
+                em.user_role
+            FROM people p
+            JOIN ensembles e ON p.ensemble_id = e.id
+            JOIN ensemble_memberships em
+                ON em.person_id = p.id
+               AND em.ensemble_id = e.id
+            WHERE LOWER(p.email) = LOWER(%(email)s)
+            LIMIT 1;
+        """, {'email': email})
+
+    def list_circles_for_person(self, ensemble_id: str, person_id: str,
+                                 user_role: str) -> List[Dict]:
+        """
+        Admins see all circles in the ensemble.
+        Members see only circles they belong to via circle_memberships.
+        """
+        if user_role == 'admin':
+            return self._execute("""
+                SELECT * FROM care_circles
+                WHERE ensemble_id = %(ensemble_id)s
+                ORDER BY name;
+            """, {'ensemble_id': ensemble_id}, fetch='all')
+        else:
+            return self._execute("""
+                SELECT DISTINCT cc.*
+                FROM care_circles cc
+                JOIN circle_memberships cm ON cc.id = cm.circle_id
+                WHERE cc.ensemble_id = %(ensemble_id)s
+                  AND cm.person_id = %(person_id)s
+                ORDER BY cc.name;
+            """, {'ensemble_id': ensemble_id, 'person_id': person_id}, fetch='all')
+
+    def list_people_for_person(self, ensemble_id: str, person_id: str,
+                                user_role: str) -> List[Dict]:
+        """
+        Admins see all people in the ensemble with their care roles and user roles.
+        Members see only people in their own circles.
+        Includes care_role (from circle_memberships) and user_role
+        (from ensemble_memberships), plus which circle(s) they belong to.
+        """
+        if user_role == 'admin':
+            return self._execute("""
+                SELECT
+                    p.id,
+                    p.name,
+                    p.email,
+                    p.phone,
+                    p.type                              AS p_type,
+                    COALESCE(em.user_role, 'member')    AS user_role,
+                    cm.role                             AS care_role,
+                    cm.circle_id,
+                    cc.name                             AS circle_name
+                FROM people p
+                LEFT JOIN ensemble_memberships em
+                    ON em.person_id = p.id
+                   AND em.ensemble_id = %(ensemble_id)s
+                LEFT JOIN circle_memberships cm ON cm.person_id = p.id
+                LEFT JOIN care_circles cc ON cc.id = cm.circle_id
+                                         AND cc.ensemble_id = %(ensemble_id)s
+                WHERE p.ensemble_id = %(ensemble_id)s
+                ORDER BY p.name;
+            """, {'ensemble_id': ensemble_id}, fetch='all')
+        else:
+            return self._execute("""
+                SELECT
+                    p.id,
+                    p.name,
+                    p.email,
+                    p.phone,
+                    p.type          AS p_type,
+                    em_target.user_role,
+                    cm.role         AS care_role,
+                    cm.circle_id,
+                    cc.name         AS circle_name
+                FROM people p
+                JOIN circle_memberships cm ON cm.person_id = p.id
+                JOIN care_circles cc ON cc.id = cm.circle_id
+                                     AND cc.ensemble_id = %(ensemble_id)s
+                LEFT JOIN ensemble_memberships em_target
+                    ON em_target.person_id = p.id
+                   AND em_target.ensemble_id = %(ensemble_id)s
+                WHERE cm.circle_id IN (
+                    SELECT circle_id FROM circle_memberships
+                    WHERE person_id = %(person_id)s
+                )
+                ORDER BY p.name;
+            """, {'ensemble_id': ensemble_id, 'person_id': person_id}, fetch='all')
+
+    def get_ensemble_activity(self, ensemble_id: str, person_id: str,
+                               user_role: str, limit: int = 30) -> List[Dict]:
+        """
+        Recent messages across circles the person can see.
+        Admins see all circles; members see only their circles.
+        """
+        if user_role == 'admin':
+            return self._execute("""
+                SELECT
+                    m.id,
+                    m.body          AS message,
+                    m.direction,
+                    m.sent_at       AS created_at,
+                    m.circle_id,
+                    cc.name         AS circle_name,
+                    COALESCE(p.name, 'Take Five') AS sender_name,
+                    CASE WHEN m.person_id IS NULL THEN 'bot' ELSE 'human' END AS author_type
+                FROM messages m
+                JOIN care_circles cc ON cc.id = m.circle_id
+                LEFT JOIN people p ON p.id = m.person_id
+                WHERE cc.ensemble_id = %(ensemble_id)s
+                ORDER BY m.sent_at DESC
+                LIMIT %(limit)s;
+            """, {'ensemble_id': ensemble_id, 'limit': limit}, fetch='all')
+        else:
+            return self._execute("""
+                SELECT
+                    m.id,
+                    m.body          AS message,
+                    m.direction,
+                    m.sent_at       AS created_at,
+                    m.circle_id,
+                    cc.name         AS circle_name,
+                    COALESCE(p.name, 'Take Five') AS sender_name,
+                    CASE WHEN m.person_id IS NULL THEN 'bot' ELSE 'human' END AS author_type
+                FROM messages m
+                JOIN care_circles cc ON cc.id = m.circle_id
+                LEFT JOIN people p ON p.id = m.person_id
+                WHERE cc.ensemble_id = %(ensemble_id)s
+                  AND m.circle_id IN (
+                      SELECT circle_id FROM circle_memberships
+                      WHERE person_id = %(person_id)s
+                  )
+                ORDER BY m.sent_at DESC
+                LIMIT %(limit)s;
+            """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'limit': limit}, fetch='all')
+
+    def get_last_digest(self, ensemble_id: str) -> Optional[Dict]:
+        """
+        Return the most recent outbound digest per circle in the ensemble.
+        Used by the ensemble admin/member page.
+        """
+        return self._execute("""
+            SELECT DISTINCT ON (cc.id)
+                m.body,
+                m.sent_at,
+                cc.id   AS circle_id,
+                cc.name AS circle_name
+            FROM messages m
+            JOIN care_circles cc ON cc.id = m.circle_id
+            WHERE cc.ensemble_id = %(ensemble_id)s
+              AND m.direction = 'outbound'
+              AND m.message_type = 'digest'
+            ORDER BY cc.id, m.sent_at DESC;
+        """, {'ensemble_id': ensemble_id}, fetch='all')
+
+    def get_medications_for_ensemble(self, ensemble_id: str) -> List[Dict]:
+        """
+        Return active MedicationStatements for all seniors in the ensemble.
+        Used by the ensemble admin/member overview panel.
+        """
+        return self._execute("""
+            SELECT
+                p.name          AS person_name,
+                cr.data,
+                cr.created_at
+            FROM clinical_records cr
+            JOIN people p ON p.id = cr.person_id
+            JOIN circle_memberships cm ON cm.person_id = p.id
+            JOIN care_circles cc ON cc.id = cm.circle_id
+            WHERE cc.ensemble_id = %(ensemble_id)s
+              AND cm.role = 'senior'
+              AND cr.resource_type = 'MedicationStatement'
+              AND cr.status = 'active'
+            ORDER BY p.name, cr.created_at;
+        """, {'ensemble_id': ensemble_id}, fetch='all')
+
+    def get_digest_history(self, ensemble_id: str, limit: int = 20) -> List[Dict]:
+        """
+        Return all digests for the ensemble, newest first.
+        Used by the digest history panel.
+        """
+        return self._execute("""
+            SELECT
+                m.id,
+                m.body,
+                m.sent_at,
+                cc.id   AS circle_id,
+                cc.name AS circle_name
+            FROM messages m
+            JOIN care_circles cc ON cc.id = m.circle_id
+            WHERE cc.ensemble_id = %(ensemble_id)s
+              AND m.direction = 'outbound'
+              AND m.message_type = 'digest'
+            ORDER BY m.sent_at DESC
+            LIMIT %(limit)s;
+        """, {'ensemble_id': ensemble_id, 'limit': limit}, fetch='all')
+
+
 # Module-level singleton — import this instead of instantiating directly.
 repo = TakeFiveRepository()

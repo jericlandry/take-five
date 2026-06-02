@@ -60,6 +60,15 @@ def main():
         try:
             digest = generate_weekly_digest(str(circle["id"]), response_format=response_format)
             send_message(bot_id, digest)
+            repo.log_message(
+                circle_ext_id=ext_id,
+                person_ext_id=None,
+                body=digest,
+                msg_type='digest',
+                direction='outbound',
+                channel='groupme',
+            )
+            logger.info(f"Digest logged for {circle_name}")
         except Exception as e:
             logger.error(f"Failed for {circle_name}: {e}")
 

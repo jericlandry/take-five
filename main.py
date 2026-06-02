@@ -286,6 +286,154 @@ async def health():
     logger.info("Health check requested")
     return {"status": "ok"}
 
+
+# --- User-facing endpoints (ensemble admin / member pages) ---
+# Auth is the email lookup itself — acceptable for pilot scale.
+
+@open_router.get("/auth/lookup")
+async def auth_lookup(email: str = Query(...)):
+    """
+    Look up a person by email and return their session context.
+    Used by the ensemble admin/member page on load.
+    Returns 404 if the email is not found or has no ensemble_memberships row.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=404, detail="No account found for that email address")
+    return {
+        "person": {
+            "id":             str(row["person_id"]),
+            "name":           row["person_name"],
+            "email":          row["email"],
+            "phone":          row["phone"],
+            "aliases":        row["aliases"] or [],
+            "notes":          row["notes"],
+            "date_of_birth":  str(row["date_of_birth"]) if row["date_of_birth"] else None,
+        },
+        "ensemble": {
+            "id":     str(row["ensemble_id"]),
+            "name":   row["ensemble_name"],
+            "plan":   row["ensemble_plan"],
+            "status": row["ensemble_status"],
+        },
+        "user_role": row["user_role"],
+    }
+
+
+@open_router.get("/app/ensembles/{ensemble_id}/circles")
+async def app_get_circles(
+    ensemble_id: str,
+    email: str = Query(...),
+):
+    """
+    Return circles visible to the requester.
+    Admins see all circles; members see only their own.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    circles = repo.list_circles_for_person(
+        ensemble_id=ensemble_id,
+        person_id=str(row["person_id"]),
+        user_role=row["user_role"],
+    )
+    return {"circles": [row_to_dict(c) for c in (circles or [])]}
+
+
+@open_router.get("/app/ensembles/{ensemble_id}/people")
+async def app_get_people(
+    ensemble_id: str,
+    email: str = Query(...),
+):
+    """
+    Return people visible to the requester.
+    Admins see all; members see only people in their circles.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    people = repo.list_people_for_person(
+        ensemble_id=ensemble_id,
+        person_id=str(row["person_id"]),
+        user_role=row["user_role"],
+    )
+    return {"people": [row_to_dict(p) for p in (people or [])]}
+
+
+@open_router.get("/app/ensembles/{ensemble_id}/activity")
+async def app_get_activity(
+    ensemble_id: str,
+    email: str = Query(...),
+):
+    """
+    Return recent messages and last digest visible to the requester.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    messages = repo.get_ensemble_activity(
+        ensemble_id=ensemble_id,
+        person_id=str(row["person_id"]),
+        user_role=row["user_role"],
+    )
+    last_digests = repo.get_last_digest(ensemble_id)
+    return {
+        "messages": [row_to_dict(m) for m in (messages or [])],
+        "last_digests": [row_to_dict(d) for d in (last_digests or [])],
+    }
+
+@open_router.get("/app/ensembles/{ensemble_id}/medications")
+async def app_get_medications(
+    ensemble_id: str,
+    email: str = Query(...),
+):
+    """
+    Return active medications for all seniors in the ensemble.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    meds = repo.get_medications_for_ensemble(ensemble_id)
+    return {"medications": [row_to_dict(m) for m in (meds or [])]}
+
+
+@open_router.put("/app/people/me")
+async def app_update_me(
+    email: str = Query(...),
+    body: UpdatePersonRequest = ...,
+):
+    """
+    Allow a person to update their own profile fields.
+    Scoped to phone, aliases, notes, date_of_birth only — no name or type changes.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    person = repo.update_person(
+        person_id=str(row["person_id"]),
+        phone=body.phone,
+        aliases=body.aliases,
+        notes=body.notes,
+        date_of_birth=body.date_of_birth,
+    )
+    return {"person": row_to_dict(person)}
+
+
+@open_router.get("/app/ensembles/{ensemble_id}/digests")
+async def app_get_digests(
+    ensemble_id: str,
+    email: str = Query(...),
+):
+    """
+    Return digest history for the ensemble.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    digests = repo.get_digest_history(ensemble_id)
+    return {"digests": [row_to_dict(d) for d in (digests or [])]}
+
+
 @open_router.get("/admin/{file_name}")
 async def read_admin(file_name: str):
     return FileResponse(f'admin/{file_name}')
