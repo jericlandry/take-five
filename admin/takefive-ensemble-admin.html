@@ -669,6 +669,10 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 <div class="modal-backdrop" id="modal-person">
   <div class="modal">
     <div class="modal-title" id="modal-person-title">Person</div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="edit-name" type="text"/>
+    </div>
     <div class="form-row-2">
       <div class="form-group">
         <label class="form-label">Care role</label>
@@ -696,6 +700,11 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <label class="form-label">Phone</label>
       <input class="form-input" id="edit-phone" type="tel"/>
     </div>
+    <div class="form-group">
+      <label class="form-label">Nicknames / aliases</label>
+      <input class="form-input" id="edit-aliases" type="text" placeholder="e.g. Mom, Dorothy, Dot (comma-separated)"/>
+      <div class="form-hint">Helps Take Five recognize this person in conversations.</div>
+    </div>
     <div style="margin-top:0.5rem;">
       <div class="form-label" style="margin-bottom:6px;">Invite link</div>
       <div style="display:flex;gap:0.5rem;align-items:center;">
@@ -708,7 +717,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <button class="btn btn-danger btn-sm" onclick="toast('Person removed');closeModal('modal-person')">Remove</button>
       <div style="display:flex;gap:0.75rem;">
         <button class="btn btn-ghost" onclick="closeModal('modal-person')">Cancel</button>
-        <button class="btn btn-primary" onclick="toast('Changes saved');closeModal('modal-person')">Save changes</button>
+        <button class="btn btn-primary" id="btn-save-person-modal" onclick="savePersonModal()">Save changes</button>
       </div>
     </div>
   </div>
@@ -1263,6 +1272,7 @@ function renderPeople(filter) {
     ? state.allPeople
     : state.allPeople.filter(p => p.care_role === currentFilter);
   const isAdmin = state.userRole === 'admin';
+  const hasSmsCircle = (state.circles || []).some(c => c.integration_config?.twilio_number);
   const tbody = document.getElementById('people-tbody');
   if (!people.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No people found</div><div class="empty-sub">Invite someone to get started</div></div></td></tr>`;
@@ -1279,7 +1289,10 @@ function renderPeople(filter) {
       <td><span class="pill pill-user ${p.user_role || 'member'}">${capitalize(p.user_role || 'member')}</span></td>
       <td style="font-size:12px;color:var(--g600);">${circleName}</td>
       <td style="font-size:12px;color:var(--g600);">${p.phone || p.email || '—'}</td>
-      <td>${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick='openPersonModal(${JSON.stringify(p)})'>Edit</button>` : ''}</td>
+      <td>${isAdmin ? `<div style="display:flex;gap:0.4rem;">
+        <button class="btn btn-ghost btn-sm" onclick='openPersonModal(${JSON.stringify(p)})'>Edit</button>
+        ${p.phone && hasSmsCircle ? `<button class="btn btn-ghost btn-sm" onclick='sendSmsInvite("${p.id}", "${p.name}", "${p.phone}")' title="Send SMS invite">SMS invite</button>` : ''}
+      </div>` : ''}</td>
     </tr>`;
   }).join('');
 }
@@ -1483,13 +1496,18 @@ function renderSettings() {
   document.getElementById('settings-plan').value = ens.plan || 'family';
   document.getElementById('settings-status').value = ens.status || 'trial';
   document.getElementById('integrations-list').innerHTML = state.circles.map(c => {
-    const gm = c.integration_config?.groupme_bot_id;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--g200);">
-      <div>
-        <div style="font-size:13px;font-weight:700;color:var(--t800);">${c.name}</div>
-        <div style="font-size:12px;color:var(--g600);margin-top:2px;">GroupMe: ${gm ? `<span style="font-family:monospace;">${gm}</span>` : 'not connected'}</div>
+    const gm  = c.integration_config?.groupme_bot_id;
+    const sms = c.integration_config?.twilio_number;
+    return `<div style="padding:0.6rem 0;border-bottom:1px solid var(--g200);">
+      <div style="font-size:13px;font-weight:700;color:var(--t800);margin-bottom:0.4rem;">${c.name}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${sms ? '0.35rem' : '0'}">
+        <div style="font-size:12px;color:var(--g600);">GroupMe: ${gm ? `<span style="font-family:monospace;">${gm}</span>` : 'not connected'}</div>
+        <span class="integration-tag ${gm ? 'connected' : ''}"><span class="integration-dot"></span>${gm ? 'Connected' : 'Not connected'}</span>
       </div>
-      <span class="integration-tag ${gm ? 'connected' : ''}"><span class="integration-dot"></span>${gm ? 'Connected' : 'Not connected'}</span>
+      ${sms ? `<div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:12px;color:var(--g600);">SMS: <span style="font-family:monospace;">${sms}</span></div>
+        <span class="integration-tag connected"><span class="integration-dot"></span>Connected</span>
+      </div>` : ''}
     </div>`;
   }).join('') || '<div style="font-size:13px;color:var(--g400);">No circles yet.</div>';
 }
@@ -1514,14 +1532,20 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
 
 function openPersonModal(p) {
   document.getElementById('modal-person-title').textContent = p.name;
-  document.getElementById('edit-care-role').value = p.care_role || 'family';
-  document.getElementById('edit-user-role').value = p.user_role || 'member';
-  document.getElementById('edit-email').value = p.email || '';
-  document.getElementById('edit-phone').value = p.phone || '';
+  document.getElementById('edit-name').value        = p.name || '';
+  document.getElementById('edit-care-role').value   = p.care_role || 'family';
+  document.getElementById('edit-user-role').value   = p.user_role || 'member';
+  document.getElementById('edit-email').value       = p.email || '';
+  document.getElementById('edit-phone').value       = p.phone || '';
+  document.getElementById('edit-aliases').value     = (p.aliases || []).join(', ');
   const link = p.email
     ? `${window.location.origin}${window.location.pathname}?email=${encodeURIComponent(p.email)}`
     : '—';
   document.getElementById('edit-invite-link').value = link;
+  // Store person id for save
+  document.getElementById('modal-person').dataset.personId   = p.id;
+  document.getElementById('modal-person').dataset.circleId   = p.circle_id;
+  document.getElementById('modal-person').dataset.ensembleId = state.ensemble.id;
   openModal('modal-person');
 }
 
@@ -1530,19 +1554,100 @@ function copyInviteLink() {
     .then(() => toast('Invite link copied'));
 }
 
+async function savePersonModal() {
+  const modal      = document.getElementById('modal-person');
+  const personId   = modal.dataset.personId;
+  const ensembleId = modal.dataset.ensembleId;
+  if (!personId) { toast('Missing person context', true); return; }
+
+  const name      = document.getElementById('edit-name').value.trim();
+  const phone     = document.getElementById('edit-phone').value.trim() || null;
+  const email     = document.getElementById('edit-email').value.trim() || null;
+  const aliases   = document.getElementById('edit-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
+  const user_role = document.getElementById('edit-user-role').value;
+  if (!name) { toast('Name is required', true); return; }
+
+  const btn = document.getElementById('btn-save-person-modal');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const callerEmail = encodeURIComponent(state.person.email);
+
+    // 1. Update person profile
+    const personRes = await fetch(`${BASE}/app/people/${personId}?email=${callerEmail}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, email, aliases }),
+    });
+    if (!personRes.ok) throw new Error(await personRes.text());
+
+    // 2. Update ensemble membership (user role)
+    const memberRes = await fetch(`${BASE}/app/people/${personId}/membership?email=${callerEmail}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ensemble_id: ensembleId, user_role }),
+    });
+    if (!memberRes.ok) throw new Error(await memberRes.text());
+
+    toast(`${name} updated`);
+    closeModal('modal-person');
+    await loadData();
+  } catch (e) {
+    toast('Save failed: ' + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save changes';
+  }
+}
+
 function populateInviteCircleSelect() {
   document.getElementById('invite-circle').innerHTML =
     state.circles.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-function saveInvite() {
-  const email = document.getElementById('invite-email').value.trim();
+async function saveInvite() {
+  const name      = document.getElementById('invite-name').value.trim();
+  const email     = document.getElementById('invite-email').value.trim();
+  const phone     = document.getElementById('invite-phone').value.trim() || null;
+  const care_role = document.getElementById('invite-care-role').value;
+  const user_role = document.getElementById('invite-user-role').value;
+  const circle_id = document.getElementById('invite-circle').value;
+  if (!name)  { toast('Name is required', true); return; }
   if (!email) { toast('Email is required', true); return; }
-  const link = `${window.location.origin}${window.location.pathname}?email=${encodeURIComponent(email)}`;
-  navigator.clipboard.writeText(link).then(() => {
-    toast('Invite link copied — send this to the person');
+  if (!circle_id) { toast('Select a circle', true); return; }
+
+  const btn = document.querySelector('#modal-invite .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+
+  try {
+    const callerEmail = encodeURIComponent(state.person.email);
+    const res = await fetch(
+      `${BASE}/app/ensembles/${state.ensemble.id}/invite?email=${callerEmail}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, care_role, user_role, circle_id }),
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    // Copy invite URL to clipboard
+    await navigator.clipboard.writeText(data.invite_url);
+    toast(`${name} added — invite link copied`);
     closeModal('modal-invite');
-  });
+
+    // Reset form
+    ['invite-name','invite-email','invite-phone'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('invite-care-role').value = 'family';
+    document.getElementById('invite-user-role').value = 'member';
+
+    // Refresh people list
+    await loadData();
+  } catch (e) {
+    toast('Failed to add person: ' + e.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Add & copy invite link'; }
+  }
 }
 
 // ─── TOAST ───
@@ -2243,6 +2348,55 @@ async function updateDoctor() {
     await loadHealthPanel();
   } catch { toast('Failed to update provider', true); }
   finally { btn.disabled = false; btn.textContent = 'Save changes'; }
+}
+
+// ─── SMS INVITE ───
+async function sendSmsInvite(personId, personName, phone) {
+  // Find SMS-enabled circles (those with a twilio_number)
+  const smsCircles = (state.circles || []).filter(
+    c => c.integration_config?.twilio_number
+  );
+
+  if (!smsCircles.length) {
+    toast('No SMS-enabled circles found. Add a Twilio number in settings.', true);
+    return;
+  }
+
+  let chosenCircleId;
+  if (smsCircles.length === 1) {
+    // Only one option — confirm directly
+    const c = smsCircles[0];
+    if (!confirm(`Send SMS invite to ${personName} at ${phone} from ${c.name}?`)) return;
+    chosenCircleId = c.id;
+  } else {
+    // Multiple SMS circles — ask which one
+    const options = smsCircles.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+    const answer = prompt(
+      `Send SMS invite to ${personName} at ${phone}.\n\nChoose a care circle:\n${options}\n\nEnter the number:`
+    );
+    if (!answer) return;
+    const idx = parseInt(answer.trim()) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= smsCircles.length) {
+      toast('Invalid selection', true);
+      return;
+    }
+    chosenCircleId = smsCircles[idx].id;
+  }
+
+  const email = encodeURIComponent(state.person.email);
+  try {
+    const res = await fetch(
+      `${BASE}/app/people/${personId}/sms-invite?email=${email}&circle_id=${chosenCircleId}`,
+      { method: 'POST' }
+    );
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Unknown error');
+    }
+    toast(`SMS invite sent to ${personName}`);
+  } catch (e) {
+    toast(`Failed: ${e.message}`, true);
+  }
 }
 
 // ─── UTILS ───

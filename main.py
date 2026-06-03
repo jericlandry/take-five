@@ -20,6 +20,7 @@ from take_five.schemas import (
     CreateEnsembleRequest,
     CreateClinicalRecordRequest, UpdateClinicalRecordRequest,
     UpdateEnsembleMembershipRequest,
+    InvitePersonRequest,
     MessageRequest, DigestRequest,
 )
 from take_five.summaries import generate_weekly_digest
@@ -433,6 +434,55 @@ async def app_update_me(
     return {"person": row_to_dict(person)}
 
 
+@open_router.put("/app/people/{person_id}")
+async def app_update_person(
+    person_id: str,
+    email: str = Query(...),
+    body: UpdatePersonRequest = ...,
+):
+    """
+    Update a person's profile. Admin-only.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    person = repo.update_person(
+        person_id=person_id,
+        name=body.name,
+        phone=body.phone,
+        email=body.email,
+        aliases=body.aliases,
+        notes=body.notes,
+    )
+    return {"person": row_to_dict(person)}
+
+
+@open_router.put("/app/people/{person_id}/membership")
+async def app_update_person_membership(
+    person_id: str,
+    email: str = Query(...),
+    body: UpdateEnsembleMembershipRequest = ...,
+):
+    """
+    Update a person's user role in an ensemble. Admin-only.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if body.user_role not in ('admin', 'member'):
+        raise HTTPException(status_code=400, detail="user_role must be 'admin' or 'member'")
+    membership = repo.upsert_ensemble_membership(
+        ensemble_id=body.ensemble_id,
+        person_id=person_id,
+        user_role=body.user_role,
+    )
+    return {"membership": row_to_dict(membership)}
+
+
 @open_router.get("/app/ensembles/{ensemble_id}/digests")
 async def app_get_digests(
     ensemble_id: str,
@@ -446,6 +496,40 @@ async def app_get_digests(
         raise HTTPException(status_code=403, detail="Forbidden")
     digests = repo.get_digest_history(ensemble_id)
     return {"digests": [row_to_dict(d) for d in (digests or [])]}
+
+
+@open_router.post("/app/ensembles/{ensemble_id}/invite")
+async def app_invite_person(
+    ensemble_id: str,
+    email: str = Query(...),
+    body: InvitePersonRequest = ...,
+):
+    """
+    Create (or update) a person in the ensemble and add them to a circle.
+    Admin-only. Idempotent — safe to call again if the person already exists.
+    Returns the person row and the invite URL.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if body.user_role not in ('admin', 'member'):
+        raise HTTPException(status_code=400, detail="user_role must be 'admin' or 'member'")
+    if body.care_role not in ('senior', 'family', 'caregiver', 'professional'):
+        raise HTTPException(status_code=400, detail="Invalid care_role")
+
+    person = repo.invite_person_to_ensemble(
+        ensemble_id=ensemble_id,
+        circle_id=body.circle_id,
+        name=body.name,
+        email=body.email,
+        phone=body.phone,
+        care_role=body.care_role,
+        user_role=body.user_role,
+    )
+    invite_url = f"https://take-five.onrender.com/admin/takefive-ensemble-admin.html?email={body.email}"
+    return {"person": row_to_dict(person), "invite_url": invite_url}
 
 
 @open_router.get("/app/ensembles/{ensemble_id}/clinical-records")
@@ -537,6 +621,99 @@ async def app_npi_search(
         raise HTTPException(status_code=403, detail="Forbidden")
     results = await search_npi(first_name, last_name, city, state, enumeration_type="NPI-1")
     return {"results": results}
+
+
+@open_router.post("/app/people/{person_id}/sms-invite")
+async def app_sms_invite(
+    person_id: str,
+    email: str = Query(...),
+    circle_id: Optional[str] = Query(None),
+):
+    """
+    Send an SMS invite to a person so they have the Take Five number saved.
+    Logs the outbound message to messages as an agent_note.
+    Admin-only.
+    """
+    from twilio.rest import Client as TwilioClient
+
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    # Load person
+    person = repo.get_person_by_id(person_id)
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    if not person.get("phone"):
+        raise HTTPException(status_code=400, detail="Person has no phone number")
+
+    # Find their circle and get the Twilio number
+    circles = repo.list_circles_for_person(
+        ensemble_id=str(row["ensemble_id"]),
+        person_id=person_id,
+        user_role="admin",  # fetch all circles so we can find the right one
+    )
+    # Use specified circle_id if provided, otherwise pick the first SMS-enabled circle
+    if circle_id:
+        twilio_circle = next(
+            (c for c in (circles or []) if str(c["id"]) == circle_id
+             and (c.get("integration_config") or {}).get("twilio_number")),
+            None,
+        )
+        if not twilio_circle:
+            raise HTTPException(status_code=400, detail="Circle not found or has no SMS number")
+    else:
+        twilio_circle = next(
+            (c for c in (circles or []) if (c.get("integration_config") or {}).get("twilio_number")),
+            None,
+        )
+    if not twilio_circle:
+        raise HTTPException(status_code=400, detail="No SMS-enabled circle found for this ensemble")
+
+    twilio_number = twilio_circle["integration_config"]["twilio_number"]
+    circle_name = twilio_circle["name"]
+
+    # Find the senior's name for a personalised message
+    seniors = repo.get_seniors_in_circle(str(twilio_circle["id"]))
+    senior_name = seniors[0]["name"].split()[0] if seniors else "your loved one"
+
+    invite_body = (
+        f"Hi {person['name'].split()[0]} - this is Take Five for {circle_name}. "
+        f"Text this number after visits with {senior_name} and we'll keep the family in the loop."
+    )
+
+    # Send via Twilio
+    try:
+        twilio_client = TwilioClient(
+            os.getenv("TWILIO_ACCOUNT_SID"),
+            os.getenv("TWILIO_AUTH_TOKEN"),
+        )
+        twilio_client.messages.create(
+            body=invite_body,
+            from_=twilio_number,
+            to=person["phone"],
+        )
+    except Exception as e:
+        logger.error(f"[sms-invite] Failed to send to {person['name']}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send SMS: {str(e)}")
+
+    # Log to messages as agent_note so it appears in activity
+    circle_ext_id = twilio_circle["external_id"]
+    log_body = f"SMS invite sent to {person['name']} ({person['phone']})"
+    repo.log_message(
+        circle_ext_id=circle_ext_id,
+        person_ext_id=None,
+        body=log_body,
+        msg_type="agent_note",
+        direction="outbound",
+        raw_data={"type": "sms_invite", "to_person_id": person_id, "to_phone": person["phone"]},
+        channel="sms",
+    )
+
+    logger.info(f"[sms-invite] Sent to {person['name']} ({person['phone']}) for circle {circle_name}")
+    return {"sent": True, "to": person["phone"], "person": person["name"]}
 
 
 @open_router.get("/admin/{file_name}")

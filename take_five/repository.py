@@ -901,6 +901,7 @@ class TakeFiveRepository:
                     p.name,
                     p.email,
                     p.phone,
+                    p.aliases,
                     p.type                              AS p_type,
                     COALESCE(em.user_role, 'member')    AS user_role,
                     cm.role                             AS care_role,
@@ -923,6 +924,7 @@ class TakeFiveRepository:
                     p.name,
                     p.email,
                     p.phone,
+                    p.aliases,
                     p.type          AS p_type,
                     em_target.user_role,
                     cm.role         AS care_role,
@@ -1041,6 +1043,79 @@ class TakeFiveRepository:
             params['resource_type'] = resource_type
         base += " ORDER BY p.name, cr.resource_type, cr.created_at;"
         return self._execute(base, params, fetch='all')
+
+    def invite_person_to_ensemble(
+        self,
+        ensemble_id: str,
+        circle_id: str,
+        name: str,
+        email: str,
+        phone: Optional[str],
+        care_role: str,
+        user_role: str,
+    ) -> Dict:
+        """
+        Idempotent invite: if a person with this email already exists in the
+        ensemble, update their memberships rather than creating a duplicate.
+        Returns the person row.
+        """
+        with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
+            with conn.cursor() as cur:
+
+                # 1. Check for existing person with this email in the ensemble
+                cur.execute("""
+                    SELECT id FROM people
+                    WHERE ensemble_id = %(ensemble_id)s
+                      AND LOWER(email) = LOWER(%(email)s)
+                    LIMIT 1;
+                """, {'ensemble_id': ensemble_id, 'email': email})
+                existing = cur.fetchone()
+
+                if existing:
+                    person_id = existing['id']
+                    # Update phone if provided
+                    if phone:
+                        cur.execute("""
+                            UPDATE people SET phone = %(phone)s
+                            WHERE id = %(id)s;
+                        """, {'phone': phone, 'id': person_id})
+                else:
+                    # 2. Create the person
+                    cur.execute("""
+                        INSERT INTO people (ensemble_id, name, type, email, phone)
+                        VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(email)s, %(phone)s)
+                        RETURNING *;
+                    """, {
+                        'ensemble_id': ensemble_id,
+                        'name':        name,
+                        'type':        care_role,
+                        'email':       email,
+                        'phone':       phone,
+                    })
+                    person_id = cur.fetchone()['id']
+
+                # 3. Upsert ensemble membership (user role)
+                cur.execute("""
+                    INSERT INTO ensemble_memberships (ensemble_id, person_id, user_role)
+                    VALUES (%(ensemble_id)s, %(person_id)s, %(user_role)s)
+                    ON CONFLICT (ensemble_id, person_id) DO UPDATE
+                        SET user_role = EXCLUDED.user_role;
+                """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'user_role': user_role})
+
+                # 4. Upsert circle membership (care role)
+                cur.execute("""
+                    INSERT INTO circle_memberships (circle_id, person_id, role)
+                    VALUES (%(circle_id)s, %(person_id)s, %(role)s)
+                    ON CONFLICT (circle_id, person_id) DO UPDATE
+                        SET role = EXCLUDED.role;
+                """, {'circle_id': circle_id, 'person_id': person_id, 'role': care_role})
+
+                # 5. Return full person row
+                cur.execute("SELECT * FROM people WHERE id = %(id)s;", {'id': person_id})
+                person = cur.fetchone()
+
+                conn.commit()
+                return person
 
     def upsert_ensemble_membership(self, ensemble_id: str, person_id: str, user_role: str) -> Dict:
         """Set or update a person's user role in an ensemble."""

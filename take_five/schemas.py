@@ -63,6 +63,15 @@ class CreateClinicalRecordRequest(BaseModel):
     status: str = 'active'
 
 
+class InvitePersonRequest(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = None
+    care_role: str = 'family'   # senior | family | caregiver | professional
+    user_role: str = 'member'   # admin | member
+    circle_id: str
+
+
 class UpdateEnsembleMembershipRequest(BaseModel):
     ensemble_id: str
     user_role: str  # 'admin' | 'member'
