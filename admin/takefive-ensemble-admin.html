@@ -96,7 +96,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .circle-meta-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--g600); }
 .circle-meta-row svg { width: 13px; height: 13px; stroke: var(--g400); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .circle-members { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1rem; }
-.member-pip { width: 28px; height: 28px; border-radius: 50%; background: var(--t50); border: 1.5px solid var(--t100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 10px; color: var(--t800); }
+.member-pip { width: 28px; height: 28px; border-radius: 50%; background: var(--t50); border: 1.5px solid var(--t100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 10px; color: var(--t800); cursor: default; }
 .member-pip.senior { background: var(--t500); border-color: var(--t300); color: var(--white); }
 .member-pip.more { background: var(--g200); border-color: var(--g400); color: var(--g600); font-family: 'Lato', sans-serif; font-size: 9px; font-weight: 700; }
 .circle-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--g200); }
@@ -142,6 +142,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .modal-backdrop.open { display: flex; }
 .modal { background: var(--white); border-radius: var(--radius-lg); padding: 1.75rem; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: modalIn 0.2s ease; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { to { transform: rotate(360deg); } }
 .modal-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--t800); margin-bottom: 1.25rem; }
 .modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--g200); }
 .form-group { margin-bottom: 0.875rem; }
@@ -213,6 +214,25 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
   .stat-row { grid-template-columns: 1fr 1fr; }
   .panel { padding: 1.25rem; }
 }
+
+/* ─── HEALTH PANEL ─── */
+.pill-active    { background: var(--t50);       color: var(--t600); }
+.pill-inactive  { background: var(--g200);      color: var(--g600); }
+.pill-asneed    { background: var(--amber-bg);  color: var(--amber-dk); }
+.sched-cell { font-weight: 700; color: var(--t800); }
+.sched-note { font-size: 10px; color: var(--g400); font-weight: 300; margin-top: 1px; display: block; }
+.npi-results { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.npi-result { border: 1px solid var(--g200); border-radius: var(--radius-md); padding: 0.75rem 1rem;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.npi-result:hover { border-color: var(--t300); background: var(--t50); }
+.npi-result.selected { border-color: var(--t500); background: var(--t50); }
+.npi-result-name { font-size: 13px; font-weight: 700; color: var(--t800); }
+.npi-result-meta { font-size: 11px; color: var(--g600); margin-top: 2px; }
+.time-slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 0.75rem; }
+.time-slot { border: 1px solid var(--g200); border-radius: var(--radius-md); padding: 0.75rem; background: var(--cream); }
+.time-slot-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--g600); margin-bottom: 0.5rem; }
+.td-actions { display: flex; gap: 0.4rem; }
 </style>
 </head>
 <body>
@@ -288,6 +308,10 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <svg viewBox="0 0 16 16"><circle cx="6" cy="5" r="3"/><path d="M1 14c0-3 2-4.5 5-4.5s5 1.5 5 4.5"/><circle cx="12" cy="5" r="2"/><path d="M14 13c0-2-1-3.5-2-3.5"/></svg>
         People
       </button>
+      <button class="sidebar-item" id="nav-health" onclick="showPanel('health')" style="display:none;">
+        <svg viewBox="0 0 16 16"><path d="M8 2a3 3 0 00-3 3c0 1.5.7 2.5 1.5 3.5L8 10l1.5-1.5C10.3 7.5 11 6.5 11 5a3 3 0 00-3-3z"/><path d="M3 13c0-2 2-3 5-3s5 1 5 3"/></svg>
+        Health
+      </button>
       <button class="sidebar-item" id="nav-activity" onclick="showPanel('activity')">
         <svg viewBox="0 0 16 16"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg>
         Activity
@@ -354,19 +378,26 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         Care circles
       </div>
       <div class="circles-grid" id="circles-grid">
-        <div class="empty">
-          <svg class="empty-icon" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><circle cx="20" cy="20" r="6"/></svg>
-          <div class="empty-title">No circles yet</div>
-          <div class="empty-sub">Add a care circle to get started</div>
+        <div style="display:flex;align-items:center;gap:0.75rem;padding:1.5rem 0;color:var(--g400);font-size:13px;">
+          <svg style="width:16px;height:16px;flex-shrink:0;animation:spin 1s linear infinite;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 1.5A6.5 6.5 0 1 1 1.5 8" stroke-linecap="round"/>
+          </svg>
+          Loading your care circles…
         </div>
       </div>
 
-      <div id="medications-section" style="display:none;">
-        <div class="card-title" style="margin-bottom:0.75rem;margin-top:0.5rem;">
-          <svg viewBox="0 0 16 16"><path d="M6 2h4l2 3v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5l2-3z"/><path d="M9 6H7M9 9H7M9 12H7"/></svg>
-          Medications
+      <div id="attention-section" style="display:none;margin-top:0.5rem;">
+        <div class="card-title" style="margin-bottom:0.25rem;">
+          <svg viewBox="0 0 16 16" style="stroke:var(--amber-dk) !important;"><path d="M8 2L1 14h14L8 2z"/><path d="M8 7v3M8 12v.5"/></svg>
+          <span style="color:var(--amber-dk);">What needs attention</span>
         </div>
-        <div id="medications-cards"></div>
+        <div id="attention-date" style="font-size:12px;color:var(--text);margin-bottom:0.75rem;padding-left:1px;"></div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <ul id="attention-list" style="list-style:none;padding:0;margin:0;"></ul>
+          <div style="padding:0.6rem 1rem;border-top:1px solid var(--g200);">
+            <a id="attention-digest-link" href="#" style="font-size:12px;color:var(--t500);font-weight:700;text-decoration:none;">View full digest →</a>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -405,6 +436,77 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
             <tr><td colspan="6"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- HEALTH PANEL (admin only) -->
+    <div class="panel" id="panel-health" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Health</div>
+          <div class="page-sub">Medications and care team for the seniors in your circle.</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab active" id="htab-medications" onclick="switchHealthTab('medications')">Medications</button>
+        <button class="tab" id="htab-careteam" onclick="switchHealthTab('careteam')">Care Team</button>
+      </div>
+
+      <!-- Medications sub-panel -->
+      <div id="health-medications">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <div style="font-size:13px;color:var(--g600);" id="meds-person-label"></div>
+          <div style="display:flex;gap:0.5rem;" id="meds-action-btns">
+            <button class="btn btn-primary btn-sm" id="btn-add-medication" onclick="openModal('modal-add-medication')">
+              <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
+              Add medication
+            </button>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Medication</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">AM</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">PM</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Eve</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Prescriber</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Purpose</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Status</th>
+              <th style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);"></th>
+            </tr></thead>
+            <tbody id="h-meds-tbody">
+              <tr><td colspan="8"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Care Team sub-panel -->
+      <div id="health-careteam" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <div style="font-size:13px;color:var(--g600);" id="ct-person-label"></div>
+          <button class="btn btn-primary btn-sm" id="btn-add-doctor" onclick="openAddDoctorModal()">
+            <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
+            Add doctor
+          </button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Provider</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Specialty</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Phone</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">NPI</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Notes</th>
+              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Status</th>
+              <th style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);"></th>
+            </tr></thead>
+            <tbody id="h-ct-tbody">
+              <tr><td colspan="7"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -645,6 +747,314 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
   </div>
 </div>
 
+<!-- MODAL: Add Medication -->
+<div class="modal-backdrop" id="modal-add-medication">
+  <div class="modal" style="width:560px;">
+    <div class="modal-title">Add medication</div>
+    <div class="form-group">
+      <label class="form-label">For</label>
+      <select class="form-input" id="med-person-id"></select>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">Medication name <span style="color:var(--danger);">*</span></label>
+        <input class="form-input" id="med-name" type="text" placeholder="e.g. Lisinopril"/>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Dosage</label>
+        <input class="form-input" id="med-dosage" type="text" placeholder="e.g. 10 mg"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Form</label>
+        <select class="form-input" id="med-form">
+          <option value="">— select —</option>
+          <option>Tablet</option><option>Capsule</option><option>Liquid</option>
+          <option>Patch</option><option>Injection</option><option>Cream</option>
+          <option>Drops</option><option>Inhaler</option><option>Powder</option>
+          <option>Suppository</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="time-slot-grid">
+      <div class="time-slot">
+        <div class="time-slot-label">Morning</div>
+        <div class="form-group" style="margin-bottom:0.4rem;">
+          <label class="form-label" style="font-size:10px;">Qty</label>
+          <select class="form-input" id="med-morning-qty" style="font-size:12px;">
+            <option value="">—</option><option>0.5</option><option>1</option>
+            <option>1.5</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:10px;">Note</label>
+          <input class="form-input" id="med-morning-note" type="text" placeholder="optional" style="font-size:12px;"/>
+        </div>
+      </div>
+      <div class="time-slot">
+        <div class="time-slot-label">Afternoon</div>
+        <div class="form-group" style="margin-bottom:0.4rem;">
+          <label class="form-label" style="font-size:10px;">Qty</label>
+          <select class="form-input" id="med-afternoon-qty" style="font-size:12px;">
+            <option value="">—</option><option>0.5</option><option>1</option>
+            <option>1.5</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:10px;">Note</label>
+          <input class="form-input" id="med-afternoon-note" type="text" placeholder="optional" style="font-size:12px;"/>
+        </div>
+      </div>
+      <div class="time-slot">
+        <div class="time-slot-label">Evening</div>
+        <div class="form-group" style="margin-bottom:0.4rem;">
+          <label class="form-label" style="font-size:10px;">Qty</label>
+          <select class="form-input" id="med-evening-qty" style="font-size:12px;">
+            <option value="">—</option><option>0.5</option><option>1</option>
+            <option>1.5</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:10px;">Note</label>
+          <input class="form-input" id="med-evening-note" type="text" placeholder="optional" style="font-size:12px;"/>
+        </div>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Prescriber</label>
+        <input class="form-input" id="med-prescriber" type="text" placeholder="e.g. Dr. Yiou"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date prescribed</label>
+        <input class="form-input" id="med-date-prescribed" type="date"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Purpose / indication</label>
+      <input class="form-input" id="med-indication" type="text" placeholder="e.g. Blood pressure"/>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" id="med-status">
+          <option value="active">Active</option>
+          <option value="as_needed">As needed</option>
+          <option value="discontinued">Discontinued</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="med-notes" rows="2" placeholder="Any additional notes…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-medication')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-medication" onclick="saveMedication()">Save medication</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Medication -->
+<div class="modal-backdrop" id="modal-edit-medication">
+  <div class="modal" style="width:560px;">
+    <div class="modal-title">Edit medication</div>
+    <div class="form-row-2">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">Medication name <span style="color:var(--danger);">*</span></label>
+        <input class="form-input" id="emed-name" type="text"/>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Dosage</label>
+        <input class="form-input" id="emed-dosage" type="text"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Form</label>
+        <select class="form-input" id="emed-form">
+          <option value="">— select —</option>
+          <option>Tablet</option><option>Capsule</option><option>Liquid</option>
+          <option>Patch</option><option>Injection</option><option>Cream</option>
+          <option>Drops</option><option>Inhaler</option><option>Powder</option>
+          <option>Suppository</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="time-slot-grid">
+      <div class="time-slot">
+        <div class="time-slot-label">Morning</div>
+        <div class="form-group" style="margin-bottom:0.4rem;">
+          <label class="form-label" style="font-size:10px;">Qty</label>
+          <select class="form-input" id="emed-morning-qty" style="font-size:12px;">
+            <option value="">—</option><option>0.5</option><option>1</option>
+            <option>1.5</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:10px;">Note</label>
+          <input class="form-input" id="emed-morning-note" type="text" placeholder="optional" style="font-size:12px;"/>
+        </div>
+      </div>
+      <div class="time-slot">
+        <div class="time-slot-label">Afternoon</div>
+        <div class="form-group" style="margin-bottom:0.4rem;">
+          <label class="form-label" style="font-size:10px;">Qty</label>
+          <select class="form-input" id="emed-afternoon-qty" style="font-size:12px;">
+            <option value="">—</option><option>0.5</option><option>1</option>
+            <option>1.5</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:10px;">Note</label>
+          <input class="form-input" id="emed-afternoon-note" type="text" placeholder="optional" style="font-size:12px;"/>
+        </div>
+      </div>
+      <div class="time-slot">
+        <div class="time-slot-label">Evening</div>
+        <div class="form-group" style="margin-bottom:0.4rem;">
+          <label class="form-label" style="font-size:10px;">Qty</label>
+          <select class="form-input" id="emed-evening-qty" style="font-size:12px;">
+            <option value="">—</option><option>0.5</option><option>1</option>
+            <option>1.5</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:10px;">Note</label>
+          <input class="form-input" id="emed-evening-note" type="text" placeholder="optional" style="font-size:12px;"/>
+        </div>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Prescriber</label>
+        <input class="form-input" id="emed-prescriber" type="text"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date prescribed</label>
+        <input class="form-input" id="emed-date-prescribed" type="date"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Purpose / indication</label>
+      <input class="form-input" id="emed-indication" type="text"/>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" id="emed-status">
+          <option value="active">Active</option>
+          <option value="as_needed">As needed</option>
+          <option value="discontinued">Discontinued</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="emed-notes" rows="2"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-medication')">Cancel</button>
+      <button class="btn btn-primary" id="btn-update-medication" onclick="updateMedication()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Doctor -->
+<div class="modal-backdrop" id="modal-add-doctor">
+  <div class="modal" style="width:540px;">
+    <div class="modal-title">Add care team member</div>
+    <div class="form-group">
+      <label class="form-label">For</label>
+      <select class="form-input" id="ct-person-id"></select>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">First name</label>
+        <input class="form-input" id="npi-first" type="text" placeholder="e.g. Patricia"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last name</label>
+        <input class="form-input" id="npi-last" type="text" placeholder="e.g. Yiou"/>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="btn-npi-search" onclick="runNpiSearch()" style="margin-bottom:0.5rem;">
+      <svg viewBox="0 0 14 14" style="width:12px;height:12px;"><circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l3 3"/></svg>
+      Search NPI registry
+    </button>
+    <div id="npi-results-area"></div>
+    <div id="npi-selected-area" style="display:none;">
+      <div style="background:var(--t50);border:1px solid var(--t300);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-bottom:0.75rem;">
+        <div style="font-size:12px;font-weight:700;color:var(--t600);margin-bottom:4px;">Selected provider</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t800);" id="npi-sel-name"></div>
+        <div style="font-size:11px;color:var(--g600);margin-top:2px;" id="npi-sel-meta"></div>
+      </div>
+    </div>
+    <div id="npi-manual-area">
+      <div style="font-size:11px;color:var(--g400);margin-bottom:0.5rem;">Or enter manually:</div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Full name</label>
+          <input class="form-input" id="ct-name" type="text" placeholder="Dr. Jane Smith"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Credential</label>
+          <input class="form-input" id="ct-credential" type="text" placeholder="MD, DO, NP…"/>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Specialty</label>
+          <input class="form-input" id="ct-specialty" type="text" placeholder="e.g. Geriatric Psychiatry"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input class="form-input" id="ct-phone" type="tel" placeholder="(555) 000-0000"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">NPI number</label>
+        <input class="form-input" id="ct-npi" type="text" placeholder="10-digit NPI"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="ct-notes" rows="2" placeholder="e.g. Primary prescriber, monthly check-ins…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-doctor')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-doctor" onclick="saveDoctor()">Save provider</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Doctor -->
+<div class="modal-backdrop" id="modal-edit-doctor">
+  <div class="modal">
+    <div class="modal-title" id="edit-doctor-title">Edit provider</div>
+    <div style="background:var(--t50);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-bottom:1rem;">
+      <div style="font-size:13px;font-weight:700;color:var(--t800);" id="edt-name-display"></div>
+      <div style="font-size:11px;color:var(--g600);margin-top:2px;" id="edt-meta-display"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-input" id="edt-status">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="edt-notes" rows="3"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-doctor')">Cancel</button>
+      <button class="btn btn-primary" id="btn-update-doctor" onclick="updateDoctor()">Save changes</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:10000'
@@ -697,6 +1107,7 @@ function bootApp() {
   document.getElementById('admin-only-nav').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-add-circle').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-invite-person').style.display = isAdmin ? '' : 'none';
+  document.getElementById('nav-health').style.display = ''; // visible to all
   loadData();
 }
 
@@ -742,7 +1153,7 @@ function renderAll() {
   renderCircles();
   renderPeople();
   renderActivity();
-  renderMedications();
+  renderAttention();
   renderSettings();
   populateInviteCircleSelect();
 }
@@ -758,9 +1169,8 @@ function renderCircles() {
   }
   grid.innerHTML = state.circles.map(c => {
     const members = state.allPeople.filter(p => p.circle_id === c.id);
-    const senior = members.find(p => p.care_role === 'senior');
-    const others = members.filter(p => p.care_role !== 'senior');
-    const overflow = others.length > 4 ? others.length - 4 : 0;
+    const seniors = members.filter(p => p.care_role === 'senior');
+    const others  = members.filter(p => p.care_role !== 'senior');
     const gm = c.integration_config?.groupme_bot_id;
     return `<div class="circle-card ${c.status !== 'active' ? 'inactive' : ''}">
       <div class="circle-card-header">
@@ -768,9 +1178,9 @@ function renderCircles() {
         <span class="circle-status ${c.status}">${capitalize(c.status)}</span>
       </div>
       <div class="circle-meta">
-        ${senior ? `<div class="circle-meta-row">
+        ${seniors.length ? `<div class="circle-meta-row">
           <svg viewBox="0 0 13 13"><circle cx="6.5" cy="4" r="2.5"/><path d="M1 12c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5"/></svg>
-          ${senior.name}</div>` : ''}
+          ${seniors.map(s => s.name).join(' &amp; ')}</div>` : ''}
         <div class="circle-meta-row">
           <svg viewBox="0 0 13 13"><rect x="1" y="2" width="11" height="9" rx="1"/><path d="M4 6h5M4 8.5h3"/></svg>
           <span class="integration-tag ${gm ? 'connected' : ''}">
@@ -779,9 +1189,9 @@ function renderCircles() {
         </div>
       </div>
       <div class="circle-members">
-        ${senior ? `<div class="member-pip senior" title="${senior.name}">${initials(senior.name)}</div>` : ''}
-        ${others.slice(0,4).map(p => `<div class="member-pip" title="${p.name}">${initials(p.name)}</div>`).join('')}
-        ${overflow ? `<div class="member-pip more">+${overflow}</div>` : ''}
+        ${seniors.map(s => `<div class="member-pip senior" title="${s.name}">${initials(s.name)}</div>`).join('')}
+        ${others.slice(0,6).map(p => `<div class="member-pip" title="${p.name}">${initials(p.name)}</div>`).join('')}
+        ${others.length > 6 ? `<div class="member-pip more" title="${others.slice(6).map(p => p.name).join(', ')}">+${others.length - 6}</div>` : ''}
       </div>
       <div class="circle-footer">
         <span class="circle-footer-stat"><strong>${members.length}</strong> member${members.length !== 1 ? 's' : ''}</span>
@@ -789,6 +1199,61 @@ function renderCircles() {
       </div>
     </div>`;
   }).join('');
+}
+
+function renderAttention() {
+  const section = document.getElementById('attention-section');
+  const list    = document.getElementById('attention-list');
+  const dateEl  = document.getElementById('attention-date');
+
+  // Find the most recent digest across all circles
+  const digests = state.lastDigests || [];
+  if (!digests.length) { section.style.display = 'none'; return; }
+  const latest = digests.reduce((a, b) => a.sent_at > b.sent_at ? a : b);
+  const body = latest.body || '';
+
+  // Extract the WHAT NEEDS ATTENTION section
+  const marker = 'WHAT NEEDS ATTENTION';
+  const start  = body.indexOf(marker);
+  if (start === -1) { section.style.display = 'none'; return; }
+
+  // Everything after the header line, up to the next --- or end of string
+  const afterHeader = body.slice(start + marker.length);
+  const end = afterHeader.search(/\n---/);
+  const raw = (end === -1 ? afterHeader : afterHeader.slice(0, end)).trim();
+  if (!raw) { section.style.display = 'none'; return; }
+
+  // Split into individual items — each item is a single line
+  const items = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!items.length) { section.style.display = 'none'; return; }
+
+  // Render
+  // Try to extract the week date from the body, fall back to sent_at
+  const weekMatch = body.match(/Week of ([A-Za-z]+ \d+(?:[\u2013\-]\d+)?(?:,?\s*\d{4})?)/);
+  const dateLabel = weekMatch
+    ? `Week of ${weekMatch[1]}`
+    : `digest · ${new Date(latest.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  dateEl.textContent = dateLabel;
+
+  list.innerHTML = items.map((item, i) => {
+    // Items are formatted as "Title — detail detail detail"
+    const dashIdx = item.indexOf(' — ');
+    const title  = dashIdx !== -1 ? item.slice(0, dashIdx).trim() : item;
+    const detail = dashIdx !== -1 ? item.slice(dashIdx + 3).trim() : '';
+    const isLast = i === items.length - 1;
+    return `<li style="padding:0.9rem 1rem;${isLast ? '' : 'border-bottom:1px solid var(--g200);'}display:flex;align-items:flex-start;gap:0.75rem;">
+      <span style="font-size:14px;margin-top:1px;flex-shrink:0;">⚠️</span>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--amber-dk);">${title}</div>
+        ${detail ? `<div style="font-size:12px;color:var(--g600);margin-top:3px;line-height:1.55;">${detail}</div>` : ''}
+      </div>
+    </li>`;
+  }).join('');
+
+  section.style.display = '';
+
+  // Wire up the "View full digest" link now that we know the digest id
+  document.getElementById('attention-digest-link').onclick = () => navigateToDigest(latest.id);
 }
 
 let currentFilter = 'all';
@@ -868,6 +1333,26 @@ function renderActivity() {
       </div>
     </div>`;
   }).join('');
+}
+
+async function navigateToDigest(digestId) {
+  // Switch to digests panel, load if not yet fetched
+  showPanel('digests');
+  if (!state.digestHistory.length) await loadDigests();
+
+  // Find the index of this digest in the rendered list
+  const idx = state.digestHistory.findIndex(d => d.id === digestId);
+  if (idx === -1) return;
+
+  // Expand it
+  const row  = document.getElementById(`drow-${idx}`);
+  const body = document.getElementById(`dbody-${idx}`);
+  if (!row || !body) return;
+  row.classList.add('open');
+  body.classList.add('open');
+
+  // Scroll it into view with a brief delay to let the panel render
+  setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
 
 // ─── DIGESTS ───
@@ -1011,12 +1496,13 @@ function renderSettings() {
 
 // ─── PANEL NAV ───
 function showPanel(name) {
-  ['overview','people','activity','digests','settings'].forEach(p => {
+  ['overview','people','health','activity','digests','settings'].forEach(p => {
     document.getElementById(`panel-${p}`).style.display = p === name ? '' : 'none';
     const nav = document.getElementById(`nav-${p}`);
     if (nav) nav.classList.toggle('active', p === name);
   });
   if (name === 'digests' && !state.digestHistory.length) loadDigests();
+  if (name === 'health') loadHealthPanel();
 }
 
 // ─── MODALS ───
@@ -1138,6 +1624,625 @@ async function saveMyProfile() {
   } catch {
     toast('Failed to save profile', true);
   }
+}
+
+// ─── HEALTH PANEL ───
+
+const healthState = {
+  records: [],          // all clinical records for the ensemble
+  editingId: null,      // record id being edited
+  selectedNpi: null,    // NPI search result that was clicked
+  currentTab: 'medications',
+};
+
+function switchHealthTab(tab) {
+  healthState.currentTab = tab;
+  document.getElementById('health-medications').style.display = tab === 'medications' ? '' : 'none';
+  document.getElementById('health-careteam').style.display    = tab === 'careteam'    ? '' : 'none';
+  document.getElementById('htab-medications').classList.toggle('active', tab === 'medications');
+  document.getElementById('htab-careteam').classList.toggle('active',    tab === 'careteam');
+}
+
+async function loadHealthPanel() {
+  const email = encodeURIComponent(state.person.email);
+  const id = state.ensemble.id;
+  // Show/hide add buttons based on role
+  const isAdmin = state.userRole === 'admin';
+  document.getElementById('btn-add-medication').style.display = isAdmin ? '' : 'none';
+  document.getElementById('btn-add-doctor').style.display    = isAdmin ? '' : 'none';
+  try {
+    const res = await fetch(`${BASE}/app/ensembles/${id}/clinical-records?email=${email}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    healthState.records = data.records || [];
+  } catch (e) {
+    toast('Failed to load health records', true);
+    healthState.records = [];
+  }
+  renderHealthMedications();
+  renderHealthCareTeam();
+  populateHealthPersonSelects();
+}
+
+function populateHealthPersonSelects() {
+  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const opts = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  ['med-person-id','ct-person-id'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts || '<option value="">No seniors found</option>';
+  });
+  // Update person labels
+  const label = seniors.length === 1 ? seniors[0].name : `${seniors.length} seniors`;
+  document.getElementById('meds-person-label').textContent = seniors.length ? `Medications for ${label}` : '';
+  document.getElementById('ct-person-label').textContent   = seniors.length ? `Care team for ${label}` : '';
+}
+
+function schedCell(slot) {
+  if (!slot || !slot.qty) return '<span style="color:var(--g400);">—</span>';
+  const qty = parseFloat(slot.qty);
+  const label = qty === 1 ? 'X' : `X (${qty})`;
+  const note = slot.note
+    ? `<span class="sched-note">${slot.note}</span>` : '';
+  return `<span class="sched-cell">${label}</span>${note}`;
+}
+
+function statusPill(status) {
+  const map = {
+    active:       ['pill-active',   'Active'],
+    as_needed:    ['pill-asneed',   'As needed'],
+    discontinued: ['pill-inactive', 'Discontinued'],
+    inactive:     ['pill-inactive', 'Inactive'],
+  };
+  const [cls, label] = map[status] || ['pill-inactive', status];
+  return `<span class="pill ${cls}">${label}</span>`;
+}
+
+function renderHealthMedications() {
+  const tbody = document.getElementById('h-meds-tbody');
+  const isAdmin = state.userRole === 'admin';
+  const recs = healthState.records.filter(r => r.resource_type === 'MedicationStatement');
+  if (!recs.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty">
+      <div class="empty-title">No medications on record</div>
+      <div class="empty-sub">Add the first medication above</div>
+    </div></td></tr>`;
+    return;
+  }
+  // Group by person
+  const byPerson = {};
+  recs.forEach(r => {
+    const key = r.person_id;
+    if (!byPerson[key]) byPerson[key] = { name: r.person_name, records: [] };
+    byPerson[key].records.push(r);
+  });
+  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const multiSenior = seniors.length > 1;
+  let html = '';
+
+  // Inject per-senior print buttons before the add button
+  const actionBtns = document.getElementById('meds-action-btns');
+  const addBtn = document.getElementById('btn-add-medication');
+  // Remove any existing print buttons
+  actionBtns.querySelectorAll('.btn-print-senior').forEach(el => el.remove());
+  Object.values(byPerson).forEach(group => {
+    const printBtn = document.createElement('button');
+    printBtn.className = 'btn btn-ghost btn-sm btn-print-senior';
+    printBtn.innerHTML = `<svg viewBox="0 0 14 14" style="width:12px;height:12px;"><path d="M3 4V1h8v3M3 10H1V5h12v5h-2M3 8h8v5H3z"/></svg> ${multiSenior ? 'Print ' + group.name.split(' ')[0] : 'Print'}`;
+    printBtn.onclick = () => printMedicationsForPerson(group);
+    actionBtns.insertBefore(printBtn, addBtn);
+  });
+
+  Object.values(byPerson).forEach(group => {
+    if (multiSenior) {
+      html += `<tr>
+        <td colspan="8" style="padding:0.5rem 0.75rem;background:var(--t50);border-bottom:1px solid var(--g200);">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:24px;height:24px;border-radius:50%;background:var(--t500);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:10px;color:white;flex-shrink:0;">${initials(group.name)}</div>
+            <span style="font-size:12px;font-weight:700;color:var(--t800);">${group.name}</span>
+            <span style="font-size:11px;color:var(--g400);">${group.records.length} medication${group.records.length !== 1 ? 's' : ''}</span>
+          </div>
+        </td>
+      </tr>`;
+    }
+    group.records.forEach(r => {
+      const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+      const dosage = [d.dosage, d.form].filter(Boolean).join(' · ');
+      html += `<tr style="border-bottom:1px solid var(--g200);">
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;">
+          <strong style="color:var(--t800);">${d.medication_name || '—'}</strong>
+          ${dosage ? `<div style="font-size:11px;color:var(--g400);margin-top:2px;">${dosage}</div>` : ''}
+        </td>
+        <td style="padding:0.65rem 0.75rem;text-align:center;vertical-align:top;">${schedCell(d.morning)}</td>
+        <td style="padding:0.65rem 0.75rem;text-align:center;vertical-align:top;">${schedCell(d.afternoon)}</td>
+        <td style="padding:0.65rem 0.75rem;text-align:center;vertical-align:top;">${schedCell(d.evening)}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${d.prescriber || '—'}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${d.indication || '—'}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;">${statusPill(r.status)}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;">
+          <div class="td-actions">
+            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openEditMedModal('${r.id}')">Edit</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = html;
+}
+
+function renderHealthCareTeam() {
+  const tbody = document.getElementById('h-ct-tbody');
+  const isAdmin = state.userRole === 'admin';
+  const recs = healthState.records.filter(r => r.resource_type === 'CareTeamMember');
+  if (!recs.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty">
+      <div class="empty-title">No care team members on record</div>
+      <div class="empty-sub">Add the first doctor or provider above</div>
+    </div></td></tr>`;
+    return;
+  }
+  // Group by person
+  const byPerson = {};
+  recs.forEach(r => {
+    const key = r.person_id;
+    if (!byPerson[key]) byPerson[key] = { name: r.person_name, records: [] };
+    byPerson[key].records.push(r);
+  });
+  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const multiSenior = seniors.length > 1;
+  let html = '';
+  Object.values(byPerson).forEach(group => {
+    if (multiSenior) {
+      html += `<tr>
+        <td colspan="7" style="padding:0.5rem 0.75rem;background:var(--t50);border-bottom:1px solid var(--g200);">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:24px;height:24px;border-radius:50%;background:var(--t500);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:10px;color:white;flex-shrink:0;">${initials(group.name)}</div>
+            <span style="font-size:12px;font-weight:700;color:var(--t800);">${group.name}</span>
+            <span style="font-size:11px;color:var(--g400);">${group.records.length} provider${group.records.length !== 1 ? 's' : ''}</span>
+          </div>
+        </td>
+      </tr>`;
+    }
+    group.records.forEach(r => {
+      const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+      const displayName = d.credential ? `${d.name}, ${d.credential}` : d.name;
+      html += `<tr style="border-bottom:1px solid var(--g200);">
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;">
+          <strong style="color:var(--t800);">${displayName || '—'}</strong>
+        </td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${d.specialty || '—'}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${d.phone || '—'}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:11px;font-family:monospace;color:var(--g600);">${d.npi || '—'}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);max-width:180px;">${r.notes || '—'}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;">${statusPill(r.status)}</td>
+        <td style="padding:0.65rem 0.75rem;vertical-align:top;">
+          <div class="td-actions">
+            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openEditDoctorModal('${r.id}')">Edit</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = html;
+}
+
+function printMedicationsForPerson(group) {
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const ensembleName = state.ensemble?.name || 'Take Five';
+
+  // Match the same deterministic palette as takefive-admin.html
+  const PALETTE = [
+    { accent: '#085041', accentLight: '#E1F5EE', accentMid: '#5DCAA5' }, // teal
+    { accent: '#633806', accentLight: '#FAEEDA', accentMid: '#FAC775' }, // amber
+  ];
+  const seniors = state.allPeople.filter(p => p.care_role === 'senior').sort((a, b) => a.id.localeCompare(b.id));
+  const seniorIdx = seniors.findIndex(s => s.id === group.records[0]?.person_id);
+  const { accent, accentLight, accentMid } = PALETTE[seniorIdx >= 0 ? seniorIdx % PALETTE.length : 0];
+
+  // Find DOB from allPeople
+  const senior = seniors[seniorIdx];
+  const dob = senior?.date_of_birth
+    ? new Date(senior.date_of_birth).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+
+  const fmtSlot = (slot) => {
+    if (!slot || !slot.qty) return '';
+    const qty = parseFloat(slot.qty);
+    return qty === 1 ? 'X' : `X (${qty})`;
+  };
+
+  const activeRecs = group.records.filter(r => r.status !== 'discontinued');
+  const discRecs   = group.records.filter(r => r.status === 'discontinued');
+
+  const renderRows = (list) => list.map(r => {
+    const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    const dosage = [d.dosage, d.form].filter(Boolean).join(' \u00b7 ');
+    const mNote  = d.morning?.note   || '';
+    const aNote  = d.afternoon?.note || '';
+    const eNote  = d.evening?.note   || '';
+    return `<tr>
+      <td class="med-name">${d.medication_name || '\u2014'}${dosage ? `<span class="dosage">${dosage}</span>` : ''}</td>
+      <td class="sched">${fmtSlot(d.morning)}${mNote   ? `<span class="slot-note">${mNote}</span>`   : ''}</td>
+      <td class="sched">${fmtSlot(d.afternoon)}${aNote  ? `<span class="slot-note">${aNote}</span>`   : ''}</td>
+      <td class="sched">${fmtSlot(d.evening)}${eNote    ? `<span class="slot-note">${eNote}</span>`   : ''}</td>
+      <td class="prescriber">${d.prescriber || ''}</td>
+      <td class="purpose">${d.indication || ''}</td>
+    </tr>`;
+  }).join('');
+
+  const discSection = discRecs.length ? `
+    <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid #E8E5DF;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#B0ADA6;margin-bottom:0.75rem;">Discontinued</div>
+      <table style="opacity:0.55;">
+        <thead><tr>
+          <th>Medication / Supplement</th><th class="center">Morning</th>
+          <th class="center">Afternoon</th><th class="center">Evening</th>
+          <th>Prescriber</th><th>Purpose</th>
+        </tr></thead>
+        <tbody>${renderRows(discRecs)}</tbody>
+      </table>
+    </div>` : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Medications \u00b7 ${group.name}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lato', sans-serif; font-weight: 400; background: #fff; color: #1A1A18; padding: 0; max-width: 900px; margin: 0 auto; }
+  .person-header { background: ${accent}; color: #fff; padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .brand-name { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: ${accentLight}; letter-spacing: -0.02em; }
+  .brand-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: ${accentMid}; margin-top: 2px; }
+  .patient-name { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: #fff; text-align: right; }
+  .patient-dob { font-size: 14px; color: ${accentLight}; margin-top: 3px; text-align: right; }
+  .updated { font-size: 12px; color: ${accentMid}; margin-top: 2px; text-align: right; }
+  .content { padding: 2.25rem 2rem 1.5rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 24px; }
+  thead th { text-align: left; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6B6763; padding: 0 0.75rem 0.7rem; border-bottom: 2px solid ${accent}; }
+  thead th.center { text-align: center; }
+  tbody tr { border-bottom: 1px solid #E8E5DF; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 1rem 0.75rem; vertical-align: top; }
+  .med-name { font-weight: 700; color: ${accent}; min-width: 180px; font-size: 26px; }
+  .dosage { display: block; font-weight: 400; font-size: 20px; color: #6B6763; margin-top: 4px; }
+  .sched { text-align: center; font-weight: 700; color: #1A1A18; font-size: 28px; min-width: 80px; }
+  .slot-note { display: block; font-weight: 400; font-size: 16px; color: #6B6763; margin-top: 2px; }
+  .purpose { color: ${accent}; font-size: 22px; opacity: 0.8; }
+  .prescriber { font-size: 18px; color: #6B6763; }
+  .footer { margin-top: 1.5rem; padding: 0.75rem 2rem; border-top: 1px solid #E8E5DF; display: flex; justify-content: space-between; align-items: center; }
+  .footer-brand { font-family: 'Playfair Display', serif; font-size: 0.85rem; color: ${accentMid}; }
+  .footer-note { font-size: 11px; color: #B0ADA6; }
+  @media print {
+    @page { margin: 0; }
+    .person-header { position: fixed; top: 0; left: 0; right: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .content { margin-top: 90px; }
+    thead th { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="person-header">
+  <div class="header-left">
+    <svg width="40" height="40" viewBox="0 0 56 56" fill="none">
+      <g stroke="${accentMid}" stroke-width="1.5">
+        <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
+        <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
+        <line x1="6" y1="21" x2="28" y2="6"/>
+      </g>
+      <circle cx="28" cy="6" r="5" fill="${accentMid}"/>
+      <circle cx="50" cy="21" r="5" fill="${accentMid}"/>
+      <circle cx="42" cy="47" r="5" fill="${accentMid}"/>
+      <circle cx="14" cy="47" r="5" fill="${accentMid}"/>
+      <circle cx="6" cy="21" r="5" fill="${accentMid}"/>
+      <circle cx="28" cy="28" r="6" fill="${accent}" stroke="${accentMid}" stroke-width="1.5"/>
+    </svg>
+    <div>
+      <div class="brand-name">Take Five</div>
+      <div class="brand-tag">Medications &amp; Supplements \u00b7 takefive.care</div>
+    </div>
+  </div>
+  <div>
+    <div class="patient-name">${group.name}</div>
+    ${dob ? `<div class="patient-dob">DOB: ${dob}</div>` : ''}
+    <div class="updated">Updated: ${today}</div>
+  </div>
+</div>
+<div class="content">
+  <table>
+    <thead><tr>
+      <th>Medication / Supplement</th>
+      <th class="center">Morning</th>
+      <th class="center">Afternoon</th>
+      <th class="center">Evening</th>
+      <th>Prescriber</th>
+      <th>Purpose</th>
+    </tr></thead>
+    <tbody>${renderRows(activeRecs)}</tbody>
+  </table>
+  ${discSection}
+</div>
+<div class="footer">
+  <span class="footer-brand">Take Five \u00b7 ${ensembleName}</span>
+  <span class="footer-note">takefive.care</span>
+</div>
+<script>window.onload = () => window.print();<\/script>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+// ─ Medications add/edit ─
+
+function readSlot(prefix, time) {
+  const qty  = document.getElementById(`${prefix}-${time}-qty`).value;
+  const note = document.getElementById(`${prefix}-${time}-note`).value.trim();
+  if (!qty) return null;
+  return { qty: parseFloat(qty), note: note || null };
+}
+
+function writeSlot(prefix, time, slot) {
+  document.getElementById(`${prefix}-${time}-qty`).value  = slot?.qty  ?? '';
+  document.getElementById(`${prefix}-${time}-note`).value = slot?.note ?? '';
+}
+
+function medDataFromForm(prefix) {
+  return {
+    medication_name:  document.getElementById(`${prefix}-name`).value.trim(),
+    dosage:           document.getElementById(`${prefix}-dosage`).value.trim()         || null,
+    form:             document.getElementById(`${prefix}-form`).value                  || null,
+    morning:          readSlot(prefix, 'morning'),
+    afternoon:        readSlot(prefix, 'afternoon'),
+    evening:          readSlot(prefix, 'evening'),
+    indication:       document.getElementById(`${prefix}-indication`).value.trim()     || null,
+    prescriber:       document.getElementById(`${prefix}-prescriber`).value.trim()     || null,
+    date_prescribed:  document.getElementById(`${prefix}-date-prescribed`).value       || null,
+  };
+}
+
+async function saveMedication() {
+  const name = document.getElementById('med-name').value.trim();
+  if (!name) { toast('Medication name is required', true); return; }
+  const personId = document.getElementById('med-person-id').value;
+  if (!personId) { toast('Select a person first', true); return; }
+  const btn = document.getElementById('btn-save-medication');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(
+      `${BASE}/app/ensembles/${state.ensemble.id}/clinical-records?email=${email}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          person_id:     personId,
+          resource_type: 'MedicationStatement',
+          data:          medDataFromForm('med'),
+          notes:         document.getElementById('med-notes').value.trim() || null,
+          status:        document.getElementById('med-status').value,
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    toast(`${name} added`);
+    closeModal('modal-add-medication');
+    resetAddMedModal();
+    await loadHealthPanel();
+  } catch { toast('Failed to save medication', true); }
+  finally { btn.disabled = false; btn.textContent = 'Save medication'; }
+}
+
+function resetAddMedModal() {
+  ['med-name','med-dosage','med-indication','med-prescriber','med-notes','med-date-prescribed',
+   'med-morning-note','med-afternoon-note','med-evening-note'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['med-form','med-morning-qty','med-afternoon-qty','med-evening-qty'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const s = document.getElementById('med-status'); if (s) s.value = 'active';
+}
+
+function openEditMedModal(recordId) {
+  const rec = healthState.records.find(r => r.id === recordId);
+  if (!rec) { toast('Record not found', true); return; }
+  healthState.editingId = recordId;
+  const d = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+  document.getElementById('emed-name').value            = d.medication_name  || '';
+  document.getElementById('emed-dosage').value          = d.dosage           || '';
+  document.getElementById('emed-form').value            = d.form             || '';
+  document.getElementById('emed-indication').value      = d.indication       || '';
+  document.getElementById('emed-prescriber').value      = d.prescriber       || '';
+  document.getElementById('emed-date-prescribed').value = d.date_prescribed  || '';
+  document.getElementById('emed-notes').value           = rec.notes          || '';
+  document.getElementById('emed-status').value          = rec.status         || 'active';
+  writeSlot('emed', 'morning',   d.morning);
+  writeSlot('emed', 'afternoon', d.afternoon);
+  writeSlot('emed', 'evening',   d.evening);
+  openModal('modal-edit-medication');
+}
+
+async function updateMedication() {
+  const recordId = healthState.editingId; if (!recordId) return;
+  const name = document.getElementById('emed-name').value.trim();
+  if (!name) { toast('Medication name is required', true); return; }
+  const btn = document.getElementById('btn-update-medication');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(
+      `${BASE}/app/clinical-records/${recordId}?email=${email}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data:   medDataFromForm('emed'),
+          notes:  document.getElementById('emed-notes').value.trim() || null,
+          status: document.getElementById('emed-status').value,
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    toast(`${name} updated`);
+    closeModal('modal-edit-medication');
+    await loadHealthPanel();
+  } catch { toast('Failed to update medication', true); }
+  finally { btn.disabled = false; btn.textContent = 'Save changes'; }
+}
+
+// ─ Care team add/edit ─
+
+function openAddDoctorModal() {
+  healthState.selectedNpi = null;
+  // Reset all fields
+  ['npi-first','npi-last','ct-name','ct-credential','ct-specialty','ct-phone','ct-npi','ct-notes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('npi-results-area').innerHTML = '';
+  document.getElementById('npi-selected-area').style.display = 'none';
+  document.getElementById('npi-manual-area').style.display = '';
+  openModal('modal-add-doctor');
+}
+
+async function runNpiSearch() {
+  const first = document.getElementById('npi-first').value.trim();
+  const last  = document.getElementById('npi-last').value.trim();
+  if (!first || !last) { toast('Enter first and last name to search', true); return; }
+  const btn = document.getElementById('btn-npi-search');
+  btn.disabled = true; btn.textContent = 'Searching…';
+  const area = document.getElementById('npi-results-area');
+  area.innerHTML = '<div style="font-size:12px;color:var(--g400);padding:0.5rem 0;">Searching…</div>';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(
+      `${BASE}/app/npi/search?email=${email}&first_name=${encodeURIComponent(first)}&last_name=${encodeURIComponent(last)}`
+    );
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const results = data.results || [];
+    if (!results.length) {
+      area.innerHTML = '<div style="font-size:12px;color:var(--g400);padding:0.5rem 0;">No providers found. Try entering details manually below.</div>';
+    } else {
+      area.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--g400);margin-bottom:0.4rem;">Results — click to select</div>'
+        + results.map((r, i) => `
+        <div class="npi-result" id="npi-r-${i}" onclick="selectNpiResult(${i}, ${JSON.stringify(r).replace(/"/g,'&quot;')})">
+          <div class="npi-result-name">${r.name}${r.credential ? ', ' + r.credential : ''}</div>
+          <div class="npi-result-meta">${[r.specialty, r.city && r.state ? r.city+', '+r.state : ''].filter(Boolean).join(' · ')} · NPI ${r.npi}</div>
+        </div>`).join('');
+    }
+  } catch { area.innerHTML = '<div style="font-size:12px;color:var(--danger);padding:0.5rem 0;">Search failed. Enter details manually below.</div>'; }
+  finally { btn.disabled = false; btn.textContent = 'Search NPI registry'; }
+}
+
+function selectNpiResult(idx, result) {
+  // Deselect all, select clicked
+  document.querySelectorAll('.npi-result').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById(`npi-r-${idx}`);
+  if (el) el.classList.add('selected');
+  healthState.selectedNpi = result;
+  // Show selected summary
+  document.getElementById('npi-sel-name').textContent = result.name + (result.credential ? ', ' + result.credential : '');
+  document.getElementById('npi-sel-meta').textContent =
+    [result.specialty, result.phone, `NPI ${result.npi}`].filter(Boolean).join(' · ');
+  document.getElementById('npi-selected-area').style.display = '';
+  // Fill manual fields and hide them
+  document.getElementById('ct-name').value       = result.name;
+  document.getElementById('ct-credential').value = result.credential || '';
+  document.getElementById('ct-specialty').value  = result.specialty  || '';
+  document.getElementById('ct-phone').value       = result.phone      || '';
+  document.getElementById('ct-npi').value         = result.npi        || '';
+  document.getElementById('npi-manual-area').style.display = 'none';
+}
+
+async function saveDoctor() {
+  const personId = document.getElementById('ct-person-id').value;
+  if (!personId) { toast('Select a person first', true); return; }
+  const name = (healthState.selectedNpi?.name || document.getElementById('ct-name').value).trim();
+  if (!name) { toast('Provider name is required', true); return; }
+  const btn = document.getElementById('btn-save-doctor');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const sel = healthState.selectedNpi;
+  const doctorData = sel ? {
+    name:       sel.name,
+    credential: sel.credential || null,
+    specialty:  sel.specialty  || null,
+    npi:        sel.npi        || null,
+    phone:      sel.phone      || null,
+    address:    [sel.address, sel.city, sel.state].filter(Boolean).join(', ') || null,
+  } : {
+    name:       document.getElementById('ct-name').value.trim(),
+    credential: document.getElementById('ct-credential').value.trim() || null,
+    specialty:  document.getElementById('ct-specialty').value.trim()  || null,
+    npi:        document.getElementById('ct-npi').value.trim()        || null,
+    phone:      document.getElementById('ct-phone').value.trim()      || null,
+  };
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(
+      `${BASE}/app/ensembles/${state.ensemble.id}/clinical-records?email=${email}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          person_id:     personId,
+          resource_type: 'CareTeamMember',
+          data:          doctorData,
+          notes:         document.getElementById('ct-notes').value.trim() || null,
+          status:        'active',
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    toast(`${name} added to care team`);
+    closeModal('modal-add-doctor');
+    await loadHealthPanel();
+  } catch { toast('Failed to save provider', true); }
+  finally { btn.disabled = false; btn.textContent = 'Save provider'; }
+}
+
+function openEditDoctorModal(recordId) {
+  const rec = healthState.records.find(r => r.id === recordId);
+  if (!rec) { toast('Record not found', true); return; }
+  healthState.editingId = recordId;
+  const d = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+  document.getElementById('edt-name-display').textContent =
+    d.name + (d.credential ? ', ' + d.credential : '');
+  document.getElementById('edt-meta-display').textContent =
+    [d.specialty, d.phone, d.npi ? `NPI ${d.npi}` : ''].filter(Boolean).join(' · ');
+  document.getElementById('edt-status').value = rec.status || 'active';
+  document.getElementById('edt-notes').value  = rec.notes  || '';
+  openModal('modal-edit-doctor');
+}
+
+async function updateDoctor() {
+  const recordId = healthState.editingId; if (!recordId) return;
+  const btn = document.getElementById('btn-update-doctor');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    // Fetch the current record data so we can pass it back unchanged
+    const current = healthState.records.find(r => r.id === recordId);
+    const res = await fetch(
+      `${BASE}/app/clinical-records/${recordId}?email=${email}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data:   typeof current.data === 'string' ? JSON.parse(current.data) : current.data,
+          notes:  document.getElementById('edt-notes').value.trim() || null,
+          status: document.getElementById('edt-status').value,
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    toast('Provider updated');
+    closeModal('modal-edit-doctor');
+    await loadHealthPanel();
+  } catch { toast('Failed to update provider', true); }
+  finally { btn.disabled = false; btn.textContent = 'Save changes'; }
 }
 
 // ─── UTILS ───

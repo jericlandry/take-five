@@ -690,14 +690,18 @@ class TakeFiveRepository:
     def list_people_by_ensemble(self, ensemble_id: str) -> List[Dict]:
         query = """
             SELECT
-                id, ensemble_id, name,
-                type            AS p_type,
-                phone, email, aliases, notes,
-                external_id, timezone, created_at,
-                date_of_birth
-            FROM people
-            WHERE ensemble_id = %(ensemble_id)s
-            ORDER BY name;
+                p.id, p.ensemble_id, p.name,
+                p.type              AS p_type,
+                p.phone, p.email, p.aliases, p.notes,
+                p.external_id, p.timezone, p.created_at,
+                p.date_of_birth,
+                COALESCE(em.user_role, 'member') AS user_role
+            FROM people p
+            LEFT JOIN ensemble_memberships em
+                ON em.person_id = p.id
+               AND em.ensemble_id = %(ensemble_id)s
+            WHERE p.ensemble_id = %(ensemble_id)s
+            ORDER BY p.name;
         """
         return self._execute(query, {'ensemble_id': ensemble_id}, fetch='all')
 
@@ -992,6 +996,7 @@ class TakeFiveRepository:
         """
         return self._execute("""
             SELECT DISTINCT ON (cc.id)
+                m.id,
                 m.body,
                 m.sent_at,
                 cc.id   AS circle_id,
@@ -1003,6 +1008,48 @@ class TakeFiveRepository:
               AND m.message_type = 'digest'
             ORDER BY cc.id, m.sent_at DESC;
         """, {'ensemble_id': ensemble_id}, fetch='all')
+
+    def get_clinical_records_for_ensemble(
+        self, ensemble_id: str, resource_type: Optional[str] = None
+    ) -> List[Dict]:
+        """
+        Return clinical records for all seniors in the ensemble.
+        Optionally filtered by resource_type (e.g. 'MedicationStatement', 'CareTeamMember').
+        Used by the ensemble admin Health panel.
+        """
+        base = """
+            SELECT
+                cr.id,
+                cr.person_id,
+                cr.resource_type,
+                cr.data,
+                cr.notes,
+                cr.status,
+                cr.created_at,
+                cr.updated_at,
+                p.name AS person_name
+            FROM clinical_records cr
+            JOIN people p ON p.id = cr.person_id
+            JOIN circle_memberships cm ON cm.person_id = p.id
+            JOIN care_circles cc ON cc.id = cm.circle_id
+            WHERE cc.ensemble_id = %(ensemble_id)s
+              AND cm.role = 'senior'
+        """
+        params = {'ensemble_id': ensemble_id}
+        if resource_type:
+            base += " AND cr.resource_type = %(resource_type)s"
+            params['resource_type'] = resource_type
+        base += " ORDER BY p.name, cr.resource_type, cr.created_at;"
+        return self._execute(base, params, fetch='all')
+
+    def upsert_ensemble_membership(self, ensemble_id: str, person_id: str, user_role: str) -> Dict:
+        """Set or update a person's user role in an ensemble."""
+        return self._execute("""
+            INSERT INTO ensemble_memberships (ensemble_id, person_id, user_role)
+            VALUES (%(ensemble_id)s, %(person_id)s, %(user_role)s)
+            ON CONFLICT (ensemble_id, person_id) DO UPDATE SET user_role = EXCLUDED.user_role
+            RETURNING *;
+        """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'user_role': user_role})
 
     def get_medications_for_ensemble(self, ensemble_id: str) -> List[Dict]:
         """

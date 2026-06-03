@@ -19,6 +19,7 @@ from take_five.schemas import (
     CreateCircleMembershipRequest,
     CreateEnsembleRequest,
     CreateClinicalRecordRequest, UpdateClinicalRecordRequest,
+    UpdateEnsembleMembershipRequest,
     MessageRequest, DigestRequest,
 )
 from take_five.summaries import generate_weekly_digest
@@ -126,6 +127,19 @@ async def update_person(person_id: str, body: UpdatePersonRequest):
         date_of_birth=body.date_of_birth,
     )
     return {"person": row_to_dict(person)}
+
+
+@secure_router.put("/people/{person_id}/membership")
+async def update_person_membership(person_id: str, body: UpdateEnsembleMembershipRequest):
+    """Set or update a person's user role in an ensemble."""
+    if body.user_role not in ('admin', 'member'):
+        raise HTTPException(status_code=400, detail="user_role must be 'admin' or 'member'")
+    membership = repo.upsert_ensemble_membership(
+        ensemble_id=body.ensemble_id,
+        person_id=person_id,
+        user_role=body.user_role,
+    )
+    return {"membership": row_to_dict(membership)}
 
 @secure_router.get("/ensembles/{ensemble_id}/circles")
 async def get_care_circles(ensemble_id: str):
@@ -432,6 +446,97 @@ async def app_get_digests(
         raise HTTPException(status_code=403, detail="Forbidden")
     digests = repo.get_digest_history(ensemble_id)
     return {"digests": [row_to_dict(d) for d in (digests or [])]}
+
+
+@open_router.get("/app/ensembles/{ensemble_id}/clinical-records")
+async def app_get_clinical_records(
+    ensemble_id: str,
+    email: str = Query(...),
+    resource_type: Optional[str] = Query(None),
+):
+    """
+    Return clinical records (medications, care team) for all seniors
+    in the ensemble visible to the requester.
+    Readable by all members; writes are admin-only.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    records = repo.get_clinical_records_for_ensemble(
+        ensemble_id=ensemble_id,
+        resource_type=resource_type,
+    )
+    return {"records": [row_to_dict(r) for r in (records or [])]}
+
+
+@open_router.post("/app/ensembles/{ensemble_id}/clinical-records")
+async def app_create_clinical_record(
+    ensemble_id: str,
+    email: str = Query(...),
+    body: CreateClinicalRecordRequest = ...,
+):
+    """
+    Create a clinical record (medication or care team member) for a senior
+    in the ensemble. Admin-only.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    record = repo.save_clinical_record(
+        person_id=body.person_id,
+        resource_type=body.resource_type,
+        data=body.data,
+        notes=body.notes,
+        status=body.status,
+    )
+    return {"record": row_to_dict(record)}
+
+
+@open_router.put("/app/clinical-records/{record_id}")
+async def app_update_clinical_record(
+    record_id: str,
+    email: str = Query(...),
+    body: UpdateClinicalRecordRequest = ...,
+):
+    """
+    Update a clinical record. Admin-only. We verify admin via email lookup;
+    we trust that the record belongs to this ensemble since record_ids are UUIDs.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    record = repo.update_clinical_record(
+        record_id=record_id,
+        data=body.data,
+        notes=body.notes,
+        status=body.status,
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return {"record": row_to_dict(record)}
+
+
+@open_router.get("/app/npi/search")
+async def app_npi_search(
+    email: str = Query(...),
+    first_name: str = Query(...),
+    last_name: str = Query(...),
+    city: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+):
+    """
+    NPI registry search proxy for the ensemble admin page.
+    Requires a valid email (no admin check — members can look up providers).
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    results = await search_npi(first_name, last_name, city, state, enumeration_type="NPI-1")
+    return {"results": results}
 
 
 @open_router.get("/admin/{file_name}")

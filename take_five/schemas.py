@@ -63,6 +63,11 @@ class CreateClinicalRecordRequest(BaseModel):
     status: str = 'active'
 
 
+class UpdateEnsembleMembershipRequest(BaseModel):
+    ensemble_id: str
+    user_role: str  # 'admin' | 'member'
+
+
 class MessageRequest(BaseModel):
     circle_id: str
     message: str

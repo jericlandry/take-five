@@ -390,6 +390,7 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="form-row cols-2"><div class="field"><label>Full Name</label><input type="text" id="dp-name"/></div><div class="field"><label>Person Type</label><select id="dp-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="aide">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
         <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="dp-phone"/></div><div class="field"><label>Email</label><input type="email" id="dp-email"/></div></div>
         <div class="form-row cols-2"><div class="field"><label>Date of Birth</label><input type="date" id="dp-dob"/></div><div class="field"><label>External ID</label><input type="text" id="dp-ext-id"/></div></div>
+        <div class="form-row cols-2"><div class="field"><label>User Role</label><select id="dp-user-role"><option value="member">Member</option><option value="admin">Admin</option></select><div class="form-hint">Controls access to the family admin page.</div></div><div class="field"></div></div>
         <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="dp-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
         <div class="form-row"><div class="field"><label>Notes</label><textarea id="dp-notes"></textarea></div></div>
         <div class="form-actions"><button class="btn btn-primary" id="btn-dp-save" onclick="savePersonDetail()">Save Changes</button></div>
@@ -1126,6 +1127,7 @@ async function openPersonDetail(personId) {
   document.getElementById('dp-dob').value      = person.date_of_birth ? person.date_of_birth.slice(0,10) : '';
   document.getElementById('dp-aliases').value = (person.aliases || []).join(', ');
   document.getElementById('dp-notes').value   = person.notes || '';
+  document.getElementById('dp-user-role').value = person.user_role || 'member';
   switchPersonTab('profile');
   const isSenior = (person.p_type || person.type) === 'senior';
   document.getElementById('tab-clinical').style.display    = isSenior ? '' : 'none';
@@ -1147,24 +1149,31 @@ function switchPersonTab(tab) {
   if (tab === 'medications') loadMedications();
 }
 
-async function savePersonDetail() {
+function savePersonDetail() {
   const personId = state.detailPersonId; if (!personId) return;
-  const name    = document.getElementById('dp-name').value.trim();
-  const p_type  = document.getElementById('dp-type').value;
-  const phone   = document.getElementById('dp-phone').value.trim();
-  const email   = document.getElementById('dp-email').value.trim();
-  const dob     = document.getElementById('dp-dob').value || null;
-  const extId   = document.getElementById('dp-ext-id').value.trim() || null;
-  const aliases = document.getElementById('dp-aliases').value.trim().split(',').map(s=>s.trim()).filter(Boolean);
-  const notes   = document.getElementById('dp-notes').value.trim();
+  const name     = document.getElementById('dp-name').value.trim();
+  const p_type   = document.getElementById('dp-type').value;
+  const phone    = document.getElementById('dp-phone').value.trim();
+  const email    = document.getElementById('dp-email').value.trim();
+  const dob      = document.getElementById('dp-dob').value || null;
+  const extId    = document.getElementById('dp-ext-id').value.trim() || null;
+  const aliases  = document.getElementById('dp-aliases').value.trim().split(',').map(s=>s.trim()).filter(Boolean);
+  const notes    = document.getElementById('dp-notes').value.trim();
+  const userRole = document.getElementById('dp-user-role').value;
   if (!name) { toast('Name is required', true); return; }
   setLoading('btn-dp-save', true);
-  const data = await api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId, date_of_birth: dob });
-  setLoading('btn-dp-save', false);
-  if (!data) return;
-  toast(`${name} updated`); await loadPeople();
-  document.getElementById('detail-name').textContent = name;
-  document.getElementById('detail-meta').textContent = [p_type, phone, email].filter(Boolean).join(' · ');
+  Promise.all([
+    api('PUT', `/people/${personId}`, { name, p_type, phone, email, aliases, notes, external_id: extId, date_of_birth: dob }),
+    api('PUT', `/people/${personId}/membership`, { ensemble_id: state.activeEnsembleId, user_role: userRole }),
+  ]).then(([personData]) => {
+    setLoading('btn-dp-save', false);
+    if (!personData) return;
+    toast(`${name} updated`);
+    // Update local state
+    const idx = state.people.findIndex(p => p.id === personId);
+    if (idx !== -1) { state.people[idx] = { ...state.people[idx], ...personData.person, user_role: userRole }; }
+    renderPeople();
+  }).catch(() => { setLoading('btn-dp-save', false); toast('Save failed', true); });
 }
 
 // ─── CARE TEAM ───
