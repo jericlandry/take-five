@@ -54,6 +54,8 @@ app.add_middleware(
         "http://127.0.0.1:10000",
         "http://0.0.0.0:10000",
         "https://take-five.onrender.com",
+        "https://app.takefive.care",
+        "https://app.takefivecare.com",
         "https://takefive.care",
         "https://www.takefive.care",
     ],
@@ -528,7 +530,7 @@ async def app_invite_person(
         care_role=body.care_role,
         user_role=body.user_role,
     )
-    invite_url = f"https://take-five.onrender.com/admin/takefive-ensemble-admin.html?email={body.email}"
+    invite_url = f"https://app.takefive.care?email={body.email}"
     return {"person": row_to_dict(person), "invite_url": invite_url}
 
 
@@ -715,6 +717,10 @@ async def app_sms_invite(
     logger.info(f"[sms-invite] Sent to {person['name']} ({person['phone']}) for circle {circle_name}")
     return {"sent": True, "to": person["phone"], "person": person["name"]}
 
+
+@open_router.get("/")
+async def serve_app():
+    return FileResponse('admin/takefive-ensemble-admin.html')
 
 @open_router.get("/admin/{file_name}")
 async def read_admin(file_name: str):
