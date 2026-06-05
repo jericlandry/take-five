@@ -114,7 +114,7 @@ tbody tr:last-child td { border-bottom: none; }
 .pill-senior { background: var(--t50); color: var(--t800); }
 .pill-family { background: #EEEDFE; color: #3C3489; }
 .pill-caregiver { background: var(--amber-bg); color: var(--amber-dk); }
-.pill-professional { background: var(--info-bg); color: var(--info); }
+.pill-friend { background: var(--info-bg); color: var(--info); }
 .pill-person { background: var(--cream); color: var(--g600); border: 1px solid var(--g200); }
 .avatar { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 .av-teal { background: var(--t50); color: var(--t800); }
@@ -387,7 +387,7 @@ tbody tr:last-child td { border-bottom: none; }
     <div id="person-tab-profile">
       <div class="card">
         <div class="card-title">Profile</div>
-        <div class="form-row cols-2"><div class="field"><label>Full Name</label><input type="text" id="dp-name"/></div><div class="field"><label>Person Type</label><select id="dp-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="aide">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
+        <div class="form-row cols-2"><div class="field"><label>Full Name</label><input type="text" id="dp-name"/></div><div class="field"><label>Person Type</label><select id="dp-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="friend">Friend / neighbor</option><option value="caregiver">Caregiver</option><option value="bot">Bot / System</option></select></div></div>
         <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="dp-phone"/></div><div class="field"><label>Email</label><input type="email" id="dp-email"/></div></div>
         <div class="form-row cols-2"><div class="field"><label>Date of Birth</label><input type="date" id="dp-dob"/></div><div class="field"><label>External ID</label><input type="text" id="dp-ext-id"/></div></div>
         <div class="form-row cols-2"><div class="field"><label>User Role</label><select id="dp-user-role"><option value="member">Member</option><option value="admin">Admin</option></select><div class="form-hint">Controls access to the family admin page.</div></div><div class="field"></div></div>
@@ -438,7 +438,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- Add Person -->
 <div class="modal-backdrop" id="modal-add-person"><div class="modal"><div class="modal-header"><div class="modal-title">Add Person</div><button class="modal-close" onclick="closeModal('modal-add-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"><label>Person Type *</label><select id="person-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="aide">Caregiver / Aide</option><option value="professional">Professional (nurse, doctor)</option><option value="bot">Bot / System</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"><label>Person Type *</label><select id="person-type"><option value="senior">Senior (care recipient)</option><option value="family">Family member</option><option value="friend">Friend / neighbor</option><option value="caregiver">Caregiver</option><option value="bot">Bot / System</option></select></div></div>
 <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="person-phone" placeholder="+1 555 000 0000"/></div><div class="field"><label>Email</label><input type="email" id="person-email" placeholder="name@example.com"/></div></div>
 <div class="form-row"><div class="field"><label>External ID</label><input type="text" id="person-ext-id" placeholder="groupme:12345678"/><div class="form-hint">Format: groupme:sender_id</div></div></div>
 <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
@@ -448,7 +448,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- Edit Person -->
 <div class="modal-backdrop" id="modal-edit-person"><div class="modal"><div class="modal-header"><div class="modal-title">Edit Person</div><button class="modal-close" onclick="closeModal('modal-edit-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="edit-person-name"/></div><div class="field"><label>Person Type *</label><select id="edit-person-type"><option value="senior">Senior</option><option value="family">Family member</option><option value="aide">Caregiver / Aide</option><option value="professional">Professional</option><option value="bot">Bot / System</option></select></div></div>
+<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="edit-person-name"/></div><div class="field"><label>Person Type *</label><select id="edit-person-type"><option value="senior">Senior</option><option value="family">Family member</option><option value="friend">Friend / neighbor</option><option value="caregiver">Caregiver</option><option value="bot">Bot / System</option></select></div></div>
 <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="edit-person-phone"/></div><div class="field"><label>Email</label><input type="email" id="edit-person-email"/></div></div>
 <div class="form-row"><div class="field"><label>External ID</label><input type="text" id="edit-person-ext-id"/></div></div>
 <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="edit-person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
@@ -475,7 +475,7 @@ tbody tr:last-child td { border-bottom: none; }
 <!-- Add Member to Circle -->
 <div class="modal-backdrop" id="modal-add-member"><div class="modal"><div class="modal-header"><div class="modal-title">Add Member to Circle</div><button class="modal-close" onclick="closeModal('modal-add-member')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 <div class="field" style="margin-bottom:0.75rem;"><label>Select Person</label><div class="member-pick" id="member-pick-list"></div></div>
-<div class="field" style="margin-bottom:0;"><label>Role in this Circle *</label><select id="member-role"><option value="senior">Senior (care recipient)</option><option value="family">Family</option><option value="caregiver">Caregiver / Aide</option><option value="professional">Professional</option></select></div>
+<div class="field" style="margin-bottom:0;"><label>Role in this Circle *</label><select id="member-role"><option value="senior">Senior (care recipient)</option><option value="family">Family</option><option value="friend">Friend / neighbor</option><option value="caregiver">Caregiver</option></select></div>
 <div class="form-actions"><button class="btn btn-primary" id="btn-add-member" onclick="addMember()">Add to Circle</button><button class="btn btn-ghost" onclick="closeModal('modal-add-member')">Cancel</button></div>
 </div></div>
 
@@ -637,9 +637,9 @@ function showPage(name) {
   });
 }
 
-function avatarColor(type) { return { senior:'av-teal', family:'av-purple', caregiver:'av-amber', professional:'av-teal', bot:'av-gray' }[type] || 'av-gray'; }
+function avatarColor(type) { return { senior:'av-teal', family:'av-purple', friend:'av-teal', caregiver:'av-amber', bot:'av-gray' }[type] || 'av-gray'; }
 function initials(name) { return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
-function rolePill(role) { const cls = { senior:'pill-senior', family:'pill-family', caregiver:'pill-caregiver', professional:'pill-professional' }[role] || 'pill-role'; return `<span class="pill ${cls}">${role}</span>`; }
+function rolePill(role) { const cls = { senior:'pill-senior', family:'pill-family', friend:'pill-friend', caregiver:'pill-caregiver' }[role] || 'pill-role'; return `<span class="pill ${cls}">${role}</span>`; }
 function statusPill(s) { const cls = { active:'pill-active', trial:'pill-trial', archived:'pill-inactive' }[s] || 'pill-inactive'; return `<span class="pill ${cls}">${s}</span>`; }
 
 // ─── ENSEMBLES ───

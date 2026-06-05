@@ -120,7 +120,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .pill-care.senior { background: var(--t800); color: var(--t100); }
 .pill-care.family { background: var(--t50); color: var(--t600); }
 .pill-care.caregiver { background: var(--amber-bg); color: var(--amber-dk); }
-.pill-care.professional { background: #EEF0FB; color: #3949AB; }
+.pill-care.friend { background: #EEF0FB; color: #3949AB; }
 .pill-user.admin { background: var(--t800); color: var(--t300); }
 .pill-user.member { background: var(--g200); color: var(--g600); }
 .pill-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
@@ -417,8 +417,8 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <button class="tab active" onclick="filterPeople('all', this)">All</button>
         <button class="tab" onclick="filterPeople('senior', this)">Seniors</button>
         <button class="tab" onclick="filterPeople('family', this)">Family</button>
+        <button class="tab" onclick="filterPeople('friend', this)">Friends</button>
         <button class="tab" onclick="filterPeople('caregiver', this)">Caregivers</button>
-        <button class="tab" onclick="filterPeople('professional', this)">Professional</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <table class="people-table">
@@ -641,8 +641,8 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <select class="form-input" id="invite-care-role">
           <option value="family">Family</option>
           <option value="senior">Senior</option>
+          <option value="friend">Friend</option>
           <option value="caregiver">Caregiver</option>
-          <option value="professional">Professional</option>
         </select>
       </div>
       <div class="form-group">
@@ -679,8 +679,8 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <select class="form-input" id="edit-care-role">
           <option value="family">Family</option>
           <option value="senior">Senior</option>
+          <option value="friend">Friend</option>
           <option value="caregiver">Caregiver</option>
-          <option value="professional">Professional</option>
         </select>
       </div>
       <div class="form-group">
@@ -1674,7 +1674,7 @@ function loadDemo() {
     { id: 'p2', name: 'Eric Landry', email: 'jericlandry@gmail.com', phone: '(512) 555-0102', care_role: 'family', user_role: 'admin', circle_id: 'c1' },
     { id: 'p3', name: 'Marie Landry', email: 'marie@gmail.com', phone: '(512) 555-0103', care_role: 'family', user_role: 'member', circle_id: 'c1' },
     { id: 'p4', name: 'Rosa Gutierrez', email: 'rosa@care.com', phone: '(512) 555-0104', care_role: 'caregiver', user_role: 'member', circle_id: 'c1' },
-    { id: 'p5', name: 'Dr. Patricia Yiou', email: 'pyiou@clinic.com', phone: null, care_role: 'professional', user_role: 'member', circle_id: 'c1' },
+    { id: 'p5', name: 'Dr. Patricia Yiou', email: 'pyiou@clinic.com', phone: null, care_role: 'caregiver', user_role: 'member', circle_id: 'c1' },
     { id: 'p6', name: 'Robert Landry', email: 'robert@gmail.com', phone: '(512) 555-0105', care_role: 'senior', user_role: 'member', circle_id: 'c2' },
   ];
   state.activity = [
@@ -1785,7 +1785,7 @@ function populateHealthPersonSelects() {
 function schedCell(slot) {
   if (!slot || !slot.qty) return '<span style="color:var(--g400);">—</span>';
   const qty = parseFloat(slot.qty);
-  const label = qty === 1 ? 'X' : `X (${qty})`;
+  const label = qty === 1 ? 'X' : `X (${qty})`;
   const note = slot.note
     ? `<span class="sched-note">${slot.note}</span>` : '';
   return `<span class="sched-cell">${label}</span>${note}`;
