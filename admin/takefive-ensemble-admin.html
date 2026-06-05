@@ -1561,6 +1561,7 @@ async function savePersonModal() {
   if (!personId) { toast('Missing person context', true); return; }
 
   const name      = document.getElementById('edit-name').value.trim();
+  const p_type    = document.getElementById('edit-care-role').value;
   const phone     = document.getElementById('edit-phone').value.trim() || null;
   const email     = document.getElementById('edit-email').value.trim() || null;
   const aliases   = document.getElementById('edit-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
@@ -1577,7 +1578,7 @@ async function savePersonModal() {
     const personRes = await fetch(`${BASE}/app/people/${personId}?email=${callerEmail}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, email, aliases }),
+      body: JSON.stringify({ name, p_type, phone, email, aliases }),
     });
     if (!personRes.ok) throw new Error(await personRes.text());
 

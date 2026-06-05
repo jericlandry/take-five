@@ -453,6 +453,7 @@ async def app_update_person(
     person = repo.update_person(
         person_id=person_id,
         name=body.name,
+        p_type=body.p_type,
         phone=body.phone,
         email=body.email,
         aliases=body.aliases,
@@ -518,7 +519,7 @@ async def app_invite_person(
         raise HTTPException(status_code=403, detail="Admin only")
     if body.user_role not in ('admin', 'member'):
         raise HTTPException(status_code=400, detail="user_role must be 'admin' or 'member'")
-    if body.care_role not in ('senior', 'family', 'caregiver', 'professional'):
+    if body.care_role not in ('senior', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid care_role")
 
     person = repo.invite_person_to_ensemble(
