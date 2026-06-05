@@ -99,14 +99,13 @@ class TakeFiveRepository:
     def get_person_by_id(self, person_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM people WHERE id = %s;", (person_id,))
 
-    def update_person(self, person_id: str, name: Optional[str] = None, p_type: Optional[str] = None,
+    def update_person(self, person_id: str, name: Optional[str] = None,
                         phone: Optional[str] = None, email: Optional[str] = None,
                         aliases: Optional[List[str]] = None, notes: Optional[str] = None,
                         external_id: Optional[str] = None, date_of_birth: Optional[str] = None) -> Dict:
         query = """
             UPDATE people SET
                 name          = COALESCE(%(name)s, name),
-                type          = COALESCE(%(type)s, type),
                 phone         = COALESCE(%(phone)s, phone),
                 email         = COALESCE(%(email)s, email),
                 aliases       = COALESCE(%(aliases)s, aliases),
@@ -117,21 +116,21 @@ class TakeFiveRepository:
             RETURNING *;
         """
         return self._execute(query, {
-            'id': person_id, 'name': name, 'type': p_type,
+            'id': person_id, 'name': name,
             'phone': phone, 'email': email,
             'aliases': aliases, 'notes': notes,
             'external_id': external_id,
             'date_of_birth': date_of_birth,
         })
 
-    def add_person_to_ensemble(self, ensemble_id: str, name: str, p_type: str, **kwargs) -> Dict:
+    def add_person_to_ensemble(self, ensemble_id: str, name: str, **kwargs) -> Dict:
         query = """
-            INSERT INTO people (ensemble_id, name, type, phone, email, timezone, aliases, notes, external_id, date_of_birth)
-            VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s, %(dob)s)
+            INSERT INTO people (ensemble_id, name, phone, email, timezone, aliases, notes, external_id, date_of_birth)
+            VALUES (%(ensemble_id)s, %(name)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s, %(dob)s)
             RETURNING *;
         """
         return self._execute(query, {
-            'ensemble_id': ensemble_id, 'name': name, 'type': p_type,
+            'ensemble_id': ensemble_id, 'name': name,
             'phone': kwargs.get('phone'), 'email': kwargs.get('email'),
             'tz': kwargs.get('timezone', 'America/Chicago'),
             'aliases': kwargs.get('aliases', []), 'notes': kwargs.get('notes'),
@@ -211,7 +210,6 @@ class TakeFiveRepository:
             SELECT
                 p.id,
                 p.name          AS member_name,
-                p.type          AS p_type,
                 p.phone,
                 p.email,
                 p.aliases       AS person_aliases,
@@ -229,7 +227,7 @@ class TakeFiveRepository:
                AND m.person_id = p.id
                AND m.direction = 'inbound'
             WHERE c.id = %(circle_id)s
-            GROUP BY p.id, p.name, p.type, p.phone, p.email,
+            GROUP BY p.id, p.name, p.phone, p.email,
                      p.aliases, p.notes, p.external_id,
                      cm.role, c.name
             ORDER BY cm.role, msg_count DESC
@@ -270,6 +268,12 @@ class TakeFiveRepository:
         return self._execute(query, {
             'circle_id': circle_id, 'person_id': person_id, 'role': role
         })
+
+    def remove_person_from_circle(self, circle_id: str, person_id: str) -> None:
+        self._execute("""
+            DELETE FROM circle_memberships
+            WHERE circle_id = %(circle_id)s AND person_id = %(person_id)s;
+        """, {'circle_id': circle_id, 'person_id': person_id}, fetch='all')
 
     # --- MESSAGES ---
 
@@ -691,7 +695,6 @@ class TakeFiveRepository:
         query = """
             SELECT
                 p.id, p.ensemble_id, p.name,
-                p.type              AS p_type,
                 p.phone, p.email, p.aliases, p.notes,
                 p.external_id, p.timezone, p.created_at,
                 p.date_of_birth,
@@ -902,7 +905,6 @@ class TakeFiveRepository:
                     p.email,
                     p.phone,
                     p.aliases,
-                    p.type                              AS p_type,
                     COALESCE(em.user_role, 'member')    AS user_role,
                     cm.role                             AS care_role,
                     cm.circle_id,
@@ -925,7 +927,6 @@ class TakeFiveRepository:
                     p.email,
                     p.phone,
                     p.aliases,
-                    p.type          AS p_type,
                     em_target.user_role,
                     cm.role         AS care_role,
                     cm.circle_id,
@@ -1082,13 +1083,12 @@ class TakeFiveRepository:
                 else:
                     # 2. Create the person
                     cur.execute("""
-                        INSERT INTO people (ensemble_id, name, type, email, phone)
-                        VALUES (%(ensemble_id)s, %(name)s, %(type)s, %(email)s, %(phone)s)
+                        INSERT INTO people (ensemble_id, name, email, phone)
+                        VALUES (%(ensemble_id)s, %(name)s, %(email)s, %(phone)s)
                         RETURNING *;
                     """, {
                         'ensemble_id': ensemble_id,
                         'name':        name,
-                        'type':        care_role,
                         'email':       email,
                         'phone':       phone,
                     })

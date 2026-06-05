@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 class CreatePersonRequest(BaseModel):
     name: str
-    p_type: str
     phone: Optional[str] = None
     email: Optional[str] = None
     aliases: Optional[List[str]] = None
@@ -17,7 +16,6 @@ class CreatePersonRequest(BaseModel):
 
 class UpdatePersonRequest(BaseModel):
     name: Optional[str] = None
-    p_type: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
     aliases: Optional[List[str]] = None
@@ -33,7 +31,8 @@ class CreateCareCircleRequest(BaseModel):
 
 
 class CreateCircleMembershipRequest(BaseModel):
-    role: str  # senior | family | caregiver | professional
+    role: str  # senior | family | friend | caregiver
+    person_id: Optional[str] = None
 
 
 class UpdateCareCircleRequest(BaseModel):
@@ -67,7 +66,7 @@ class InvitePersonRequest(BaseModel):
     name: str
     email: str
     phone: Optional[str] = None
-    care_role: str = 'family'   # senior | family | caregiver | professional
+    care_role: str = 'family'   # senior | family | friend | caregiver
     user_role: str = 'member'   # admin | member
     circle_id: str
 

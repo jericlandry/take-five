@@ -308,6 +308,10 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <svg viewBox="0 0 16 16"><circle cx="6" cy="5" r="3"/><path d="M1 14c0-3 2-4.5 5-4.5s5 1.5 5 4.5"/><circle cx="12" cy="5" r="2"/><path d="M14 13c0-2-1-3.5-2-3.5"/></svg>
         People
       </button>
+      <button class="sidebar-item" id="nav-circles" onclick="showPanel('circles')">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
+        Circles
+      </button>
       <button class="sidebar-item" id="nav-health" onclick="showPanel('health')" style="display:none;">
         <svg viewBox="0 0 16 16"><path d="M8 2a3 3 0 00-3 3c0 1.5.7 2.5 1.5 3.5L8 10l1.5-1.5C10.3 7.5 11 6.5 11 5a3 3 0 00-3-3z"/><path d="M3 13c0-2 2-3 5-3s5 1 5 3"/></svg>
         Health
@@ -425,7 +429,6 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
           <thead>
             <tr>
               <th>Person</th>
-              <th>Care role</th>
               <th>User role</th>
               <th>Circle</th>
               <th>Contact</th>
@@ -435,6 +438,49 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
           <tbody id="people-tbody">
             <tr><td colspan="6"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr>
           </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CIRCLES PANEL -->
+    <div class="panel" id="panel-circles" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Circles</div>
+          <div class="page-sub">Care circles and their members.</div>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="people-table" id="circles-table">
+          <thead><tr><th>Circle</th><th>Status</th><th>Members</th><th>Integration</th><th></th></tr></thead>
+          <tbody id="circles-tbody"><tr><td colspan="5"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CIRCLE DETAIL PANEL -->
+    <div class="panel" id="panel-circle-detail" style="display:none;">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.5rem;">
+        <button class="btn btn-ghost btn-sm" onclick="showPanel('circles')">
+          <svg viewBox="0 0 14 14" style="width:12px;height:12px;"><path d="M9 2L4 7l5 5"/></svg>
+          Circles
+        </button>
+        <span style="font-size:12px;color:var(--g400);">›</span>
+        <span style="font-size:13px;color:var(--text);font-weight:700;" id="circle-detail-name">—</span>
+      </div>
+      <div class="page-header">
+        <div>
+          <div class="page-sub" id="circle-detail-sub">—</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-circle-member" onclick="openAddCircleMemberModal()" style="display:none;">
+          <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
+          Add member
+        </button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="people-table">
+          <thead><tr><th>Person</th><th>Role</th><th>Contact</th><th>Last active</th><th></th></tr></thead>
+          <tbody id="circle-roster-tbody"><tr><td colspan="5"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -601,6 +647,53 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
   </main>
 </div>
 
+<!-- MODAL: Add Circle Member -->
+<div class="modal-backdrop" id="modal-add-circle-member">
+  <div class="modal">
+    <div class="modal-title">Add member to circle</div>
+    <div class="form-group">
+      <label class="form-label">Person</label>
+      <select class="form-input" id="acm-person-id"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Role</label>
+      <select class="form-input" id="acm-role">
+        <option value="family">Family</option>
+        <option value="senior">Senior</option>
+        <option value="friend">Friend</option>
+        <option value="caregiver">Caregiver</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-circle-member')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-circle-member" onclick="saveCircleMember()">Add to circle</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Circle Member Role -->
+<div class="modal-backdrop" id="modal-edit-circle-member">
+  <div class="modal">
+    <div class="modal-title" id="ecm-title">Edit role</div>
+    <div class="form-group">
+      <label class="form-label">Role</label>
+      <select class="form-input" id="ecm-role">
+        <option value="family">Family</option>
+        <option value="senior">Senior</option>
+        <option value="friend">Friend</option>
+        <option value="caregiver">Caregiver</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-remove-circle-member" onclick="removeCircleMember()">Remove from circle</button>
+      <div style="display:flex;gap:0.75rem;">
+        <button class="btn btn-ghost" onclick="closeModal('modal-edit-circle-member')">Cancel</button>
+        <button class="btn btn-primary" id="btn-update-circle-member" onclick="updateCircleMemberRole()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Add Circle -->
 <div class="modal-backdrop" id="modal-add-circle">
   <div class="modal">
@@ -673,23 +766,12 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <label class="form-label">Name</label>
       <input class="form-input" id="edit-name" type="text"/>
     </div>
-    <div class="form-row-2">
-      <div class="form-group">
-        <label class="form-label">Care role</label>
-        <select class="form-input" id="edit-care-role">
-          <option value="family">Family</option>
-          <option value="senior">Senior</option>
-          <option value="friend">Friend</option>
-          <option value="caregiver">Caregiver</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">User role</label>
-        <select class="form-input" id="edit-user-role">
-          <option value="member">Member</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>
+    <div class="form-group">
+      <label class="form-label">User role</label>
+      <select class="form-input" id="edit-user-role">
+        <option value="member">Member</option>
+        <option value="admin">Admin</option>
+      </select>
     </div>
     <div class="form-group">
       <label class="form-label">Email</label>
@@ -1204,7 +1286,7 @@ function renderCircles() {
       </div>
       <div class="circle-footer">
         <span class="circle-footer-stat"><strong>${members.length}</strong> member${members.length !== 1 ? 's' : ''}</span>
-        <button class="btn btn-ghost btn-sm" onclick="showPanel('people')">View people</button>
+        <button class="btn btn-ghost btn-sm" onclick="openCircleDetail('${c.id}', '${c.name.replace(/'/g, "&#39;")}')">Open circle →</button>
       </div>
     </div>`;
   }).join('');
@@ -1285,12 +1367,11 @@ function renderPeople(filter) {
         <div class="person-avatar ${p.care_role === 'senior' ? 'senior' : ''}">${initials(p.name)}</div>
         <div><div class="person-name">${p.name}</div><div class="person-email">${p.email || '—'}</div></div>
       </div></td>
-      <td><span class="pill pill-care ${p.care_role}"><span class="pill-dot"></span>${capitalize(p.care_role)}</span></td>
       <td><span class="pill pill-user ${p.user_role || 'member'}">${capitalize(p.user_role || 'member')}</span></td>
       <td style="font-size:12px;color:var(--g600);">${circleName}</td>
       <td style="font-size:12px;color:var(--g600);">${p.phone || p.email || '—'}</td>
       <td>${isAdmin ? `<div style="display:flex;gap:0.4rem;">
-        <button class="btn btn-ghost btn-sm" onclick='openPersonModal(${JSON.stringify(p)})'>Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick='openPersonModalById("${p.id}")'>Edit</button>
         ${p.phone && hasSmsCircle ? `<button class="btn btn-ghost btn-sm" onclick='sendSmsInvite("${p.id}", "${p.name}", "${p.phone}")' title="Send SMS invite">SMS invite</button>` : ''}
       </div>` : ''}</td>
     </tr>`;
@@ -1514,11 +1595,12 @@ function renderSettings() {
 
 // ─── PANEL NAV ───
 function showPanel(name) {
-  ['overview','people','health','activity','digests','settings'].forEach(p => {
+  ['overview','people','circles','circle-detail','health','activity','digests','settings'].forEach(p => {
     document.getElementById(`panel-${p}`).style.display = p === name ? '' : 'none';
     const nav = document.getElementById(`nav-${p}`);
     if (nav) nav.classList.toggle('active', p === name);
   });
+  if (name === 'circles') renderCirclesPanel();
   if (name === 'digests' && !state.digestHistory.length) loadDigests();
   if (name === 'health') loadHealthPanel();
 }
@@ -1530,10 +1612,15 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
   el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
 });
 
+function openPersonModalById(id) {
+  const p = state.allPeople.find(p => p.id === id);
+  if (!p) { toast('Person not found', true); return; }
+  openPersonModal(p);
+}
+
 function openPersonModal(p) {
   document.getElementById('modal-person-title').textContent = p.name;
   document.getElementById('edit-name').value        = p.name || '';
-  document.getElementById('edit-care-role').value   = p.care_role || 'family';
   document.getElementById('edit-user-role').value   = p.user_role || 'member';
   document.getElementById('edit-email').value       = p.email || '';
   document.getElementById('edit-phone').value       = p.phone || '';
@@ -1561,7 +1648,6 @@ async function savePersonModal() {
   if (!personId) { toast('Missing person context', true); return; }
 
   const name      = document.getElementById('edit-name').value.trim();
-  const p_type    = document.getElementById('edit-care-role').value;
   const phone     = document.getElementById('edit-phone').value.trim() || null;
   const email     = document.getElementById('edit-email').value.trim() || null;
   const aliases   = document.getElementById('edit-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
@@ -1578,7 +1664,7 @@ async function savePersonModal() {
     const personRes = await fetch(`${BASE}/app/people/${personId}?email=${callerEmail}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, p_type, phone, email, aliases }),
+      body: JSON.stringify({ name, phone, email, aliases }),
     });
     if (!personRes.ok) throw new Error(await personRes.text());
 
@@ -2398,6 +2484,161 @@ async function sendSmsInvite(personId, personName, phone) {
   } catch (e) {
     toast(`Failed: ${e.message}`, true);
   }
+}
+
+// ─── CIRCLES PANEL ───
+const circleState = { currentCircleId: null, currentCircleName: null, roster: [], editingPersonId: null };
+
+function renderCirclesPanel() {
+  const tbody = document.getElementById('circles-tbody');
+  if (!state.circles.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No circles yet</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.circles.map(c => {
+    const members = state.allPeople.filter(p => p.circle_id === c.id);
+    const gm = c.integration_config?.groupme_bot_id;
+    const sms = c.integration_config?.twilio_number;
+    const integrations = [gm ? 'GroupMe' : null, sms ? 'SMS' : null].filter(Boolean).join(', ') || '—';
+    return `<tr>
+      <td><strong style="color:var(--t800);">${c.name}</strong></td>
+      <td><span class="pill ${c.status === 'active' ? 'pill-active' : 'pill-inactive'}">${capitalize(c.status)}</span></td>
+      <td style="font-size:13px;color:var(--g600);">${members.length}</td>
+      <td style="font-size:12px;color:var(--g600);">${integrations}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openCircleDetail('${c.id}', '${c.name.replace(/'/g, "&#39;")}')">Open →</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openCircleDetail(circleId, circleName) {
+  circleState.currentCircleId = circleId;
+  circleState.currentCircleName = circleName;
+  document.getElementById('circle-detail-name').textContent = circleName;
+  const circle = state.circles.find(c => c.id === circleId);
+  const seniors = (state.allPeople.filter(p => p.circle_id === circleId && p.care_role === 'senior')).map(s => s.name).join(' & ');
+  document.getElementById('circle-detail-sub').textContent = seniors || 'No seniors assigned';
+  document.getElementById('btn-add-circle-member').style.display = state.userRole === 'admin' ? '' : 'none';
+  showPanel('circle-detail');
+  document.getElementById('nav-circles').classList.add('active');
+  await loadCircleRoster();
+}
+
+async function loadCircleRoster() {
+  const circleId = circleState.currentCircleId;
+  const email = encodeURIComponent(state.person.email);
+  try {
+    const res = await fetch(`${BASE}/app/circles/${circleId}/roster?email=${email}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    circleState.roster = data.roster || [];
+  } catch {
+    circleState.roster = [];
+  }
+  renderCircleRoster();
+}
+
+function renderCircleRoster() {
+  const tbody = document.getElementById('circle-roster-tbody');
+  const isAdmin = state.userRole === 'admin';
+  if (!circleState.roster.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div><div class="empty-sub">Add someone to get started</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = circleState.roster.map(m => {
+    const lastActive = m.last_active
+      ? new Date(m.last_active).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '—';
+    return `<tr>
+      <td><div class="person-name-cell">
+        <div class="person-avatar ${m.person_role === 'senior' ? 'senior' : ''}">${initials(m.member_name || '?')}</div>
+        <div class="person-name">${m.member_name || '—'}</div>
+      </div></td>
+      <td><span class="pill pill-care ${m.person_role}"><span class="pill-dot"></span>${capitalize(m.person_role)}</span></td>
+      <td style="font-size:12px;color:var(--g600);">${m.phone || '—'}</td>
+      <td style="font-size:12px;color:var(--g600);">${lastActive}</td>
+      <td>${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick='openEditCircleMember("${m.id}", "${m.member_name?.replace(/"/g, '&quot;')}", "${m.person_role}")'>Edit role</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddCircleMemberModal() {
+  // Populate with ensemble people not already in this circle
+  const inCircle = new Set(circleState.roster.map(m => m.id));
+  const available = state.allPeople.filter(p => !inCircle.has(p.id));
+  const select = document.getElementById('acm-person-id');
+  if (!available.length) {
+    toast('Everyone in the ensemble is already in this circle', true);
+    return;
+  }
+  select.innerHTML = available.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  document.getElementById('acm-role').value = 'family';
+  openModal('modal-add-circle-member');
+}
+
+async function saveCircleMember() {
+  const personId = document.getElementById('acm-person-id').value;
+  const role     = document.getElementById('acm-role').value;
+  if (!personId) { toast('Select a person', true); return; }
+  const btn = document.getElementById('btn-save-circle-member');
+  btn.disabled = true; btn.textContent = 'Adding…';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(`${BASE}/app/circles/${circleState.currentCircleId}/members?email=${email}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ person_id: personId, role }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    toast('Member added');
+    closeModal('modal-add-circle-member');
+    await loadCircleRoster();
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = 'Add to circle'; }
+}
+
+function openEditCircleMember(personId, name, currentRole) {
+  circleState.editingPersonId = personId;
+  document.getElementById('ecm-title').textContent = `Edit role — ${name}`;
+  document.getElementById('ecm-role').value = currentRole;
+  openModal('modal-edit-circle-member');
+}
+
+async function updateCircleMemberRole() {
+  const personId = circleState.editingPersonId;
+  const role     = document.getElementById('ecm-role').value;
+  const btn = document.getElementById('btn-update-circle-member');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(`${BASE}/app/circles/${circleState.currentCircleId}/people/${personId}/role?email=${email}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    toast('Role updated');
+    closeModal('modal-edit-circle-member');
+    await loadCircleRoster();
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = 'Save'; }
+}
+
+async function removeCircleMember() {
+  const personId = circleState.editingPersonId;
+  if (!confirm('Remove this person from the circle?')) return;
+  const btn = document.getElementById('btn-remove-circle-member');
+  btn.disabled = true; btn.textContent = 'Removing…';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(`${BASE}/app/circles/${circleState.currentCircleId}/members/${personId}?email=${email}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(await res.text());
+    toast('Member removed from circle');
+    closeModal('modal-edit-circle-member');
+    await loadCircleRoster();
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = 'Remove from circle'; }
 }
 
 // ─── UTILS ───

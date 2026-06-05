@@ -101,7 +101,6 @@ async def create_person(ensemble_id: str, body: CreatePersonRequest):
     person = repo.add_person_to_ensemble(
         ensemble_id=ensemble_id,
         name=body.name,
-        p_type=body.p_type,
         phone=body.phone,
         email=body.email,
         aliases=body.aliases or [],
@@ -121,7 +120,6 @@ async def update_person(person_id: str, body: UpdatePersonRequest):
     person = repo.update_person(
         person_id=person_id,
         name=body.name,
-        p_type=body.p_type,
         phone=body.phone,
         email=body.email,
         aliases=body.aliases,
@@ -453,13 +451,37 @@ async def app_update_person(
     person = repo.update_person(
         person_id=person_id,
         name=body.name,
-        p_type=body.p_type,
         phone=body.phone,
         email=body.email,
         aliases=body.aliases,
         notes=body.notes,
     )
     return {"person": row_to_dict(person)}
+
+
+@open_router.put("/app/circles/{circle_id}/people/{person_id}/role")
+async def app_update_circle_role(
+    circle_id: str,
+    person_id: str,
+    email: str = Query(...),
+    body: CreateCircleMembershipRequest = ...,
+):
+    """
+    Update a person's role in a specific circle. Admin-only.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if body.role not in ('senior', 'family', 'friend', 'caregiver'):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    membership = repo.add_person_to_circle(
+        circle_id=circle_id,
+        person_id=person_id,
+        role=body.role,
+    )
+    return {"membership": row_to_dict(membership)}
 
 
 @open_router.put("/app/people/{person_id}/membership")
@@ -605,6 +627,66 @@ async def app_update_clinical_record(
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
     return {"record": row_to_dict(record)}
+
+
+@open_router.get("/app/circles/{circle_id}/roster")
+async def app_get_circle_roster(
+    circle_id: str,
+    email: str = Query(...),
+):
+    """
+    Return the roster for a specific circle.
+    Visible to all members in the circle; admins can see any circle.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    roster = repo.fetch_circle_roster(circle_id)
+    return {"roster": [row_to_dict(r) for r in (roster or [])]}
+
+
+@open_router.post("/app/circles/{circle_id}/members")
+async def app_add_circle_member(
+    circle_id: str,
+    email: str = Query(...),
+    body: CreateCircleMembershipRequest = ...,
+):
+    """
+    Add an existing ensemble person to a circle with a role. Admin-only.
+    person_id must be supplied in the request body.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if body.role not in ('senior', 'family', 'friend', 'caregiver'):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    membership = repo.add_person_to_circle(
+        circle_id=circle_id,
+        person_id=body.person_id,
+        role=body.role,
+    )
+    return {"membership": row_to_dict(membership)}
+
+
+@open_router.delete("/app/circles/{circle_id}/members/{person_id}")
+async def app_remove_circle_member(
+    circle_id: str,
+    person_id: str,
+    email: str = Query(...),
+):
+    """
+    Remove a person from a circle. Admin-only.
+    Does not delete the person from the ensemble.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    repo.remove_person_from_circle(circle_id=circle_id, person_id=person_id)
+    return {"removed": True}
 
 
 @open_router.get("/app/npi/search")
