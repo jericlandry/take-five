@@ -6,6 +6,14 @@
 <title>Take Five · Family Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<!-- GA4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-M9QJJVBSFV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-M9QJJVBSFV', { send_page_view: false });
+</script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -1199,6 +1207,19 @@ function bootApp() {
   document.getElementById('btn-add-circle').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-invite-person').style.display = isAdmin ? '' : 'none';
   document.getElementById('nav-health').style.display = ''; // visible to all
+  // ─── GA4: identify user after auth ───
+  if (typeof gtag !== 'undefined') {
+    gtag('config', 'G-M9QJJVBSFV', {
+      user_id: state.person.email,
+      user_properties: {
+        user_name:  state.person.name,
+        user_email: state.person.email,
+        user_role:  state.userRole,
+        ensemble:   state.ensemble?.name || 'unknown',
+      },
+    });
+    gtag('event', 'panel_view', { panel_name: 'overview' });
+  }
   loadData();
 }
 
@@ -1502,6 +1523,14 @@ function toggleDigest(i) {
   const isOpen = row.classList.contains('open');
   row.classList.toggle('open', !isOpen);
   body.classList.toggle('open', !isOpen);
+  // Fire GA4 event only on open, not close
+  if (!isOpen && typeof gtag !== 'undefined') {
+    const d = state.digestHistory[i];
+    gtag('event', 'digest_opened', {
+      digest_date:  d?.sent_at ? new Date(d.sent_at).toISOString().slice(0, 10) : 'unknown',
+      circle_name:  d?.circle_name || 'unknown',
+    });
+  }
 }
 
 // ─── MEDICATIONS ───
@@ -1603,6 +1632,7 @@ function showPanel(name) {
   if (name === 'circles') renderCirclesPanel();
   if (name === 'digests' && !state.digestHistory.length) loadDigests();
   if (name === 'health') loadHealthPanel();
+  if (typeof gtag !== 'undefined') gtag('event', 'panel_view', { panel_name: name });
 }
 
 // ─── MODALS ───
