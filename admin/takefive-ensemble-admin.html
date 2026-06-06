@@ -1485,6 +1485,13 @@ async function loadDigests() {
   renderDigests();
 }
 
+function linkify(text) {
+  return text.replace(/(https?:\/\/[^\s<>"']+)/g, (match) => {
+    if (match.includes('app.takefive.care')) return match;
+    return `<a href="${match}" target="_blank" rel="noopener noreferrer" style="color:var(--t300);text-decoration:underline;text-underline-offset:2px;">${match}</a>`;
+  });
+}
+
 function renderDigests() {
   const list = document.getElementById('digest-history-list');
   const digests = state.digestHistory;
@@ -1499,6 +1506,7 @@ function renderDigests() {
   list.innerHTML = digests.map((d, i) => {
     const preview = (d.body || '').split('\n').find(l => l.trim().length > 20) || '';
     const date = new Date(d.sent_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const bodyHtml = linkify((d.body || '').replace(/[\u200B-\u200D\uFEFF\u202A-\u202E]/g, '').replace(/\n/g, '<br>'));
     return `<div class="digest-history-item">
       <div class="digest-history-row" id="drow-${i}" onclick="toggleDigest(${i})">
         <div class="digest-history-meta">
@@ -1511,7 +1519,7 @@ function renderDigests() {
         </div>
       </div>
       <div class="digest-history-body" id="dbody-${i}">
-        <div class="digest-history-text">${(d.body || '').replace(/[\u200B-\u200D\uFEFF\u202A-\u202E]/g, '').replace(/\n/g, '<br>')}</div>
+        <div class="digest-history-text">${bodyHtml}</div>
       </div>
     </div>`;
   }).join('');
