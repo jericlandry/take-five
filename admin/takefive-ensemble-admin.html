@@ -1210,15 +1210,18 @@ function bootApp() {
   // ─── GA4: identify user after auth ───
   if (typeof gtag !== 'undefined') {
     gtag('config', 'G-M9QJJVBSFV', {
-      user_id: state.person.email,
+      user_id: state.person.id,
       user_properties: {
         user_name:  state.person.name,
-        user_email: state.person.email,
         user_role:  state.userRole,
         ensemble:   state.ensemble?.name || 'unknown',
       },
     });
-    gtag('event', 'panel_view', { panel_name: 'overview' });
+    gtag('event', 'auth_success', {
+      user_role: state.userRole,
+      ensemble:  state.ensemble?.name || 'unknown',
+    });
+    gtag('event', 'panel_view', { panel_name: 'overview', user_role: state.userRole });
   }
   loadData();
 }
@@ -1532,11 +1535,12 @@ function toggleDigest(i) {
   row.classList.toggle('open', !isOpen);
   body.classList.toggle('open', !isOpen);
   // Fire GA4 event only on open, not close
-  if (!isOpen && typeof gtag !== 'undefined') {
+  if (typeof gtag !== 'undefined') {
     const d = state.digestHistory[i];
-    gtag('event', 'digest_opened', {
+    gtag('event', isOpen ? 'digest_closed' : 'digest_opened', {
       digest_date:  d?.sent_at ? new Date(d.sent_at).toISOString().slice(0, 10) : 'unknown',
       circle_name:  d?.circle_name || 'unknown',
+      user_role:    state.userRole,
     });
   }
 }
@@ -1640,7 +1644,7 @@ function showPanel(name) {
   if (name === 'circles') renderCirclesPanel();
   if (name === 'digests' && !state.digestHistory.length) loadDigests();
   if (name === 'health') loadHealthPanel();
-  if (typeof gtag !== 'undefined') gtag('event', 'panel_view', { panel_name: name });
+  if (typeof gtag !== 'undefined') gtag('event', 'panel_view', { panel_name: name, user_role: state.userRole });
 }
 
 // ─── MODALS ───
