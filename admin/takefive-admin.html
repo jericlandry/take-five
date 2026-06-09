@@ -262,7 +262,7 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
     <div class="card">
       <div class="card-title"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Roster</div>
-      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Type</th><th>Phone</th><th>Email</th><th>Aliases</th><th>ID</th><th></th></tr></thead><tbody id="people-tbody"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Aliases</th><th>ID</th><th></th></tr></thead><tbody id="people-tbody"></tbody></table></div>
     </div>
   </div>
 
@@ -704,10 +704,10 @@ async function loadPeople() {
 
 function renderPeople() {
   const tbody = document.getElementById('people-tbody');
-  if (!state.people.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">♩</div><div class="empty-title">No people yet</div></div></td></tr>`; return; }
+  if (!state.people.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">♩</div><div class="empty-title">No people yet</div></div></td></tr>`; return; }
   tbody.innerHTML = state.people.map(p => `<tr>
     <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar ${avatarColor(p.p_type)}">${initials(p.name)}</div><strong>${p.name}</strong></div></td>
-    <td>${rolePill(p.p_type)}</td><td class="td-mono">${p.phone||'—'}</td><td class="td-mono">${p.email||'—'}</td>
+    <td class="td-mono">${p.phone||'—'}</td><td class="td-mono">${p.email||'—'}</td>
     <td>${(p.aliases||[]).length ? p.aliases.map(a=>`<span class="pill pill-person" style="margin:1px;">${a}</span>`).join('') : '<span style="color:var(--g400);font-size:12px;">—</span>'}</td>
     <td class="td-mono">${(p.id||'').slice(0,8)}…</td>
     <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openPersonDetail('${p.id}')">Open →</button></div></td>
