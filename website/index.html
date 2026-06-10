@@ -90,11 +90,8 @@
   .sibling:hover { transform: translateY(-3px); }
 
   /* PROBLEM */
-  .problem { background: var(--cream); text-align: center; }
-  .problem .eyebrow { justify-content: center; }
-  .problem .eyebrow::before { display: none; }
-  .problem .sec-title, .problem .sec-body { margin: 0 auto; }
-  .problem .sec-body { margin-bottom: 3rem; text-align: left; }
+  .problem { background: var(--cream); }
+  .problem .sec-body { margin-bottom: 3rem; }
   .cards-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; text-align: left; margin-top: 0; }
   .prob-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.75rem; border-top: 3px solid var(--teal-500); transition: transform 0.2s; }
   .prob-card:hover { transform: translateY(-4px); }
@@ -181,7 +178,8 @@
   .story-insight { margin-top: 1.5rem; background: rgba(93,202,165,0.1); border-radius: 10px; padding: 1rem 1.25rem; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.95rem; line-height: 1.6; color: var(--teal-100); }
 
   /* DIGNITY */
-  .dignity { background: var(--teal-50); display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+  .dignity { background: var(--teal-50); }
+  .dignity-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; margin-top: 3rem; }
   .dig-quote { font-family: 'Playfair Display', serif; font-size: clamp(1.75rem, 2.5vw, 2.25rem); font-style: italic; font-weight: 400; line-height: 1.4; color: var(--teal-800); position: relative; padding-left: 2rem; }
   .dig-quote::before { content: '"'; position: absolute; left: -0.5rem; top: -0.5rem; font-size: 5rem; color: var(--teal-300); line-height: 1; font-family: 'Playfair Display', serif; }
   .dig-cite { display: block; margin-top: 1rem; font-family: 'Lato', sans-serif; font-style: normal; font-size: 0.9rem; color: var(--teal-500); padding-left: 2rem; }
@@ -345,20 +343,20 @@
 </div>
 
 <!-- VISION -->
-<section style="background:var(--teal-800);padding:6rem 5rem;position:relative;overflow:hidden;">
+<section style="background:var(--teal-600);padding:6rem 5rem;position:relative;overflow:hidden;">
   <div style="position:absolute;width:700px;height:700px;border-radius:50%;background:var(--teal-600);opacity:0.08;top:-300px;right:-200px;"></div>
   <div style="position:relative;z-index:2;max-width:820px;">
     <p class="eyebrow">The mission</p>
     <h2 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:400;line-height:1.2;color:var(--white);margin-bottom:0.75rem;letter-spacing:-0.02em;">We are setting out to rethink<br>what it means to care for aging loved ones.</h2>
     <p style="font-family:'Playfair Display',serif;font-size:clamp(1.5rem,2.5vw,2rem);font-weight:400;font-style:italic;color:var(--teal-300);margin-bottom:2rem;">with dignity.</p>
-    <p class="sec-body light" style="max-width:640px;">Take Five travels with your loved one wherever they are — at home, in independent living, in assisted living, anywhere a care circle gathers around them. The coordination need doesn't end when they relocate. Neither do we.</p>
+    <p class="sec-body light" style="max-width:640px;">Take Five travels with your loved one wherever they are: at home, in independent living, in assisted living, anywhere a care circle gathers around them. The coordination need doesn't end when they relocate. Neither do we.</p>
   </div>
 </section>
 
 <section class="science" id="science">
   <p class="eyebrow">The science</p>
   <h2 class="sec-title light">Social connection<br><em>is healthcare.</em></h2>
-  <p class="sec-body light" style="margin-bottom:0; max-width:640px;">The research is unambiguous. Keeping aging loved ones connected — to people, to stories, to life — is one of the most powerful health interventions available. Take Five is built on this science.</p>
+  <p class="sec-body light" style="margin-bottom:0; max-width:640px;">The research is unambiguous. Keeping aging loved ones connected to people, to stories, to life is one of the most powerful health interventions available. Take Five is built on this science.</p>
   <div class="science-grid">
     <div class="stat"><div class="stat-num">29%</div><p class="stat-label">Increased risk of premature death from social isolation — comparable to smoking or obesity (National Academies, 2020)</p></div>
     <div class="stat"><div class="stat-num">50%</div><p class="stat-label">Increased risk of dementia among older adults experiencing chronic loneliness or isolation (HHS, 2023)</p></div>
@@ -375,11 +373,11 @@
 <section class="problem">
   <p class="eyebrow">The problem</p>
   <h2 class="sec-title">Coordination collapse<br><em>leaves aging loved ones without the support they deserve.</em></h2>
-  <p class="sec-body" style="margin-bottom:3rem;">Whether a loved one is at home, in independent living, or anywhere in between — when coordination fails, connection fades. And that has real health consequences.</p>
+  <p class="sec-body" style="margin-bottom:3rem;">Whether a loved one is at home, in independent living, or anywhere in between, when coordination fails, connection fades. And that has real health consequences.</p>
   <div class="cards-4">
-    <div class="prob-card"><div class="prob-num">01</div><div class="prob-title">One person carries everything</div><p class="prob-body">One person manages schedules, medications, and decisions — often from a distance, while others stay peripheral or simply don't know how to help.</p></div>
+    <div class="prob-card"><div class="prob-num">01</div><div class="prob-title">One person carries everything</div><p class="prob-body">One person manages schedules, medications, and decisions, often from a distance, while others stay peripheral or simply don't know how to help.</p></div>
     <div class="prob-card"><div class="prob-num">02</div><div class="prob-title">Tasks fall through the cracks</div><p class="prob-body">No shared visibility means no shared accountability. Things get missed. Crises happen that didn't have to.</p></div>
-    <div class="prob-card"><div class="prob-num">03</div><div class="prob-title">Connection quietly fades</div><p class="prob-body">As logistics take over, the human connection suffers. Isolation grows — quietly, dangerously — even when someone is surrounded by people.</p></div>
+    <div class="prob-card"><div class="prob-num">03</div><div class="prob-title">Connection quietly fades</div><p class="prob-body">As logistics take over, the human connection suffers. Isolation grows quietly, dangerously, even when someone is surrounded by people.</p></div>
     <div class="prob-card"><div class="prob-num">04</div><div class="prob-title">Stories are lost forever</div><p class="prob-body">Every elder is a living archive. Without someone asking the right questions, those stories disappear when they do.</p></div>
   </div>
 </section>
@@ -389,7 +387,7 @@
   <div>
     <p class="eyebrow light">The origin story</p>
     <h2 class="sec-title">Five siblings.<br>Two parents.<br><em>One system.</em></h2>
-    <p class="sec-body">Take Five was born from lived experience — not a market analysis. As five siblings coordinating care for aging parents, we lived the coordination chaos firsthand. The scattered texts, the missed handoffs, the one person carrying too much.</p>
+    <p class="sec-body">Take Five was born from lived experience, not a market analysis. As five siblings coordinating care for aging parents, we lived the coordination chaos firsthand. The scattered texts, the missed handoffs, the one person carrying too much.</p>
     <div class="siblings">
       <div class="sibling">#1</div><div class="sibling">#2</div>
       <div class="sibling founder">#3</div>
@@ -413,7 +411,7 @@
   <div class="steps">
     <div class="step"><div class="step-num">1</div><div class="step-title">Set up your care circle</div><p class="step-body">Invite family, professional caregivers, and anyone in your parent's support network. Each person gets role-appropriate visibility.</p></div>
     <div class="step"><div class="step-num">2</div><div class="step-title">Professional caregivers check in by SMS</div><p class="step-body">Your home aide or agency nurse texts a Take Five number after each visit — naturally, like any text. Their update flows into the care record automatically. They never join the family chat. The family always knows what happened.</p></div>
-    <div class="step"><div class="step-num">3</div><div class="step-title">The agent holds it all</div><p class="step-body">Take Five parses every update, maintains the care log and life log, assigns tasks, and surfaces what matters — before it becomes a crisis.</p></div>
+    <div class="step"><div class="step-num">3</div><div class="step-title">The agent holds it all</div><p class="step-body">Take Five parses every update, maintains the care log and life log, assigns tasks, and surfaces what matters before it becomes a crisis.</p></div>
     <div class="step"><div class="step-num">4</div><div class="step-title">Family gets a weekly digest</div><p class="step-body">Every week: what happened, patterns worth noting, what needs a decision. The sibling in Denver feels genuinely present without anyone having to write a summary by hand.</p></div>
     <div class="step"><div class="step-num">5</div><div class="step-title">The Story grows over time</div><p class="step-body">Each week the agent asks one gentle question. The answers build into a memoir — her life, in her own words, preserved forever.</p></div>
     <div class="step"><div class="step-num">6</div><div class="step-title">Hard decisions, made together</div><p class="step-body">When the hardest question comes, the agent gives your whole family the same data, the same guidance, and a way to decide together with dignity.</p></div>
@@ -425,12 +423,12 @@
   <p class="eyebrow light">Features</p>
   <h2 class="sec-title">Built for how<br><em>families actually work.</em></h2>
   <div class="feat-grid">
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h12M4 10h8M4 14h5"/><rect x="2" y="3" width="16" height="14" rx="2"/></svg></div><div class="feat-title">Weekly family digest</div><p class="feat-body">One warm weekly summary — what happened, what she's reading, what needs attention. The sibling in Denver stays genuinely close without anyone having to write it by hand.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h12M4 10h8M4 14h5"/><rect x="2" y="3" width="16" height="14" rx="2"/></svg></div><div class="feat-title">Weekly family digest</div><p class="feat-body">One warm weekly summary of what happened, what she's reading, what needs attention. The sibling in Denver stays genuinely close without anyone having to write it by hand.</p></div>
     <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3l2.5 5 5.5.8-4 3.9.9 5.5L10 16l-4.9 2.2.9-5.5L2 8.8l5.5-.8z"/></svg></div><div class="feat-title">Proactive alerts</div><p class="feat-body">Missed check-ins, medication gaps, and pattern changes surface before they become crises — not after.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M6 3h8M4 7h12M5 11l1 6h8l1-6"/><path d="M8 11v6M12 11v6"/></svg></div><div class="feat-title">Medication tracking</div><p class="feat-body">A structured medication list — name, dose, AM/PM/evening schedule, prescriber, and purpose — stored and kept current. Ask T5 what Dad's on and get an instant answer from the care record.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M6 3h8M4 7h12M5 11l1 6h8l1-6"/><path d="M8 11v6M12 11v6"/></svg></div><div class="feat-title">Medication tracking</div><p class="feat-body">A structured medication list with name, dose, AM/PM/evening schedule, prescriber, and purpose, stored and kept current. Ask T5 what Dad's on and get an instant answer from the care record.</p></div>
     <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 2a4 4 0 100 8 4 4 0 000-8z"/><path d="M4 18c0-3 2.7-5 6-5s6 2 6 5"/><path d="M14 8h4M16 6v4"/></svg></div><div class="feat-title">Care team registry</div><p class="feat-body">Every doctor, specialist, and provider — name, specialty, phone, and notes — in one place the whole family can access. No more "who is Mom's cardiologist again?"</p></div>
     <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4zM4 8h12M8 8v8"/></svg></div><div class="feat-title">Life Log</div><p class="feat-body">Books read, shows watched, walks taken. A living record of a life still being lived — because staying engaged is staying healthy.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg></div><div class="feat-title">Activity feed & digest archive</div><p class="feat-body">Every check-in, update, and care note in a running feed — and every weekly digest saved and searchable. The full care history is always there when you need it.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg></div><div class="feat-title">Activity feed & digest archive</div><p class="feat-body">Every check-in, update, and care note in a running feed, plus every weekly digest saved and searchable. The full care history is always there when you need it.</p></div>
     <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z"/><path d="M10 7v4l2.5 2"/><path d="M3.5 3.5l13 13"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Safety & health signal tracker</div><p class="feat-body">T5 reads every message for safety and health signals — falls, recurring symptoms, behavioral changes — and surfaces patterns in the weekly digest that nobody would catch looking at one week at a time.</p></div>
     <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4z"/><path d="M8 4v12M4 8h4"/><path d="M12 10h4M12 13h3"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Document registry</div><p class="feat-body">Where's the will? Who has power of attorney? A shared registry of important documents — where they live, who to call — so the whole family knows before they need to know.</p></div>
     <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M3 5h14v10H3z"/><path d="M3 5l7 6 7-6"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Call transcript ingestion</div><p class="feat-body">Upload a transcript from the weekly family call and T5 pulls out what matters — decisions made, health observations, follow-up items — so nothing important stays buried in whoever took notes.</p></div>
@@ -444,7 +442,7 @@
     <div>
       <p class="eyebrow">The knowledgebase</p>
       <h2 class="sec-title light">Everything shared.<br><em>Nothing lost.</em></h2>
-      <p class="sec-body light">Every check-in, every update, every note shared in the group chat is stored in a care record — not buried in scroll. Ask T5 a question and it answers from the full history of everything that's been shared.</p>
+      <p class="sec-body light">Every check-in, every update, every note shared in the group chat is stored in a care record, not buried in scroll. Ask T5 a question and it answers from the full history of everything that's been shared.</p>
       <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:2rem;">
         <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
           <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
@@ -465,20 +463,20 @@
       </div>
     </div>
     <div>
-      <p class="sec-body light" style="margin-bottom:1.5rem;">No digging through old messages. No calling the sibling who "keeps track of everything." The care record is the shared memory your whole circle can query — from anywhere, at any time.</p>
+      <p class="sec-body light" style="margin-bottom:1.5rem;">No digging through old messages. No calling the sibling who "keeps track of everything." The care record is the shared memory your whole circle can query, from anywhere, at any time.</p>
       <div style="display:flex;flex-direction:column;gap:1rem;">
         <div style="display:flex;gap:1rem;align-items:flex-start;">
           <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
           <div>
             <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Medications & schedules</div>
-            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Current meds, doses, timing, prescribers — always current, always queryable.</div>
+            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Current meds, doses, timing, and prescribers. Always current, always queryable.</div>
           </div>
         </div>
         <div style="display:flex;gap:1rem;align-items:flex-start;">
           <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
           <div>
             <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Doctors & care team</div>
-            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Every provider's name, specialty, and phone — searchable and stored, not buried in a text thread.</div>
+            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Every provider's name, specialty, and phone. Searchable and stored, not buried in a text thread.</div>
           </div>
         </div>
         <div style="display:flex;gap:1rem;align-items:flex-start;">
@@ -506,8 +504,8 @@
     <div>
       <p class="eyebrow light">The weekly digest</p>
       <h2 class="sec-title">One warm summary.<br><em>The whole family,<br>on the same page.</em></h2>
-      <p class="sec-body" style="margin-bottom:1.5rem;">Every week T5 synthesizes everything shared in the care circle — what happened, how they're doing, what they've been into, and what needs a decision. The sibling in Denver — who wants to help but hasn't felt in the loop — reads it over coffee and finally does.</p>
-      <p class="sec-body">The digest isn't just a recap. It's where the pattern-recognition lives — the reading streak, the uptick in good days, the fall that got mentioned twice. All of it, held together in one place your whole family can trust.</p>
+      <p class="sec-body" style="margin-bottom:1.5rem;">Every week T5 synthesizes everything shared in the care circle: what happened, how they're doing, what they've been into, and what needs a decision. The sibling in Denver who wants to help but hasn't felt in the loop reads it over coffee and finally does.</p>
+      <p class="sec-body">The digest isn't just a recap. It's where the pattern-recognition lives: the reading streak, the uptick in good days, the fall that got mentioned twice. All of it held together in one place your whole family can trust.</p>
     </div>
     <div>
       <div class="digest-card" style="background:var(--teal-800);border:1px solid rgba(93,202,165,0.2);">
@@ -551,7 +549,7 @@
   <div>
     <p class="eyebrow light">The Life Log</p>
     <h2 class="sec-title">Not just what she needs.<br><em>What she loves.</em></h2>
-    <p class="sec-body">Most care apps track what's wrong. Take Five tracks what's alive. Research shows that engagement in daily life — books, shows, conversations, movement — is one of the most powerful protections against cognitive decline and premature mortality.</p>
+    <p class="sec-body">Most care apps track what's wrong. Take Five tracks what's alive. Research shows that daily engagement in books, shows, conversations, and movement is one of the most powerful protections against cognitive decline and premature mortality.</p>
     <div class="ll-items">
       <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M3 3h12v12H3z"/><path d="M3 7h12M7 7v8"/></svg></div><div><div class="ll-title">Books &amp; reading</div><p class="ll-body">Currently reading, just finished, loved or didn't — the reading life tracked naturally through caregiver check-ins.</p></div></div>
       <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="14" height="11" rx="2"/><path d="M7 14v2M11 14v2M5 16h8"/></svg></div><div><div class="ll-title">Shows &amp; films</div><p class="ll-body">What she's watching, what made her laugh — so the next caregiver already has something to talk about.</p></div></div>
@@ -576,7 +574,7 @@
     <div>
       <p class="eyebrow light">Appointment prep</p>
       <h2 class="sec-title">Walk into every<br>appointment <em>ready.</em></h2>
-      <p class="sec-body">Before the doctor visit, T5 assembles a summary from the care record — recent mood patterns, medication changes, symptoms mentioned in check-ins, questions the family has been asking. Everything the doctor needs to know, and nothing you'll scramble to remember in the waiting room.</p>
+      <p class="sec-body">Before the doctor visit, T5 assembles a summary from the care record: recent mood patterns, medication changes, symptoms mentioned in check-ins, questions the family has been asking. Everything the doctor needs to know, and nothing you'll scramble to remember in the waiting room.</p>
       <p class="sec-body" style="margin-top:1rem;">Appointment prep packets are generated automatically and sent to the family before each scheduled visit. No prep required.</p>
     </div>
     <div style="background:var(--teal-50);border-radius:16px;padding:2rem;">
@@ -601,26 +599,28 @@
 
 <!-- DIGNITY -->
 <section class="dignity">
-  <div>
-    <blockquote class="dig-quote">Dignity is the difference between being cared for and being managed.<cite>— Eric Landry, Founder</cite></blockquote>
-  </div>
-  <div>
-    <p class="eyebrow light">Built on dignity</p>
-    <h2 class="sec-title">They are at the<br><em>center of this.</em></h2>
-    <div class="pillars">
-      <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Agency, not surveillance</div><p class="pillar-body">The senior controls what family sees. Their preferences guide care. Their voice is in every major decision.</p></div></div>
-      <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Connection as healthcare</div><p class="pillar-body">Social connection is clinically proven to reduce dementia risk, heart disease, and premature mortality. Take Five treats it as a health intervention, not a nice-to-have.</p></div></div>
-      <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Accessible to everyone</div><p class="pillar-body">SMS-first means no app, no training, no barrier. Works for the 78-year-old aide who only texts and the 45-year-old daughter who uses everything.</p></div></div>
+  <p class="eyebrow">Built on dignity</p>
+  <h2 class="sec-title">They are at the<br><em>center of this.</em></h2>
+  <div class="dignity-inner">
+    <div>
+      <blockquote class="dig-quote">Dignity is the difference between being cared for and being managed.<cite>— Eric Landry, Founder</cite></blockquote>
+    </div>
+    <div>
+      <div class="pillars">
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Agency, not surveillance</div><p class="pillar-body">The senior controls what family sees. Their preferences guide care. Their voice is in every major decision.</p></div></div>
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Connection as healthcare</div><p class="pillar-body">Social connection is clinically proven to reduce dementia risk, heart disease, and premature mortality. Take Five treats it as a health intervention, not a nice-to-have.</p></div></div>
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Accessible to everyone</div><p class="pillar-body">SMS-first means no app, no training, no barrier. Works for the 78-year-old aide who only texts and the 45-year-old daughter who uses everything.</p></div></div>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- PILOT -->
-<section style="background:var(--cream);text-align:center;padding:6rem 5rem;" id="pilot">
-  <p class="eyebrow" style="justify-content:center;"><span></span>Now in pilot</p>
-  <h2 class="sec-title" style="margin:0 auto 1.25rem;">Invitation only,<br><em>for now.</em></h2>
-  <p class="sec-body" style="margin:0 auto;max-width:520px;">Take Five is currently in active pilot testing with a small number of families. We're moving carefully — learning from real care circles before opening more widely. If you're interested in being considered for a future pilot, reach out directly.</p>
-  <div style="margin-top:2.5rem;display:flex;justify-content:center;">
+<section style="background:var(--cream);padding:6rem 5rem;" id="pilot">
+  <p class="eyebrow">Now in pilot</p>
+  <h2 class="sec-title" style="margin-bottom:1.25rem;">Invitation only,<br><em>for now.</em></h2>
+  <p class="sec-body" style="max-width:520px;">Take Five is currently in active pilot testing with a small number of families. We're moving carefully, learning from real care circles before opening more widely. If you're interested in being considered for a future pilot, reach out directly.</p>
+  <div style="margin-top:2.5rem;">
     <a href="mailto:jericlandry@gmail.com" style="display:inline-block;padding:0.9rem 2rem;border-radius:100px;background:var(--teal-500);color:var(--white);font-family:'Lato',sans-serif;font-size:0.9rem;font-weight:700;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='var(--teal-600)'" onmouseout="this.style.background='var(--teal-500)'">Get in touch</a>
   </div>
   <p style="margin-top:1rem;font-size:0.8rem;color:var(--gray-400);">No forms. Just a conversation.</p>
