@@ -221,6 +221,40 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
   .sidebar { display: none; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .panel { padding: 1.25rem; }
+  body { padding-bottom: 60px; }
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: var(--white);
+    border-top: 1px solid var(--g200);
+    z-index: 100;
+  }
+  .mobile-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--g400);
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: 'Lato', sans-serif;
+    transition: color 0.15s;
+    padding: 0;
+  }
+  .mobile-tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .mobile-tab.active { color: var(--t500); }
+  .mobile-tab:hover { color: var(--t600); }
+}
+@media (min-width: 769px) {
+  .mobile-tab-bar { display: none; }
 }
 
 /* ─── HEALTH PANEL ─── */
@@ -1154,6 +1188,30 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
   </div>
 </div>
 
+<!-- MOBILE TAB BAR -->
+<div class="mobile-tab-bar" id="mobile-tab-bar">
+  <button class="mobile-tab active" id="mtab-overview" onclick="showPanel('overview')">
+    <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+    Home
+  </button>
+  <button class="mobile-tab" id="mtab-health" onclick="showPanel('health')">
+    <svg viewBox="0 0 16 16"><path d="M8 2a3 3 0 00-3 3c0 1.5.7 2.5 1.5 3.5L8 10l1.5-1.5C10.3 7.5 11 6.5 11 5a3 3 0 00-3-3z"/><path d="M3 13c0-2 2-3 5-3s5 1 5 3"/></svg>
+    Health
+  </button>
+  <button class="mobile-tab" id="mtab-activity" onclick="showPanel('activity')">
+    <svg viewBox="0 0 16 16"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg>
+    Activity
+  </button>
+  <button class="mobile-tab" id="mtab-digests" onclick="showPanel('digests')">
+    <svg viewBox="0 0 16 16"><path d="M2 3h12v10H2z"/><path d="M5 7h6M5 10h4"/></svg>
+    Digests
+  </button>
+  <button class="mobile-tab" id="mtab-people" onclick="showPanel('people')">
+    <svg viewBox="0 0 16 16"><circle cx="6" cy="5" r="3"/><path d="M1 14c0-3 2-4.5 5-4.5s5 1.5 5 4.5"/><circle cx="12" cy="5" r="2"/><path d="M14 13c0-2-1-3.5-2-3.5"/></svg>
+    People
+  </button>
+</div>
+
 <script>
 const BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:10000'
@@ -1641,6 +1699,14 @@ function showPanel(name) {
     const nav = document.getElementById(`nav-${p}`);
     if (nav) nav.classList.toggle('active', p === name);
   });
+  // Sync mobile tab bar
+  const mobileMap = { overview: 'overview', health: 'health', activity: 'activity', digests: 'digests', people: 'people', circles: 'people' };
+  const activeTab = mobileMap[name] || null;
+  document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+  if (activeTab) {
+    const mt = document.getElementById(`mtab-${activeTab}`);
+    if (mt) mt.classList.add('active');
+  }
   if (name === 'circles') renderCirclesPanel();
   if (name === 'digests' && !state.digestHistory.length) loadDigests();
   if (name === 'health') loadHealthPanel();

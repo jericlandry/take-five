@@ -263,8 +263,44 @@
   @media (max-width: 768px) {
     .layout { grid-template-columns: 1fr; }
     aside { display: none; }
-    main { padding: 1.5rem; }
-    header { padding: 1rem 1.5rem; }
+    main { padding: 1.25rem 1rem; }
+    header { padding: 1rem 1.25rem; }
+    .header-meta { display: none; }
+    .mobile-nav {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding: 0.75rem 1rem;
+      background: var(--teal-900);
+      border-bottom: 1px solid rgba(93,202,165,0.15);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .mobile-nav::-webkit-scrollbar { display: none; }
+    .mobile-nav-pill {
+      flex-shrink: 0;
+      padding: 0.4rem 0.85rem;
+      border-radius: 100px;
+      background: rgba(93,202,165,0.1);
+      border: 1px solid rgba(93,202,165,0.2);
+      color: var(--teal-100);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mobile-nav-pill:hover,
+    .mobile-nav-pill.active { background: var(--teal-500); color: var(--white); border-color: var(--teal-500); }
+    .item-card { padding: 1.1rem 1.1rem; }
+    .item-title { font-size: 1.05rem; }
+    .section-title { font-size: 1.3rem; }
+  }
+  @media (min-width: 769px) {
+    .mobile-nav { display: none; }
   }
 </style>
 </head>
@@ -291,6 +327,8 @@
   </div>
   <div class="header-meta" id="last-updated"></div>
 </header>
+
+  <div id="mobile-nav" class="mobile-nav"></div>
 
 <div class="layout">
   <aside id="sidebar">
@@ -512,6 +550,15 @@ async function init() {
 
     document.getElementById('nav-content').innerHTML = renderNav(sections);
     document.getElementById('main-content').innerHTML = renderSections(sections);
+
+    // Mobile nav pills — one per section
+    document.getElementById('mobile-nav').innerHTML = sections.map(section => {
+      const slug = section.items[0]
+        ? section.items[0].title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        : section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const shortTitle = section.title.replace(' — Prioritized', '').replace(' & Framework Notes', '');
+      return `<a href="#${slug}" class="mobile-nav-pill">${shortTitle}</a>`;
+    }).join('');
 
   } catch (err) {
     document.getElementById('main-content').innerHTML = `
