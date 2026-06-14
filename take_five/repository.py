@@ -670,6 +670,25 @@ class TakeFiveRepository:
         query += " ORDER BY p.name, cr.created_at DESC"
         return self._execute(query, params, fetch='all')
 
+    def get_prep_packets(self, circle_id: str, limit: int = 20) -> List[Dict]:
+        """
+        Return prep packets for a circle, newest first.
+        These are outbound messages with message_type='prep_packet'.
+        Metadata (doctor, appointment, lookback) lives in the raw JSONB column.
+        """
+        return self._execute("""
+            SELECT
+                m.id,
+                m.body,
+                m.sent_at,
+                m.raw
+            FROM messages m
+            WHERE m.circle_id = %(circle_id)s
+              AND m.message_type = 'prep_packet'
+            ORDER BY m.sent_at DESC
+            LIMIT %(limit)s;
+        """, {'circle_id': circle_id, 'limit': limit}, fetch='all')
+
     # --- ENSEMBLES ---
 
     def create_ensemble(self, name: str, plan: str = 'family_plus', status: str = 'trial') -> Dict:

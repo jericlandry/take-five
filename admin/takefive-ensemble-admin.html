@@ -538,6 +538,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <div class="tabs">
         <button class="tab active" id="htab-medications" onclick="switchHealthTab('medications')">Medications</button>
         <button class="tab" id="htab-careteam" onclick="switchHealthTab('careteam')">Care Team</button>
+        <button class="tab" id="htab-preppackets" onclick="switchHealthTab('preppackets')">📋 Prep Packets</button>
       </div>
 
       <!-- Medications sub-panel -->
@@ -585,17 +586,35 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
               <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Provider</th>
               <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Specialty</th>
               <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Phone</th>
-              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">NPI</th>
               <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Notes</th>
-              <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--g400);padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);">Status</th>
               <th style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--g200);"></th>
             </tr></thead>
             <tbody id="h-ct-tbody">
-              <tr><td colspan="7"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr>
+              <tr><td colspan="5"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr>
             </tbody>
           </table>
         </div>
       </div>
+
+      <!-- Prep Packets sub-panel -->
+      <div id="health-preppackets" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <div style="font-size:13px;color:var(--g600);">Previously generated appointment prep packets.</div>
+          <button class="btn btn-primary btn-sm" id="btn-new-prep" onclick="openNewPrepPacketModal()">
+            <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
+            New prep packet
+          </button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div id="prep-packets-list">
+            <div class="empty">
+              <div class="empty-title">No prep packets yet</div>
+              <div class="empty-sub">Generate one from the Care Team tab</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ACTIVITY PANEL -->
@@ -1184,6 +1203,34 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-edit-doctor')">Cancel</button>
       <button class="btn btn-primary" id="btn-update-doctor" onclick="updateDoctor()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Prep Packet -->
+<div class="modal-backdrop" id="modal-prep-packet">
+  <div class="modal" style="width:580px;">
+    <div class="modal-title">📋 Appointment prep packet</div>
+    <div class="form-group" id="prep-doctor-select-group" style="display:none;">
+      <label class="form-label">Doctor</label>
+      <select class="form-input" id="prep-doctor-id" onchange="onPrepDoctorChange()"></select>
+    </div>
+    <div style="background:var(--t50);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-bottom:1rem;" id="prep-doctor-info">
+      <div style="font-size:13px;font-weight:700;color:var(--t800);" id="prep-doctor-display"></div>
+      <div style="font-size:11px;color:var(--g600);margin-top:2px;" id="prep-specialty-display"></div>
+    </div>
+    <div class="form-group" id="prep-patient-group">
+      <label class="form-label">Patient</label>
+      <select class="form-input" id="prep-patient-id"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Appointment <span style="color:var(--danger);">*</span></label>
+      <input class="form-input" id="prep-appointment-desc" type="text" placeholder="e.g. July 13, Thursday afternoon"/>
+      <div class="form-hint">Date or description of the upcoming visit.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-prep-packet')">Cancel</button>
+      <button class="btn btn-primary" id="btn-generate-prep" onclick="generatePrepPacket()">📋 Generate &amp; send to GroupMe</button>
     </div>
   </div>
 </div>
@@ -1939,8 +1986,11 @@ function switchHealthTab(tab) {
   healthState.currentTab = tab;
   document.getElementById('health-medications').style.display = tab === 'medications' ? '' : 'none';
   document.getElementById('health-careteam').style.display    = tab === 'careteam'    ? '' : 'none';
+  document.getElementById('health-preppackets').style.display = tab === 'preppackets' ? '' : 'none';
   document.getElementById('htab-medications').classList.toggle('active', tab === 'medications');
   document.getElementById('htab-careteam').classList.toggle('active',    tab === 'careteam');
+  document.getElementById('htab-preppackets').classList.toggle('active', tab === 'preppackets');
+  if (tab === 'preppackets') loadPrepPackets();
 }
 
 async function loadHealthPanel() {
@@ -2072,9 +2122,9 @@ function renderHealthMedications() {
 function renderHealthCareTeam() {
   const tbody = document.getElementById('h-ct-tbody');
   const isAdmin = state.userRole === 'admin';
-  const recs = healthState.records.filter(r => r.resource_type === 'CareTeamMember');
+  const recs = healthState.records.filter(r => r.resource_type === 'CareTeamMember' && r.status !== 'inactive');
   if (!recs.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty">
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty">
       <div class="empty-title">No care team members on record</div>
       <div class="empty-sub">Add the first doctor or provider above</div>
     </div></td></tr>`;
@@ -2093,7 +2143,7 @@ function renderHealthCareTeam() {
   Object.values(byPerson).forEach(group => {
     if (multiSenior) {
       html += `<tr>
-        <td colspan="7" style="padding:0.5rem 0.75rem;background:var(--t50);border-bottom:1px solid var(--g200);">
+        <td colspan="5" style="padding:0.5rem 0.75rem;background:var(--t50);border-bottom:1px solid var(--g200);">
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:24px;height:24px;border-radius:50%;background:var(--t500);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:10px;color:white;flex-shrink:0;">${initials(group.name)}</div>
             <span style="font-size:12px;font-weight:700;color:var(--t800);">${group.name}</span>
@@ -2111,12 +2161,11 @@ function renderHealthCareTeam() {
         </td>
         <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${d.specialty || '—'}</td>
         <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);">${d.phone || '—'}</td>
-        <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:11px;font-family:monospace;color:var(--g600);">${d.npi || '—'}</td>
         <td style="padding:0.65rem 0.75rem;vertical-align:top;font-size:12px;color:var(--g600);max-width:180px;">${r.notes || '—'}</td>
-        <td style="padding:0.65rem 0.75rem;vertical-align:top;">${statusPill(r.status)}</td>
         <td style="padding:0.65rem 0.75rem;vertical-align:top;">
           <div class="td-actions">
             ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openEditDoctorModal('${r.id}')">Edit</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="openPrepPacketModal('${r.id}', '${(d.name || '').replace(/'/g, "&#39;")}')">📋 Prep</button>
           </div>
         </td>
       </tr>`;
@@ -2747,6 +2796,335 @@ async function removeCircleMember() {
     await loadCircleRoster();
   } catch (e) { toast('Failed: ' + e.message, true); }
   finally { btn.disabled = false; btn.textContent = 'Remove from circle'; }
+}
+
+// ─── PREP PACKETS LIST ───
+async function loadPrepPackets() {
+  const list = document.getElementById('prep-packets-list');
+  list.innerHTML = '<div style="padding:2rem;text-align:center;font-size:13px;color:var(--g400);">Loading…</div>';
+  try {
+    const email = encodeURIComponent(state.person.email);
+    // Load packets for each circle
+    const allPackets = [];
+    for (const circle of state.circles) {
+      const res = await fetch(`${BASE}/app/circles/${circle.id}/prep-packets?email=${email}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      (data.packets || []).forEach(p => allPackets.push({ ...p, circle_name: circle.name }));
+    }
+    // Sort newest first
+    allPackets.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+    renderPrepPackets(allPackets);
+  } catch (e) {
+    list.innerHTML = '<div style="padding:2rem;text-align:center;font-size:13px;color:var(--danger);">Failed to load prep packets</div>';
+  }
+}
+
+function renderPrepPackets(packets) {
+  const list = document.getElementById('prep-packets-list');
+  if (!packets.length) {
+    list.innerHTML = `<div class="empty">
+      <div class="empty-title">No prep packets yet</div>
+      <div class="empty-sub">Generate one from the Care Team tab</div>
+    </div>`;
+    return;
+  }
+  prepPacketsCache = packets;
+  list.innerHTML = packets.map((p, i) => {
+    const raw = p.raw || {};
+    const doctor  = raw.doctor_name      || 'Unknown doctor';
+    const appt    = raw.appointment_desc || '';
+    const date    = new Date(p.sent_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const bodyText = (p.body || '').replace(/[\u200B-\u200D\uFEFF\u202A-\u202E]/g, '');
+
+    // Try to pull the patient name from the first line of the packet body
+    // (format: "{senior_name} · {doctor_name}{specialty} · {appointment_desc}")
+    const firstLine = bodyText.split('\n')[0] || '';
+    const patient = firstLine.split('·')[0]?.trim() || '';
+
+    const subjectParts = [patient, doctor, appt].filter(Boolean);
+    const subject = subjectParts.join(' · ');
+
+    return `<div class="digest-history-item">
+      <div class="digest-history-row" id="prow-${i}" onclick="togglePrepPacket(${i})">
+        <div class="digest-history-meta">
+          <span class="digest-history-circle">${p.circle_name || ''}</span>
+          <span class="digest-history-preview">${subject}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
+          <span class="digest-history-date">${date}</span>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();printPrepPacket(${i})" title="Print / Save as PDF">
+            <svg viewBox="0 0 14 14" style="width:12px;height:12px;"><path d="M3 4V1h8v3M3 10H1V5h12v5h-2M3 8h8v5H3z"/></svg>
+            Print
+          </button>
+          <svg class="digest-chevron" viewBox="0 0 14 14"><path d="M2 4l5 6 5-6"/></svg>
+        </div>
+      </div>
+      <div class="digest-history-body" id="pbody-${i}">
+        <div style="background:var(--cream);border:1px solid var(--g200);border-radius:var(--radius-md);padding:1.25rem;margin:0 1rem 1rem;font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;max-height:500px;overflow-y:auto;">${bodyText}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function printPrepPacket(i) {
+  const p = prepPacketsCache[i];
+  if (!p) return;
+  const raw = p.raw || {};
+  const doctor  = raw.doctor_name      || 'the doctor';
+  const appt    = raw.appointment_desc || '';
+  const bodyText = (p.body || '').replace(/[\u200B-\u200D\uFEFF\u202A-\u202E]/g, '');
+  const firstLine = bodyText.split('\n')[0] || '';
+  const patient = firstLine.split('·')[0]?.trim() || '';
+  const date = new Date(p.sent_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const ensembleName = state.ensemble?.name || 'Take Five';
+
+  const subjectParts = [patient, doctor, appt].filter(Boolean);
+  const subject = subjectParts.join(' · ');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Prep Packet · ${subject}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lato', sans-serif; font-weight: 400; background: #fff; color: #1A1A18; padding: 0; max-width: 760px; margin: 0 auto; }
+  .header { background: #085041; color: #fff; padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .brand-name { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: #E1F5EE; letter-spacing: -0.02em; }
+  .brand-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #5DCAA5; margin-top: 2px; }
+  .header-right { text-align: right; }
+  .subject { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: #fff; }
+  .subject-date { font-size: 13px; color: #E1F5EE; margin-top: 3px; }
+  .content { padding: 2rem; font-size: 15px; line-height: 1.8; white-space: pre-wrap; }
+  .footer { padding: 0.75rem 2rem; border-top: 1px solid #E8E5DF; display: flex; justify-content: space-between; align-items: center; }
+  .footer-brand { font-family: 'Playfair Display', serif; font-size: 0.85rem; color: #5DCAA5; }
+  .footer-note { font-size: 11px; color: #B0ADA6; }
+  @media print {
+    @page { margin: 1.5cm; }
+    .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <svg width="40" height="40" viewBox="0 0 56 56" fill="none">
+      <g stroke="#5DCAA5" stroke-width="1.5">
+        <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
+        <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
+        <line x1="6" y1="21" x2="28" y2="6"/>
+      </g>
+      <circle cx="28" cy="6" r="5" fill="#5DCAA5"/>
+      <circle cx="50" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="42" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="14" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
+    </svg>
+    <div>
+      <div class="brand-name">Take Five</div>
+      <div class="brand-tag">Appointment Prep · takefive.care</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="subject">${subject}</div>
+    <div class="subject-date">Generated ${date}</div>
+  </div>
+</div>
+<div class="content">${bodyText}</div>
+<div class="footer">
+  <span class="footer-brand">Take Five · ${ensembleName}</span>
+  <span class="footer-note">takefive.care</span>
+</div>
+<script>window.onload = () => window.print();<\/script>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function togglePrepPacket(i) {
+  const row  = document.getElementById(`prow-${i}`);
+  const body = document.getElementById(`pbody-${i}`);
+  const isOpen = row.classList.contains('open');
+  row.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
+}
+
+// ─── PREP PACKET ───
+const prepState = { recordId: null, doctorName: null, circleId: null };
+let prepPacketsCache = [];
+
+function openPrepPacketModal(recordId, doctorName) {
+  const rec = healthState.records.find(r => r.id === recordId);
+  if (!rec) { toast('Record not found', true); return; }
+  const d = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+
+  prepState.recordId   = recordId;
+  prepState.doctorName = d.name || doctorName;
+
+  // Determine which circle this senior belongs to
+  const seniorId = rec.person_id;
+  const circle   = state.circles.find(c =>
+    state.allPeople.some(p => p.id === seniorId && p.circle_id === c.id)
+  );
+  prepState.circleId = circle?.id || null;
+
+  // Hide doctor selector — doctor is fixed for this flow
+  document.getElementById('prep-doctor-select-group').style.display = 'none';
+  document.getElementById('prep-doctor-info').style.display = '';
+
+  // Display doctor info
+  const displayName = d.credential ? `${d.name}, ${d.credential}` : d.name;
+  document.getElementById('prep-doctor-display').textContent = displayName || '—';
+  document.getElementById('prep-specialty-display').textContent = d.specialty || 'Specialty not on file';
+
+  // Populate patient selector — only seniors
+  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const patientSelect = document.getElementById('prep-patient-id');
+  patientSelect.innerHTML = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+  // Pre-select the senior this record belongs to
+  patientSelect.value = seniorId;
+
+  // Hide patient selector if only one senior
+  document.getElementById('prep-patient-group').style.display = seniors.length > 1 ? '' : 'none';
+
+  // Clear appointment field
+  document.getElementById('prep-appointment-desc').value = '';
+
+  openModal('modal-prep-packet');
+}
+
+function openNewPrepPacketModal() {
+  // Build a list of all CareTeamMember records across the ensemble
+  const doctors = healthState.records.filter(r => r.resource_type === 'CareTeamMember');
+  if (!doctors.length) {
+    toast('No care team members on file yet — add a doctor in the Care Team tab first', true);
+    return;
+  }
+
+  // Show doctor selector, hide nothing else yet
+  document.getElementById('prep-doctor-select-group').style.display = '';
+
+  const doctorSelect = document.getElementById('prep-doctor-id');
+  doctorSelect.innerHTML = doctors.map(r => {
+    const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    const label = d.credential ? `${d.name}, ${d.credential}` : d.name;
+    const personName = state.allPeople.find(p => p.id === r.person_id)?.name || '';
+    return `<option value="${r.id}">${label}${personName ? ' — ' + personName : ''}</option>`;
+  }).join('');
+
+  // Clear appointment field
+  document.getElementById('prep-appointment-desc').value = '';
+
+  // Trigger the change handler to populate doctor info + patient for the first option
+  onPrepDoctorChange();
+
+  openModal('modal-prep-packet');
+}
+
+function onPrepDoctorChange() {
+  const recordId = document.getElementById('prep-doctor-id').value;
+  const rec = healthState.records.find(r => r.id === recordId);
+  if (!rec) return;
+  const d = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+
+  prepState.recordId   = recordId;
+  prepState.doctorName = d.name;
+
+  // Determine circle from this doctor's senior
+  const seniorId = rec.person_id;
+  const circle   = state.circles.find(c =>
+    state.allPeople.some(p => p.id === seniorId && p.circle_id === c.id)
+  );
+  prepState.circleId = circle?.id || null;
+
+  const displayName = d.credential ? `${d.name}, ${d.credential}` : d.name;
+  document.getElementById('prep-doctor-display').textContent = displayName || '—';
+  document.getElementById('prep-specialty-display').textContent = d.specialty || 'Specialty not on file';
+
+  // Populate / update patient selector
+  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const patientSelect = document.getElementById('prep-patient-id');
+  patientSelect.innerHTML = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  patientSelect.value = seniorId;
+  document.getElementById('prep-patient-group').style.display = seniors.length > 1 ? '' : 'none';
+}
+
+async function generatePrepPacket() {
+  const appointmentDesc = document.getElementById('prep-appointment-desc').value.trim();
+  if (!appointmentDesc) { toast('Enter an appointment date or description', true); return; }
+  if (!prepState.circleId) { toast('Could not determine care circle', true); return; }
+
+  const btn = document.getElementById('btn-generate-prep');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  try {
+    const email = encodeURIComponent(state.person.email);
+    const res = await fetch(`${BASE}/app/circles/${prepState.circleId}/prep-packet?email=${email}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        doctor_name:      prepState.doctorName,
+        appointment_desc: appointmentDesc,
+        person_id:        document.getElementById('prep-patient-id').value,
+      }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    toast('📋 Prep packet sent to GroupMe');
+    closeModal('modal-prep-packet');
+
+    // Reset form for next time
+    document.getElementById('prep-appointment-desc').value = '';
+    document.getElementById('prep-appointment-desc').style.display = '';
+    document.getElementById('prep-patient-group').style.display = '';
+    const formGroup = document.querySelector('#modal-prep-packet .form-group:last-of-type');
+    if (formGroup) formGroup.style.display = '';
+
+    const viewer = document.getElementById('prep-packet-viewer');
+    if (viewer) viewer.style.display = 'none';
+    const doneBtn = document.getElementById('btn-prep-done');
+    if (doneBtn) doneBtn.style.display = 'none';
+
+    // Refresh the Prep Packets tab and open the new packet (it's newest — index 0)
+    if (healthState.currentTab === 'preppackets') {
+      await loadPrepPackets();
+      const row  = document.getElementById('prow-0');
+      const body = document.getElementById('pbody-0');
+      if (row && body) {
+        row.classList.add('open');
+        body.classList.add('open');
+        setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      }
+    } else {
+      switchHealthTab('preppackets');
+      // loadPrepPackets() runs inside switchHealthTab; wait for it then expand newest
+      setTimeout(() => {
+        const row  = document.getElementById('prow-0');
+        const body = document.getElementById('pbody-0');
+        if (row && body) {
+          row.classList.add('open');
+          body.classList.add('open');
+          row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 600);
+    }
+
+  } catch (e) {
+    toast('Failed to generate prep packet: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📋 Generate & send to GroupMe';
+    btn.style.background = '';
+  }
 }
 
 // ─── UTILS ───

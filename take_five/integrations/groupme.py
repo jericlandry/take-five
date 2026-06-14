@@ -7,7 +7,7 @@ from typing import Optional
 
 from take_five.repository import repo
 from take_five.memory import process_message_for_memory
-from take_five.messages import ask_with_tools
+from take_five.messages import ask_with_tools, generate_prep_packet
 from take_five.images import extract_groupme_image, handle_image_message
 
 logger = logging.getLogger(__name__)
@@ -233,15 +233,53 @@ async def handle_groupme_webhook(data: dict):
                 logger.error(f"No groupme_bot_id in integration_config for circle {circle_ext_id}.")
                 return {"status": "ok"}
 
-            logger.info("T5 question command detected, generating response...")
-            bot_response = await ask_with_tools(
-                question=question,
-                circle_id=circle_id,
-                response_format="text",
-                channel="groupme",
-                confirmed_by_person_id=sender_person_id,
-            )
-            await groupme_reply(bot_id, bot_response, circle_ext_id)
+            # Detect prep packet trigger
+            # NOTE: t5-system-prompt's "Prep packets" section tells users to phrase
+            # requests using "prep" + appointment/doctor context so they match here.
+            # If this keyword list changes, update that prompt section too.
+            question_lower = question.lower()
+            is_prep_trigger = any(phrase in question_lower for phrase in [
+                "prep for", "prep ", "pre-visit", "appointment prep",
+                "visit prep", "get ready for",
+            ]) and any(kw in question_lower for kw in [
+                "appointment", "appt", "visit", "dr.", "dr ", "doctor",
+            ])
+
+            if is_prep_trigger:
+                logger.info("[groupme] Prep packet trigger detected")
+                async def run_prep():
+                    try:
+                        packet_text, followup_text = await generate_prep_packet(
+                            question=question,
+                            circle_id=circle_id,
+                            sender_person_id=sender_person_id,
+                        )
+                        # Post the packet directly — it's already logged as
+                        # message_type='prep_packet' inside generate_prep_packet(),
+                        # so don't double-log via groupme_reply()
+                        await send_message_async(bot_id, packet_text)
+                        # Short delay so the follow-up reads as a separate message
+                        await asyncio.sleep(1.5)
+                        # Post the follow-up prompt — log as agent_note, not stored as packet
+                        await groupme_reply(bot_id, followup_text, circle_ext_id)
+                    except Exception as e:
+                        logger.error(f"[groupme] Prep packet failed: {e}", exc_info=True)
+                        await groupme_reply(
+                            bot_id,
+                            "Sorry, I ran into a problem generating the prep packet. Try again or ask @T5 directly.",
+                            circle_ext_id,
+                        )
+                asyncio.create_task(run_prep())
+            else:
+                logger.info("T5 question command detected, generating response...")
+                bot_response = await ask_with_tools(
+                    question=question,
+                    circle_id=circle_id,
+                    response_format="text",
+                    channel="groupme",
+                    confirmed_by_person_id=sender_person_id,
+                )
+                await groupme_reply(bot_id, bot_response, circle_ext_id)
 
         logger.info(f"Message stored. Internal ID: {new_msg['id']}")
 

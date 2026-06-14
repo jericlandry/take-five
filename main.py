@@ -3,15 +3,15 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Query
+from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from take_five.integrations.groupme import handle_groupme_webhook
+from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms
-from take_five.messages import ask_with_tools
+from take_five.messages import ask_with_tools, generate_prep_packet
 from take_five.repository import repo
 from take_five.schemas import (
     CreatePersonRequest, UpdatePersonRequest,
@@ -706,6 +706,75 @@ async def app_npi_search(
         raise HTTPException(status_code=403, detail="Forbidden")
     results = await search_npi(first_name, last_name, city, state, enumeration_type="NPI-1")
     return {"results": results}
+
+
+@open_router.get("/app/circles/{circle_id}/prep-packets")
+async def app_get_prep_packets(
+    circle_id: str,
+    email: str = Query(...),
+):
+    """
+    Return previously generated prep packets for a circle.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    packets = repo.get_prep_packets(circle_id)
+    return {"packets": [row_to_dict(p) for p in (packets or [])]}
+
+
+@open_router.post("/app/circles/{circle_id}/prep-packet")
+async def app_generate_prep_packet(
+    circle_id: str,
+    email: str = Query(...),
+    body: dict = Body(...),
+):
+    """
+    Generate an appointment prep packet and post it to GroupMe.
+    Accessible to all circle members (not admin-only).
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    doctor_name      = body.get("doctor_name", "the doctor")
+    appointment_desc = body.get("appointment_desc", "upcoming appointment")
+
+    # Build a fallback question string in case generate_prep_packet ever needs
+    # to fall back to free-text parsing (it won't here, since doctor_name and
+    # appointment_desc are passed in directly and Step 1's parse is skipped).
+    question = f"prep for appointment with {doctor_name} {appointment_desc}"
+
+    try:
+        packet_text, followup_text = await generate_prep_packet(
+            question=question,
+            circle_id=circle_id,
+            sender_person_id=str(row["person_id"]),
+            doctor_name=doctor_name,
+            appointment_desc=appointment_desc,
+        )
+
+        # Post to GroupMe if the circle has a bot configured
+        circle = repo.get_circle_by_id(circle_id)
+        bot_id = (circle.get("integration_config") or {}).get("groupme_bot_id") if circle else None
+        circle_ext_id = circle.get("external_id") if circle else None
+
+        if bot_id and circle_ext_id:
+            import asyncio
+            # Post the packet directly — it's already logged as message_type='prep_packet'
+            # inside generate_prep_packet(), so don't double-log via groupme_reply()
+            await send_message_async(bot_id, packet_text)
+            await asyncio.sleep(1.5)
+            # Follow-up prompt is fine to log normally as an agent_note
+            await groupme_reply(bot_id, followup_text, circle_ext_id)
+        else:
+            logger.warning(f"[prep-packet] No GroupMe bot configured for circle {circle_id}")
+
+        return {"packet": packet_text, "followup": followup_text}
+
+    except Exception as e:
+        logger.error(f"[prep-packet] Failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @open_router.post("/app/people/{person_id}/sms-invite")
