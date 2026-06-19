@@ -20,10 +20,10 @@
     --teal-900: #04342C; --teal-800: #085041; --teal-600: #0F6E56;
     --teal-500: #1D9E75; --teal-300: #5DCAA5; --teal-100: #9FE1CB;
     --teal-50: #E1F5EE; --cream: #F9F6F0; --white: #FFFFFF;
-    --gray-200: #E8E5DF; --gray-400: #8A8780; --gray-600: #3D3C3A; --text: #111110;
+    --gray-200: #E8E5DF; --gray-400: #8A8780; --gray-600: #2C2B29; --text: #111110;
   }
   html { scroll-behavior: smooth; }
-  body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--cream); color: var(--text); overflow-x: hidden; max-width: 680px; margin: 0 auto; padding: 0 1.5rem 5rem; }
+  body { font-family: 'Lato', sans-serif; font-weight: 400; background: var(--cream); color: var(--text); overflow-x: hidden; max-width: 680px; margin: 0 auto; padding: 0 1.5rem 5rem; }
 
   .top-bar { display: flex; align-items: center; gap: 10px; padding: 1.75rem 0 2rem; border-bottom: 1px solid var(--gray-200); margin-bottom: 3rem; }
   .nav-logo { width: 28px; height: 28px; }
@@ -33,7 +33,7 @@
   h1 { font-family: 'Playfair Display', serif; font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 400; color: var(--teal-800); line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 1.75rem; }
   h1 em { font-style: italic; color: var(--teal-500); }
   h2 { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 400; color: var(--teal-800); margin: 2.5rem 0 0.75rem; }
-  p { font-size: 1rem; line-height: 1.8; color: var(--gray-600); margin-bottom: 1.1rem; }
+  p { font-size: 1.05rem; line-height: 1.85; color: var(--gray-600); margin-bottom: 1.1rem; }
   p:last-child { margin-bottom: 0; }
   p strong { color: var(--teal-800); font-weight: 700; }
   a { color: var(--teal-500); text-decoration: none; }
@@ -51,7 +51,7 @@
   .digest-body em { color: var(--teal-100); font-style: italic; }
 
   .plain-list { display: flex; flex-direction: column; gap: 0.75rem; margin: 1rem 0 1.25rem; }
-  .plain-item { display: flex; gap: 0.85rem; align-items: flex-start; font-size: 0.95rem; line-height: 1.65; color: var(--gray-600); }
+  .plain-item { display: flex; gap: 0.85rem; align-items: flex-start; font-size: 1rem; line-height: 1.7; color: var(--gray-600); }
   .plain-item::before { content: '—'; color: var(--teal-300); flex-shrink: 0; margin-top: 0.05rem; }
   .plain-item strong { color: var(--teal-800); font-weight: 700; }
 
@@ -92,9 +92,9 @@
 
 <h1>What is <em>Take Five?</em></h1>
 
-<p>I'm Eric. My brother or sister connected us. I'm one of five siblings who spent the last few years coordinating care for our parents — lots of group texts, emails and some things missed or misunderstood. I built Take Five because I couldn't find anything that actually helped with all of it.</p>
+<p>I'm Eric. I'm one of five siblings who spent the last few years coordinating care for our parents — lots of group texts, missed handoffs, and some things that fell through the cracks entirely. I built Take Five because I couldn't find anything that actually helped with all of it.</p>
 
-<p>You're one of the first families trying it. I want to be straight with you about what it is right now, what I'm asking, and where I'm hoping to take it.</p>
+<p>You're one of the first groups trying it. I want to be straight with you about what it is right now, what I'm asking, and where I'm hoping to take it.</p>
 
 <hr>
 
@@ -109,8 +109,6 @@
 <p>No new app. No forms. Your caregiver texts after a visit like they normally would. A sibling says how the phone call went. Take Five reads all of it and puts together a digest at the end of the week so everyone stays on the same page.</p>
 
 <p>It also builds a knowledgebase from everything that gets shared — so things like medications, appointments, and health notes don't just disappear into the chat history. You can ask it later and it actually knows. Think of it as a memory for the whole care circle that nobody has to maintain manually.</p>
-
-<p>I'm also working on a <strong>Google Calendar integration</strong> so visits, appointments, and aide schedules can live in one place the whole family can see — no more "wait, who's going on Thursday?" I'll roll that out during the pilot.</p>
 
 <p>The whole point is to meet people where they already are. I've built the integration for <strong>GroupMe</strong> first — that's what my family uses. <strong>WhatsApp</strong> and regular SMS are next. If your family uses something else, tell me — that's exactly the kind of thing I want to know.</p>
 
@@ -160,7 +158,7 @@
       </div>
       <div style="display:flex;gap:1rem;align-items:flex-start;">
         <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Tue 5/13</div>
-        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Dad — follow-up with Dr. Fawlty · 2:30pm</div>
+        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Dad — follow-up with Dr. Marsh · 2:30pm</div>
       </div>
       <div style="display:flex;gap:1rem;align-items:flex-start;">
         <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Thu 5/15</div>
@@ -168,7 +166,7 @@
       </div>
       <div style="display:flex;gap:1rem;align-items:flex-start;">
         <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Fri 5/16</div>
-        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Mom — call with Dr. Dadburnit re: sleep meds · 10am</div>
+        <div style="font-size:0.88rem;color:#fff;line-height:1.55;">Mom — call with Dr. Reeves re: sleep meds · 10am</div>
       </div>
       <div style="display:flex;gap:1rem;align-items:flex-start;">
         <div style="font-size:0.78rem;font-weight:700;color:#5DCAA5;white-space:nowrap;min-width:72px;padding-top:0.1rem;">Sat 5/17</div>
@@ -276,6 +274,172 @@
 
 <hr>
 
+<h2>The family dashboard</h2>
+
+<p>Every care circle has a shared admin dashboard — a single place where family members can see how things are going, who's in the circle, and what the digest said last week. Here's what it looks like.</p>
+
+<!-- SCREENSHOT 1: OVERVIEW -->
+<div style="margin:1.5rem 0;border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+  <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--gray-400);padding:0.6rem 1rem;background:var(--gray-200);border-bottom:1px solid var(--gray-200);">Overview panel</div>
+  <svg viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;" font-family="'Lato', sans-serif">
+    <!-- Background -->
+    <rect width="720" height="420" fill="#F9F6F0"/>
+    <!-- Topbar -->
+    <rect width="720" height="52" fill="#085041"/>
+    <!-- Logo pentagon -->
+    <g stroke="#1D9E75" stroke-width="1.2" fill="none" transform="translate(14,14)">
+      <line x1="12" y1="2" x2="22" y2="9"/><line x1="22" y1="9" x2="18" y2="21"/>
+      <line x1="18" y1="21" x2="6" y2="21"/><line x1="6" y1="21" x2="2" y2="9"/>
+      <line x1="2" y1="9" x2="12" y2="2"/>
+    </g>
+    <circle cx="26" cy="16" r="2.2" fill="#5DCAA5"/><circle cx="36" cy="23" r="2.2" fill="#5DCAA5"/>
+    <circle cx="32" cy="35" r="2.2" fill="#5DCAA5"/><circle cx="20" cy="35" r="2.2" fill="#5DCAA5"/>
+    <circle cx="16" cy="23" r="2.2" fill="#5DCAA5"/>
+    <circle cx="26" cy="27" r="2.8" fill="#085041" stroke="#5DCAA5" stroke-width="1.2"/>
+    <text x="48" y="31" font-family="'Playfair Display', Georgia, serif" font-size="14" font-weight="700" fill="#9FE1CB" letter-spacing="-0.3">Take Five</text>
+    <line x1="108" y1="16" x2="108" y2="36" stroke="rgba(93,202,165,0.25)" stroke-width="1"/>
+    <text x="116" y="31" font-size="11" fill="#5DCAA5" font-style="italic">The Landry Family</text>
+    <!-- Right side of topbar -->
+    <circle cx="670" cy="26" r="12" fill="#0F6E56" stroke="#5DCAA5" stroke-width="1.2"/>
+    <text x="670" y="30" font-size="10" fill="white" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">EL</text>
+    <text x="688" y="28" font-size="11" fill="#9FE1CB">Eric</text>
+    <rect x="700" y="19" width="14" height="14" rx="7" fill="rgba(93,202,165,0.2)"/>
+    <text x="707" y="29" font-size="8" fill="#5DCAA5" text-anchor="middle" font-weight="700">A</text>
+    <!-- Sidebar -->
+    <rect x="0" y="52" width="180" height="368" fill="#FFFFFF" stroke="#E8E5DF" stroke-width="1"/>
+    <!-- Sidebar items -->
+    <rect x="8" y="68" width="164" height="28" rx="5" fill="#E1F5EE"/>
+    <text x="32" y="86" font-size="12" font-weight="700" fill="#085041">Overview</text>
+    <text x="32" y="116" font-size="12" fill="#6B6763">People</text>
+    <text x="32" y="142" font-size="12" fill="#6B6763">Care Circles</text>
+    <text x="32" y="168" font-size="12" fill="#6B6763">Activity</text>
+    <text x="32" y="194" font-size="12" fill="#6B6763">Digests</text>
+    <line x1="8" y1="210" x2="172" y2="210" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="32" y="230" font-size="12" fill="#6B6763">Settings</text>
+    <!-- Sidebar icons (simple) -->
+    <rect x="14" y="75" width="13" height="13" rx="1.5" fill="none" stroke="#085041" stroke-width="1.4"/>
+    <rect x="14" y="107" width="6" height="6" rx="50" fill="none" stroke="#B0ADA6" stroke-width="1.2"/>
+    <circle cx="20" cy="133" r="4" fill="none" stroke="#B0ADA6" stroke-width="1.2"/>
+    <polyline points="14,163 18,158 22,165 26,155" fill="none" stroke="#B0ADA6" stroke-width="1.4"/>
+    <rect x="14" y="186" width="13" height="10" rx="1" fill="none" stroke="#B0ADA6" stroke-width="1.2"/>
+    <!-- Main panel -->
+    <!-- Page title -->
+    <text x="204" y="95" font-family="'Playfair Display', Georgia, serif" font-size="20" font-weight="400" fill="#085041">Good to see you, </text>
+    <text x="381" y="95" font-family="'Playfair Display', Georgia, serif" font-size="20" font-style="italic" fill="#1D9E75">Eric</text>
+    <text x="204" y="112" font-size="11" fill="#6B6763">1 active care circle · The Landry Family</text>
+    <!-- Stat cards -->
+    <rect x="200" y="124" width="118" height="64" rx="10" fill="white" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="212" y="140" font-size="9" font-weight="700" fill="#B0ADA6" letter-spacing="0.8">CARE CIRCLES</text>
+    <text x="212" y="166" font-family="'Playfair Display', Georgia, serif" font-size="26" fill="#085041">1</text>
+    <rect x="328" y="124" width="118" height="64" rx="10" fill="white" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="340" y="140" font-size="9" font-weight="700" fill="#B0ADA6" letter-spacing="0.8">PEOPLE</text>
+    <text x="340" y="166" font-family="'Playfair Display', Georgia, serif" font-size="26" fill="#085041">7</text>
+    <rect x="456" y="124" width="118" height="64" rx="10" fill="white" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="468" y="140" font-size="9" font-weight="700" fill="#B0ADA6" letter-spacing="0.8">LAST DIGEST</text>
+    <text x="468" y="162" font-size="13" fill="#085041" font-weight="700">Jun 15</text>
+    <text x="468" y="178" font-size="10" fill="#B0ADA6">6 days ago</text>
+    <rect x="584" y="124" width="118" height="64" rx="10" fill="white" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="596" y="140" font-size="9" font-weight="700" fill="#B0ADA6" letter-spacing="0.8">PLAN</text>
+    <text x="596" y="162" font-size="13" fill="#085041" font-weight="700">Pilot</text>
+    <text x="596" y="178" font-size="10" fill="#1D9E75">Active</text>
+    <!-- Circle card -->
+    <rect x="200" y="204" width="500" height="140" rx="10" fill="white" stroke="#E8E5DF" stroke-width="1"/>
+    <rect x="200" y="204" width="500" height="3" rx="1" fill="#1D9E75"/>
+    <text x="220" y="230" font-family="'Playfair Display', Georgia, serif" font-size="15" fill="#085041">The Landry Family</text>
+    <rect x="634" y="218" width="46" height="16" rx="8" fill="#E1F5EE"/>
+    <text x="657" y="230" font-size="9" font-weight="700" fill="#0F6E56" text-anchor="middle" letter-spacing="0.5">ACTIVE</text>
+    <text x="220" y="252" font-size="11" fill="#6B6763">GroupMe · Take Five Circle</text>
+    <text x="220" y="268" font-size="11" fill="#6B6763">New Braunfels, TX</text>
+    <!-- Member pips -->
+    <circle cx="220" cy="295" r="14" fill="#1D9E75" stroke="#5DCAA5" stroke-width="1.5"/>
+    <text x="220" y="299" font-size="9" fill="white" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">ML</text>
+    <circle cx="248" cy="295" r="14" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1.5"/>
+    <text x="248" y="299" font-size="9" fill="#085041" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">EL</text>
+    <circle cx="276" cy="295" r="14" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1.5"/>
+    <text x="276" y="299" font-size="9" fill="#085041" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">JL</text>
+    <circle cx="304" cy="295" r="14" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1.5"/>
+    <text x="304" y="299" font-size="9" fill="#085041" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">CL</text>
+    <circle cx="332" cy="295" r="14" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1.5"/>
+    <text x="332" y="299" font-size="9" fill="#085041" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">AL</text>
+    <circle cx="360" cy="295" r="14" fill="#FAEEDA" stroke="#FAC775" stroke-width="1.5"/>
+    <text x="360" y="299" font-size="9" fill="#633806" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">R</text>
+    <circle cx="388" cy="295" r="14" fill="#FAEEDA" stroke="#FAC775" stroke-width="1.5"/>
+    <text x="388" y="299" font-size="9" fill="#633806" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">T</text>
+    <line x1="200" y1="318" x2="700" y2="318" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="220" y="334" font-size="11" fill="#B0ADA6">7 members · <tspan font-weight="700" fill="#0F6E56">247 messages</tspan> this month</text>
+    <text x="620" y="334" font-size="11" fill="#1D9E75" font-weight="700">View circle →</text>
+    <!-- Attention section -->
+    <rect x="200" y="360" width="500" height="44" rx="10" fill="#FAEEDA" stroke="rgba(250,199,117,0.4)" stroke-width="1"/>
+    <text x="220" y="377" font-size="11" font-weight="700" fill="#633806">⚠  Needs attention</text>
+    <text x="220" y="394" font-size="11" fill="#633806">Thursday aide visit unconfirmed — worth a quick check</text>
+  </svg>
+</div>
+
+<!-- SCREENSHOT 2: DIGEST -->
+<div style="margin:1.5rem 0;border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+  <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--gray-400);padding:0.6rem 1rem;background:var(--gray-200);border-bottom:1px solid var(--gray-200);">Digests panel — past summaries, always accessible</div>
+  <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;" font-family="'Lato', sans-serif">
+    <rect width="720" height="380" fill="#F9F6F0"/>
+    <rect width="720" height="52" fill="#085041"/>
+    <g stroke="#1D9E75" stroke-width="1.2" fill="none" transform="translate(14,14)">
+      <line x1="12" y1="2" x2="22" y2="9"/><line x1="22" y1="9" x2="18" y2="21"/>
+      <line x1="18" y1="21" x2="6" y2="21"/><line x1="6" y1="21" x2="2" y2="9"/>
+      <line x1="2" y1="9" x2="12" y2="2"/>
+    </g>
+    <circle cx="26" cy="16" r="2.2" fill="#5DCAA5"/><circle cx="36" cy="23" r="2.2" fill="#5DCAA5"/>
+    <circle cx="32" cy="35" r="2.2" fill="#5DCAA5"/><circle cx="20" cy="35" r="2.2" fill="#5DCAA5"/>
+    <circle cx="16" cy="23" r="2.2" fill="#5DCAA5"/>
+    <circle cx="26" cy="27" r="2.8" fill="#085041" stroke="#5DCAA5" stroke-width="1.2"/>
+    <text x="48" y="31" font-family="'Playfair Display', Georgia, serif" font-size="14" font-weight="700" fill="#9FE1CB" letter-spacing="-0.3">Take Five</text>
+    <line x1="108" y1="16" x2="108" y2="36" stroke="rgba(93,202,165,0.25)" stroke-width="1"/>
+    <text x="116" y="31" font-size="11" fill="#5DCAA5" font-style="italic">The Landry Family</text>
+    <circle cx="670" cy="26" r="12" fill="#0F6E56" stroke="#5DCAA5" stroke-width="1.2"/>
+    <text x="670" y="30" font-size="10" fill="white" text-anchor="middle" font-family="'Playfair Display', Georgia, serif">EL</text>
+    <text x="688" y="28" font-size="11" fill="#9FE1CB">Eric</text>
+    <!-- Sidebar -->
+    <rect x="0" y="52" width="180" height="328" fill="#FFFFFF" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="32" y="86" font-size="12" fill="#6B6763">Overview</text>
+    <text x="32" y="112" font-size="12" fill="#6B6763">People</text>
+    <text x="32" y="138" font-size="12" fill="#6B6763">Care Circles</text>
+    <text x="32" y="164" font-size="12" fill="#6B6763">Activity</text>
+    <rect x="8" y="174" width="164" height="28" rx="5" fill="#E1F5EE"/>
+    <text x="32" y="192" font-size="12" font-weight="700" fill="#085041">Digests</text>
+    <!-- Main -->
+    <text x="204" y="90" font-family="'Playfair Display', Georgia, serif" font-size="20" fill="#085041">Digests</text>
+    <text x="204" y="107" font-size="11" fill="#6B6763">All weekly summaries for The Landry Family</text>
+    <!-- Tab bar -->
+    <line x1="200" y1="130" x2="700" y2="130" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="204" y="124" font-size="12" font-weight="700" fill="#0F6E56">All digests</text>
+    <line x1="200" y1="130" x2="272" y2="130" stroke="#1D9E75" stroke-width="2"/>
+    <!-- Digest list items -->
+    <!-- Item 1 - expanded -->
+    <rect x="200" y="136" width="500" height="140" rx="0" fill="#E1F5EE" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="216" y="158" font-size="10" font-weight="700" fill="#1D9E75" letter-spacing="0.6">THE LANDRY FAMILY</text>
+    <text x="360" y="158" font-size="12" font-style="italic" fill="#6B6763">Good week overall. Mood was positive across most check-ins…</text>
+    <text x="664" y="158" font-size="11" fill="#B0ADA6">Jun 15</text>
+    <line x1="200" y1="166" x2="700" y2="166" stroke="rgba(93,202,165,0.3)" stroke-width="1"/>
+    <!-- Expanded digest preview -->
+    <rect x="216" y="174" width="468" height="90" rx="8" fill="#085041"/>
+    <text x="232" y="193" font-size="9" font-weight="700" fill="#5DCAA5" letter-spacing="1">WEEKLY DIGEST · JUN 15</text>
+    <text x="232" y="210" font-size="11" fill="white">Good week overall. Mood was positive across most check-ins — a couple of standout</text>
+    <text x="232" y="225" font-size="11" fill="white">moments, including a long phone call mid-week that went really well. Medications</text>
+    <text x="232" y="240" font-size="11" fill="white">on track. One item flagged: Thursday aide visit unconfirmed.</text>
+    <text x="232" y="256" font-size="11" fill="#5DCAA5" font-style="italic">— Take Five</text>
+    <!-- Item 2 -->
+    <rect x="200" y="276" width="500" height="44" rx="0" fill="white" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="216" y="301" font-size="10" font-weight="700" fill="#1D9E75" letter-spacing="0.6">THE LANDRY FAMILY</text>
+    <text x="360" y="301" font-size="12" fill="#6B6763" font-style="italic">Quieter week. Dad's energy was good; Mom had some fatigue mid-week…</text>
+    <text x="664" y="301" font-size="11" fill="#B0ADA6">Jun 8</text>
+    <!-- Item 3 -->
+    <rect x="200" y="320" width="500" height="44" rx="0" fill="white" stroke="#E8E5DF" stroke-width="1"/>
+    <text x="216" y="345" font-size="10" font-weight="700" fill="#1D9E75" letter-spacing="0.6">THE LANDRY FAMILY</text>
+    <text x="360" y="345" font-size="12" fill="#6B6763" font-style="italic">Big appointment week. Two doctor visits, both went well. New med noted…</text>
+    <text x="664" y="345" font-size="11" fill="#B0ADA6">Jun 1</text>
+  </svg>
+</div>
+
+<hr>
+
 <h2>What I'm asking of you</h2>
 
 <p>Not much. This should add almost nothing to your week if it's working right.</p>
@@ -291,21 +455,21 @@
 
 <hr>
 
-<h2>What's coming</h2>
+<h2>What's live and what's coming</h2>
 
 <p>The digest is just the foundation. The stuff I'm most excited about is the features that help keep your parent <em>engaged</em> — not just monitored. There's a lot of research on how much daily engagement and social connection actually matter for cognitive health and longevity, and I want Take Five to help with that, not just log what's happening.</p>
 
 <div class="plain-list">
-  <div class="plain-item"><strong>Google Calendar integration.</strong> <span class="pill soon">coming</span> Visits, appointments, and aide schedules in a shared calendar the whole family can see. Should take "wait, who's going Thursday?" off the table permanently.</div>
-  <div class="plain-item"><strong>Life Log.</strong> <span class="pill soon">coming</span> A running record of what she's reading, watching, doing — not just health updates. Books finished, shows she loved, walks taken. A picture of a life still being lived, and a quiet signal when engagement starts to slip.</div>
-  <div class="plain-item"><strong>Conversation starters.</strong> <span class="pill soon">coming</span> Based on what she's been into lately, Take Five could suggest things to bring up on your next call. Small prompts that make it easier to connect — and help her feel like people are actually paying attention.</div>
-  <div class="plain-item"><strong>Pre-visit appointment summary.</strong> <span class="pill soon">coming</span> Before a doctor visit, Take Five generates a concise briefing: recent mood and sleep patterns, current medications, anything flagged in the chat over the past few weeks, and a short list of questions worth raising with the doctor. No more scrambling to remember what happened last month.</div>
+  <div class="plain-item"><strong>Life Log.</strong> <span class="pill live">live</span> A running record of what she's reading, watching, doing — not just health updates. Books finished, shows she loved, walks taken. A picture of a life still being lived, and a quiet signal when engagement starts to slip.</div>
+  <div class="plain-item"><strong>Pre-visit appointment summary.</strong> <span class="pill live">live</span> Before a doctor visit, Take Five generates a concise briefing: recent mood and sleep patterns, current medications, anything flagged in the chat over the past few weeks, and a short list of questions worth raising with the doctor. No more scrambling to remember what happened last month.</div>
   <div class="plain-item"><strong>Post-visit extraction.</strong> <span class="pill soon">coming</span> After an appointment, drop the notes or a summary into the group chat and Take Five pulls out what matters — decisions made, next steps, and who's responsible for what. It logs it to the care record automatically so nothing disappears into scroll.</div>
-  <div class="plain-item"><strong>The Story.</strong> <span class="pill soon">coming</span> A gentle, ongoing interview — one question a week — that builds into something like a memoir over time. Her life, in her own words. I think this one is going to matter a lot. Still a ways out, but it's coming.</div>
+  <div class="plain-item"><strong>Clinical signal detection.</strong> <span class="pill soon">coming</span> Take Five watches for health patterns in the chat and flags things worth a closer look — a symptom mentioned once and then dropped, a change in energy or mood over several weeks, a fall risk signal buried in normal conversation. Things that are easy to miss in the day-to-day but matter a lot over time.</div>
+  <div class="plain-item"><strong>Conversation starters.</strong> <span class="pill soon">coming</span> Based on what she's been into lately, Take Five could suggest things to bring up on your next call. Small prompts that make it easier to connect — and help her feel like people are actually paying attention.</div>
   <div class="plain-item"><strong>Decision support.</strong> <span class="pill soon">coming</span> When the hard questions come up — do we need to bring in a home care aide, is it time to look at a memory care facility — Take Five will help the family think it through together. Trend data, context from the care history, and a way to have that conversation without everyone operating off different information.</div>
+  <div class="plain-item"><strong>The Story.</strong> <span class="pill soon">coming</span> An ongoing memoir interview — one gentle question a week — that builds into her life in her own words over time. We're testing interest in this one; if it resonates with your families, it moves up the list.</div>
 </div>
 
-<p>If any of those land differently than the others, say so. That helps me figure out what to build first. Or, if you have ideas for features you'd like to see, let me know.</p>
+<p>If any of those land differently than the others, say so. That helps me figure out what to build next.</p>
 
 <hr>
 
@@ -323,6 +487,7 @@
   <span class="signoff-name">— Eric</span>
   <span class="signoff-contact">jericlandry@gmail.com</span>
   <a href="https://www.linkedin.com/in/jeric-landry/" target="_blank" style="display:inline-block;margin-top:0.75rem;font-size:0.82rem;color:var(--teal-500);text-decoration:none;">A little more about me →</a>
+
 </div>
 
 <div class="footer">
