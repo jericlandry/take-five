@@ -7,7 +7,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from typing import Optional
 
 from take_five.repository import repo
-from take_five.memory import process_message_for_memory
+from take_five.pipeline import run_post_storage_pipeline
 from take_five.images import extract_sms_image, handle_image_message
 from take_five.integrations.groupme import groupme_reply
 
@@ -52,12 +52,13 @@ async def handle_sms(
         person_id=str(person['id']),
     )
 
-    asyncio.create_task(process_message_for_memory(
+    asyncio.create_task(run_post_storage_pipeline(
         message_id=str(new_msg['id']),
         circle_id=str(new_msg['circle_id']),
         body=Body,
         sender=person['name'],
         sent_at=new_msg['sent_at'],
+        channel="sms",
     ))
 
     # Synthesize and post to GroupMe

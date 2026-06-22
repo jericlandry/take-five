@@ -6,7 +6,7 @@ import httpx
 from typing import Optional
 
 from take_five.repository import repo
-from take_five.memory import process_message_for_memory
+from take_five.pipeline import run_post_storage_pipeline
 from take_five.messages import ask_with_tools, generate_prep_packet
 from take_five.images import extract_groupme_image, handle_image_message
 
@@ -157,12 +157,13 @@ async def handle_groupme_webhook(data: dict):
             channel="groupme"
         )
 
-        asyncio.create_task(process_message_for_memory(
+        asyncio.create_task(run_post_storage_pipeline(
             message_id=str(new_msg['id']),
             circle_id=str(new_msg['circle_id']),
             body=text,
             sender=person_name,
             sent_at=new_msg['sent_at'],
+            channel="groupme",
         ))
 
         # Resolve circle once — used by both image and ask branches
@@ -234,9 +235,6 @@ async def handle_groupme_webhook(data: dict):
                 return {"status": "ok"}
 
             # Detect prep packet trigger
-            # NOTE: t5-system-prompt's "Prep packets" section tells users to phrase
-            # requests using "prep" + appointment/doctor context so they match here.
-            # If this keyword list changes, update that prompt section too.
             question_lower = question.lower()
             is_prep_trigger = any(phrase in question_lower for phrase in [
                 "prep for", "prep ", "pre-visit", "appointment prep",
@@ -254,13 +252,8 @@ async def handle_groupme_webhook(data: dict):
                             circle_id=circle_id,
                             sender_person_id=sender_person_id,
                         )
-                        # Post the packet directly — it's already logged as
-                        # message_type='prep_packet' inside generate_prep_packet(),
-                        # so don't double-log via groupme_reply()
                         await send_message_async(bot_id, packet_text)
-                        # Short delay so the follow-up reads as a separate message
                         await asyncio.sleep(1.5)
-                        # Post the follow-up prompt — log as agent_note, not stored as packet
                         await groupme_reply(bot_id, followup_text, circle_ext_id)
                     except Exception as e:
                         logger.error(f"[groupme] Prep packet failed: {e}", exc_info=True)
