@@ -410,6 +410,60 @@ class TakeFiveRepository:
             fetch="all",
         )
 
+    # --- CLINICAL SIGNALS ---
+
+    def save_clinical_signal(
+        self,
+        message_id: str,
+        circle_id: str,
+        signal_category: str,
+        signal_type: str,
+        subject_id: Optional[str] = None,
+        raw_excerpt: Optional[str] = None,
+        mention_style: Optional[str] = None,
+        confidence: Optional[float] = None,
+        channel: str = "groupme",
+        corroboration_suggested: bool = False,
+        parent_id: Optional[str] = None,
+        response_type: Optional[str] = None,
+        superseded_by_id: Optional[str] = None,
+    ) -> Dict:
+        """
+        Insert a clinical signal record.
+        Called by the signal detection agent post-message-storage.
+        """
+        query = """
+            INSERT INTO clinical_signals (
+                message_id, circle_id, subject_id,
+                signal_category, signal_type,
+                raw_excerpt, mention_style, confidence,
+                channel, corroboration_requested,
+                parent_id, response_type, superseded_by_id
+            ) VALUES (
+                %(message_id)s, %(circle_id)s, %(subject_id)s,
+                %(signal_category)s, %(signal_type)s,
+                %(raw_excerpt)s, %(mention_style)s, %(confidence)s,
+                %(channel)s, %(corroboration_requested)s,
+                %(parent_id)s, %(response_type)s, %(superseded_by_id)s
+            )
+            RETURNING *;
+        """
+        return self._execute(query, {
+            "message_id":              message_id,
+            "circle_id":               circle_id,
+            "subject_id":              subject_id,
+            "signal_category":         signal_category,
+            "signal_type":             signal_type,
+            "raw_excerpt":             raw_excerpt,
+            "mention_style":           mention_style,
+            "confidence":              confidence,
+            "channel":                 channel,
+            "corroboration_requested": corroboration_suggested,
+            "parent_id":               parent_id,
+            "response_type":           response_type,
+            "superseded_by_id":        superseded_by_id,
+        }, fetch="one")
+
     # --- CLINICAL RECORDS ---
 
     def save_clinical_record(
