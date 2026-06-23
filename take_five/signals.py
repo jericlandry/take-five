@@ -24,8 +24,8 @@ SIGNAL TAXONOMY:
 - medication: refusals, missed doses, side effects, changes, new prescriptions
 
 MENTION STYLE:
-- direct: clearly stated ("she fell", "he refused his meds")
-- oblique: hedged, reported speech, implied ("seemed off", "she mentioned her knee hurts")
+- direct: the sender is reporting their own firsthand observation — "I heard him coughing", "I saw her fall", "she wouldn't eat when I was there"
+- oblique: the sender is relaying what someone else said or reported — "he said his neck hurts", "she told me she didn't sleep", "Jennifer mentioned Mom had fallen", "I heard from the aide that she fell"
 
 CONFIDENCE:
 Score 0.0-1.0. Lower for hedged language, third-party reports, ambiguous observations. Higher for direct firsthand statements of discrete events.
@@ -55,9 +55,10 @@ Set corroboration_suggested to true when:
 - the observation is ambiguous enough that confirmation from another circle member would meaningfully change how it should be interpreted
 
 Set corroboration_suggested to false when:
-- the signal is a hard incident (fall, injury, 911 called) — asking for corroboration of a fall feels tone-deaf
+- signal_category is safety OR signal_type contains fall, injury, fracture, emergency, 911, firemen, ambulance — never corroborate hard incidents regardless of mention style or confidence
 - confidence is 0.85 or above with direct mention style
 - the signal comes from a professional caregiver's firsthand observation
+- the signal is a discrete, specific event (a fall happened, a medication was refused) even if reported secondhand — the event either happened or it didn't, corroboration won't change that
 
 Return ONLY a valid JSON array. No preamble, no explanation, no markdown, no code fences. Do not wrap output in backticks of any kind. Do not reconsider or add commentary after the array. Raw JSON array only, nothing else. If no signals found, return [].
 
