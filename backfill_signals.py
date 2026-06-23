@@ -37,7 +37,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+DB_CONFIG = {
+    "dbname":   "takefive",
+    "user":     os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "host":     "dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com",
+    "port":     5432,
+}
 
 DETECTION_PROMPT = """You are a clinical signal detector for Take Five, an AI care coordination platform for families supporting aging loved ones.
 
@@ -94,7 +100,7 @@ Return ONLY a valid JSON array. No preamble, no explanation, no markdown, no cod
 
 
 def get_connection():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    return psycopg2.connect(**DB_CONFIG, cursor_factory=psycopg2.extras.RealDictCursor)
 
 
 def get_messages_to_process(conn, ensemble_name: str) -> list:
