@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply
+from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply, setup_groupme_circle
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms
 from take_five.messages import ask_with_tools, generate_prep_packet
@@ -172,6 +172,16 @@ async def get_circle_people(circle_id: str):
     people = repo.fetch_circle_roster(circle_id)
     return {"people": [row_to_dict(row) for row in people]}
 
+@secure_router.post("/circles/{circle_id}/groupme-setup")
+async def groupme_setup(circle_id: str):
+    """Create a GroupMe group and bot for a care circle, add the ensemble admin."""
+    try:
+        result = await setup_groupme_circle(circle_id)
+        return {"status": "ok", "result": result}
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @secure_router.post("/circles/{circle_id}/people/{person_id}")
 async def add_person_to_circle(circle_id: str, person_id: str,
                                 body: CreateCircleMembershipRequest):
@@ -333,6 +343,29 @@ async def auth_lookup(email: str = Query(...)):
         },
         "user_role": row["user_role"],
     }
+
+
+@open_router.post("/app/ensembles/{ensemble_id}/circles")
+async def app_create_circle(
+    ensemble_id: str,
+    email: str = Query(...),
+    body: CreateCareCircleRequest = ...,
+):
+    """
+    Create a care circle in the ensemble. Admin-only.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row or str(row["ensemble_id"]) != ensemble_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    circle = repo.create_care_circle(
+        ensemble_id=ensemble_id,
+        name=body.name,
+        status=body.status or "active",
+        external_id=body.external_id,
+    )
+    return {"circle": row_to_dict(circle)}
 
 
 @open_router.get("/app/ensembles/{ensemble_id}/circles")

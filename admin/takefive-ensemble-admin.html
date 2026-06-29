@@ -766,7 +766,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-circle')">Cancel</button>
-      <button class="btn btn-primary" onclick="toast('Circle added');closeModal('modal-add-circle')">Add circle</button>
+      <button class="btn btn-primary" onclick="createCircle()">Add circle</button>
     </div>
   </div>
 </div>
@@ -3124,6 +3124,29 @@ async function generatePrepPacket() {
     btn.disabled = false;
     btn.textContent = '📋 Generate & send to GroupMe';
     btn.style.background = '';
+  }
+}
+
+// ─── CIRCLES ───
+async function createCircle() {
+  const name = document.getElementById('new-circle-name').value.trim();
+  if (!name) { toast('Enter a circle name', true); return; }
+  const ensembleId = state.ensemble?.id;
+  if (!ensembleId) { toast('No ensemble loaded', true); return; }
+  const email = encodeURIComponent(state.person.email);
+  try {
+    const res = await fetch(`${BASE}/app/ensembles/${ensembleId}/circles?email=${email}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    toast('Circle created');
+    closeModal('modal-add-circle');
+    document.getElementById('new-circle-name').value = '';
+    await loadData();
+  } catch (e) {
+    toast('Failed to create circle: ' + e.message, true);
   }
 }
 

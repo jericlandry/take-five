@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import re
 
 import httpx
@@ -149,6 +150,30 @@ async def handle_groupme_webhook(data: dict):
     logger.info(f"Processing message from {person_name} in group {circle_ext_id}")
 
     try:
+        # Upsert person and circle membership before logging the message
+        # so foreign key lookups in log_message succeed
+        circle = repo.get_circle_by_external_id(circle_ext_id)
+        is_new_person = False
+        if circle:
+            person = repo.get_person_by_external_id(person_ext_id)
+            if not person:
+                # New person — add to the ensemble that owns this circle
+                person = repo.add_person_to_ensemble(
+                    ensemble_id=str(circle['ensemble_id']),
+                    name=person_name,
+                    external_id=person_ext_id,
+                )
+                is_new_person = True
+                logger.info(f"[groupme] Created new person: {person_name} ({person_ext_id})")
+            # Upsert membership with DO NOTHING on conflict so admin-assigned roles are preserved
+            repo._execute("""
+                INSERT INTO circle_memberships (circle_id, person_id, role)
+                VALUES (%(circle_id)s, %(person_id)s, 'family')
+                ON CONFLICT (circle_id, person_id) DO NOTHING;
+            """, {'circle_id': str(circle['id']), 'person_id': str(person['id'])}, fetch=None)
+        else:
+            logger.warning(f"[groupme] No circle found for external_id {circle_ext_id} — skipping upsert")
+
         new_msg = repo.log_message(
             circle_ext_id=circle_ext_id,
             person_ext_id=person_ext_id,
@@ -170,6 +195,13 @@ async def handle_groupme_webhook(data: dict):
         circle    = repo.get_circle_by_external_id(circle_ext_id)
         circle_id = circle['id'] if circle else None
         bot_id    = (circle.get('integration_config') or {}).get('groupme_bot_id') if circle else None
+
+        # Send welcome message to new members
+        if is_new_person and bot_id:
+            asyncio.create_task(send_message_async(
+                bot_id,
+                f"Welcome {person_name}! I'm Take Five, your family's care assistant. I'll keep track of updates shared here and send a weekly digest to the circle. Just chat normally — I'll handle the rest."
+            ))
 
         # Resolve the sender's person_id for confirmed_by tracking
         sender_person    = repo.get_person_by_external_id(person_ext_id)
@@ -282,3 +314,107 @@ async def handle_groupme_webhook(data: dict):
 
     logger.info("Webhook processed successfully")
     return {"status": "ok"}
+
+
+async def setup_groupme_circle(circle_id: str) -> dict:
+    """
+    Programmatically sets up a GroupMe group and bot for a care circle.
+
+    Steps:
+      1. Fetch the circle and its ensemble admin's phone number
+      2. Create the GroupMe group
+      3. Add the ensemble admin to the group by phone number
+      4. Register the Take Five bot in the group
+      5. Store group_id, bot_id, and external_id back on the circle record
+
+    Returns a summary dict with group_id and bot_id.
+    """
+    GROUPME_API_BASE = "https://api.groupme.com/v3"
+    GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_USER_ACCESS_TOKEN")
+    GROUPME_CALLBACK_URL = "https://app.takefive.care/groupme/webhook"
+    BOT_NAME = "Take Five"
+
+    if not GROUPME_ACCESS_TOKEN:
+        raise ValueError("GROUPME_USER_ACCESS_TOKEN not set in environment")
+
+    # 1. Fetch the circle
+    circle = repo.get_circle_by_id(circle_id)
+    if not circle:
+        raise ValueError(f"Circle {circle_id} not found")
+    circle_name = circle['name']
+    ensemble_id = str(circle['ensemble_id'])
+
+    # 2. Find the ensemble admin's phone number
+    admin = repo._execute("""
+        SELECT p.phone, p.name
+        FROM people p
+        JOIN ensemble_memberships em ON em.person_id = p.id
+        WHERE em.ensemble_id = %(ensemble_id)s
+          AND em.user_role = 'admin'
+        LIMIT 1;
+    """, {'ensemble_id': ensemble_id})
+
+    if not admin:
+        raise ValueError(f"No admin found for ensemble {ensemble_id}")
+    if not admin['phone']:
+        raise ValueError(f"Admin '{admin['name']}' has no phone number on record")
+
+    async with httpx.AsyncClient() as client:
+        # 3. Create the GroupMe group
+        group_resp = await client.post(
+            f"{GROUPME_API_BASE}/groups",
+            params={"token": GROUPME_ACCESS_TOKEN},
+            json={"name": circle_name},
+        )
+        if group_resp.status_code != 201:
+            raise RuntimeError(f"GroupMe group creation failed: {group_resp.status_code} {group_resp.text}")
+        group_id = group_resp.json()['response']['id']
+        logger.info(f"[groupme-setup] Created group '{circle_name}' with id {group_id}")
+
+        # 4. Add the ensemble admin to the group by phone number
+        # Normalize E.164 (+15127404620) to GroupMe's expected format (+1 5127404620)
+        phone = admin['phone']
+        if phone.startswith('+1') and len(phone) == 12:
+            phone = f"+1 {phone[2:]}"
+        member_resp = await client.post(
+            f"{GROUPME_API_BASE}/groups/{group_id}/members/add",
+            params={"token": GROUPME_ACCESS_TOKEN},
+            json={"members": [{"nickname": admin['name'], "phone_number": phone}]},
+        )
+        if member_resp.status_code != 202:
+            logger.warning(f"[groupme-setup] Member add returned {member_resp.status_code}: {member_resp.text}")
+        else:
+            logger.info(f"[groupme-setup] Invited {admin['name']} ({admin['phone']}) to group")
+
+        # 5. Register the bot
+        bot_resp = await client.post(
+            f"{GROUPME_API_BASE}/bots",
+            params={"token": GROUPME_ACCESS_TOKEN},
+            json={"bot": {
+                "name": BOT_NAME,
+                "group_id": group_id,
+                "callback_url": GROUPME_CALLBACK_URL,
+            }},
+        )
+        if bot_resp.status_code != 201:
+            raise RuntimeError(f"GroupMe bot creation failed: {bot_resp.status_code} {bot_resp.text}")
+        bot_id = bot_resp.json()['response']['bot']['bot_id']
+        logger.info(f"[groupme-setup] Registered bot with id {bot_id}")
+
+    # 6. Store group_id, bot_id, and external_id on the circle record
+    repo.update_care_circle(circle_id, {
+        'external_id': f"groupme:{group_id}",
+        'integration_config': {
+            'groupme_group_id': group_id,
+            'groupme_bot_id': bot_id,
+        },
+    })
+    logger.info(f"[groupme-setup] Circle {circle_id} updated with groupme config")
+
+    return {
+        'group_id': group_id,
+        'bot_id': bot_id,
+        'group_name': circle_name,
+        'admin_invited': admin['name'],
+    }
+
