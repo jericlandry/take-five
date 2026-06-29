@@ -438,7 +438,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- Add Person -->
 <div class="modal-backdrop" id="modal-add-person"><div class="modal"><div class="modal-header"><div class="modal-title">Add Person</div><button class="modal-close" onclick="closeModal('modal-add-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"></div></div>
+<div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"><label>User Role</label><select id="person-user-role"><option value="member">Member</option><option value="admin">Admin</option></select><div class="form-hint">Admin can manage the ensemble.</div></div></div>
 <div class="form-row cols-2"><div class="field"><label>Phone</label><input type="tel" id="person-phone" placeholder="+1 555 000 0000"/></div><div class="field"><label>Email</label><input type="email" id="person-email" placeholder="name@example.com"/></div></div>
 <div class="form-row"><div class="field"><label>External ID</label><input type="text" id="person-ext-id" placeholder="groupme:12345678"/><div class="form-hint">Format: groupme:sender_id</div></div></div>
 <div class="form-row"><div class="field"><label>Aliases</label><input type="text" id="person-aliases" placeholder="Mom, Dorothy, Dot (comma-separated)"/></div></div>
@@ -728,6 +728,10 @@ async function createPerson() {
   const data = await api('POST', `/ensembles/${state.activeEnsembleId}/people`, body);
   setLoading('btn-create-person', false);
   if (!data) return;
+  // Also create ensemble_memberships row so person can log into the admin UI
+  const userRole = document.getElementById('person-user-role').value || 'member';
+  await api('PUT', `/people/${data.person.id}/membership`, { ensemble_id: state.activeEnsembleId, user_role: userRole });
+  document.getElementById('person-user-role').value = 'member';
   toast(`${name} added`); closeModal('modal-add-person');
   ['person-name','person-phone','person-email','person-ext-id','person-aliases','person-notes'].forEach(id => document.getElementById(id).value='');
   await loadPeople();

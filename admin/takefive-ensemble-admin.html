@@ -514,10 +514,18 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <div>
           <div class="page-sub" id="circle-detail-sub">—</div>
         </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <span class="integration-tag connected" id="groupme-connected-tag" style="display:none;">
+          <span class="integration-dot"></span>GroupMe connected
+        </span>
+        <button class="btn btn-ghost btn-sm" id="btn-groupme-setup" onclick="setupGroupMe()" style="display:none;">
+          Set up GroupMe
+        </button>
         <button class="btn btn-primary btn-sm" id="btn-add-circle-member" onclick="openAddCircleMemberModal()" style="display:none;">
           <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
           Add member
         </button>
+      </div>
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <table class="people-table">
@@ -2675,6 +2683,10 @@ async function openCircleDetail(circleId, circleName) {
   const seniors = (state.allPeople.filter(p => p.circle_id === circleId && p.care_role === 'senior')).map(s => s.name).join(' & ');
   document.getElementById('circle-detail-sub').textContent = seniors || 'No seniors assigned';
   document.getElementById('btn-add-circle-member').style.display = state.userRole === 'admin' ? '' : 'none';
+  const isAdmin = state.userRole === 'admin';
+  const hasGroupMe = !!(circle?.integration_config?.groupme_bot_id);
+  document.getElementById('btn-groupme-setup').style.display = isAdmin && !hasGroupMe ? '' : 'none';
+  document.getElementById('groupme-connected-tag').style.display = hasGroupMe ? '' : 'none';
   showPanel('circle-detail');
   document.getElementById('nav-circles').classList.add('active');
   await loadCircleRoster();
@@ -3128,9 +3140,30 @@ async function generatePrepPacket() {
 }
 
 // ─── CIRCLES ───
+async function setupGroupMe() {
+  const circleId = circleState.currentCircleId;
+  if (!circleId) return;
+  const btn = document.getElementById('btn-groupme-setup');
+  btn.disabled = true;
+  btn.textContent = 'Setting up…';
+  const email = encodeURIComponent(state.person.email);
+  try {
+    const res = await fetch(`${BASE}/app/circles/${circleId}/groupme-setup?email=${email}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || await res.text());
+    toast('GroupMe connected!');
+    btn.style.display = 'none';
+    document.getElementById('groupme-connected-tag').style.display = '';
+  } catch (e) {
+    toast('GroupMe setup failed: ' + e.message, true);
+    btn.disabled = false;
+    btn.textContent = 'Set up GroupMe';
+  }
+}
+
 async function createCircle() {
   const name = document.getElementById('new-circle-name').value.trim();
-  if (!name) { toast('Enter a circle name', true); return; }
   const ensembleId = state.ensemble?.id;
   if (!ensembleId) { toast('No ensemble loaded', true); return; }
   const email = encodeURIComponent(state.person.email);

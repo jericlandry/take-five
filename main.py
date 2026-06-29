@@ -345,6 +345,26 @@ async def auth_lookup(email: str = Query(...)):
     }
 
 
+@open_router.post("/app/circles/{circle_id}/groupme-setup")
+async def app_groupme_setup(
+    circle_id: str,
+    email: str = Query(...),
+):
+    """
+    Create a GroupMe group and bot for a care circle. Admin-only.
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    try:
+        result = await setup_groupme_circle(circle_id)
+        return {"status": "ok", "result": result}
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @open_router.post("/app/ensembles/{ensemble_id}/circles")
 async def app_create_circle(
     ensemble_id: str,
