@@ -157,14 +157,28 @@ async def handle_groupme_webhook(data: dict):
         if circle:
             person = repo.get_person_by_external_id(person_ext_id)
             if not person:
-                # New person — add to the ensemble that owns this circle
-                person = repo.add_person_to_ensemble(
-                    ensemble_id=str(circle['ensemble_id']),
-                    name=person_name,
-                    external_id=person_ext_id,
-                )
-                is_new_person = True
-                logger.info(f"[groupme] Created new person: {person_name} ({person_ext_id})")
+                # Fallback: look for an existing person in this ensemble with a matching
+                # name and no external_id yet (e.g. admin-created records, like Mona
+                # before her first GroupMe post). Avoids creating duplicate people.
+                candidate = repo._execute("""
+                    SELECT id FROM people
+                    WHERE ensemble_id = %(ensemble_id)s
+                      AND external_id IS NULL
+                      AND LOWER(name) = LOWER(%(name)s)
+                    LIMIT 1;
+                """, {'ensemble_id': str(circle['ensemble_id']), 'name': person_name})
+                if candidate:
+                    person = repo.update_person(str(candidate['id']), external_id=person_ext_id)
+                    logger.info(f"[groupme] Matched existing person by name, linked external_id: {person_name} ({person_ext_id})")
+                else:
+                    # New person — add to the ensemble that owns this circle
+                    person = repo.add_person_to_ensemble(
+                        ensemble_id=str(circle['ensemble_id']),
+                        name=person_name,
+                        external_id=person_ext_id,
+                    )
+                    is_new_person = True
+                    logger.info(f"[groupme] Created new person: {person_name} ({person_ext_id})")
             # Upsert membership with DO NOTHING on conflict so admin-assigned roles are preserved
             repo._execute("""
                 INSERT INTO circle_memberships (circle_id, person_id, role)
