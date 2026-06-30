@@ -136,9 +136,9 @@ async def handle_groupme_webhook(data: dict):
     logger.info("GroupMe webhook received")
     logger.info(f"Webhook data: {data}")
 
-    # 1. Guard: ignore bot's own messages to avoid infinite loops
-    if data.get("sender_type") == "bot":
-        logger.info("Bot message ignored")
+    # 1. Guard: ignore bot's own messages and system messages (e.g. join/leave events)
+    if data.get("sender_type") in ("bot", "system"):
+        logger.info(f"{data.get('sender_type')} message ignored")
         return {"status": "ignored"}
 
     # 2. Extract fields
