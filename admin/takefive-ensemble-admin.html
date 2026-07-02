@@ -856,6 +856,10 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <input class="form-input" id="edit-aliases" type="text" placeholder="e.g. Mom, Dorothy, Dot (comma-separated)"/>
       <div class="form-hint">Helps Take Five recognize this person in conversations.</div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="edit-notes" rows="3" placeholder="Any context about this person…"></textarea>
+    </div>
     <div style="margin-top:0.5rem;">
       <div class="form-label" style="margin-bottom:6px;">Invite link</div>
       <div style="display:flex;gap:0.5rem;align-items:center;">
@@ -1788,6 +1792,7 @@ function openPersonModal(p) {
   document.getElementById('edit-email').value       = p.email || '';
   document.getElementById('edit-phone').value       = p.phone || '';
   document.getElementById('edit-aliases').value     = (p.aliases || []).join(', ');
+  document.getElementById('edit-notes').value        = p.notes || '';
   const link = p.email
     ? `${window.location.origin}${window.location.pathname}?email=${encodeURIComponent(p.email)}`
     : '—';
@@ -1814,6 +1819,7 @@ async function savePersonModal() {
   const phone     = document.getElementById('edit-phone').value.trim() || null;
   const email     = document.getElementById('edit-email').value.trim() || null;
   const aliases   = document.getElementById('edit-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
+  const notes     = document.getElementById('edit-notes').value.trim() || null;
   const user_role = document.getElementById('edit-user-role').value;
   if (!name) { toast('Name is required', true); return; }
 
@@ -1827,7 +1833,7 @@ async function savePersonModal() {
     const personRes = await fetch(`${BASE}/app/people/${personId}?email=${callerEmail}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, email, aliases }),
+      body: JSON.stringify({ name, phone, email, aliases, notes }),
     });
     if (!personRes.ok) throw new Error(await personRes.text());
 
