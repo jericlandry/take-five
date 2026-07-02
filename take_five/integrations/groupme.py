@@ -268,8 +268,9 @@ async def handle_groupme_webhook(data: dict):
             asyncio.create_task(process_image())
 
         # 4. T5 ask flow — ask_with_tools handles both Q&A and medication saves
-        if '@T5' in text:
-            question = text.split('@T5', 1)[1].strip()
+        t5_match = re.search(r'@T5', text, re.IGNORECASE)
+        if t5_match:
+            question = text.strip()
             if not question:
                 logger.warning("T5 command detected but no question found.")
                 return {"status": "ok"}
