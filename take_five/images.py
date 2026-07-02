@@ -235,7 +235,15 @@ async def analyze_image(attachment: ImageAttachment) -> dict:
     # SID/token — unlike GroupMe's i.groupme.com URLs, which are public.
     auth = None
     if attachment.channel == "sms":
-        auth = (os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        if account_sid and auth_token:
+            auth = (account_sid, auth_token)
+        else:
+            logger.error(
+                "[images] TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set — "
+                "SMS image fetch will fail Twilio's auth check"
+            )
 
     image_data, media_type = await fetch_image_as_base64(attachment.url, auth=auth)
 
