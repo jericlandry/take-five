@@ -1,7 +1,8 @@
 import asyncio
 import logging
+import os
 
-from anthropic import AsyncAnthropic
+import httpx
 from fastapi import Response
 from twilio.twiml.messaging_response import MessagingResponse
 from typing import Optional
@@ -9,9 +10,32 @@ from typing import Optional
 from take_five.repository import repo
 from take_five.pipeline import run_post_storage_pipeline
 from take_five.images import extract_sms_image, handle_image_message
-from take_five.integrations.groupme import groupme_reply
+from take_five.integrations.groupme import groupme_reply, upload_image_to_groupme
 
 logger = logging.getLogger(__name__)
+
+
+async def fetch_twilio_media(url: str) -> Optional[tuple[bytes, str]]:
+    """
+    Fetch MMS media bytes from Twilio. Twilio media URLs are protected and
+    require Basic Auth with the account SID/token — an unauthenticated fetch
+    returns 401. Returns (bytes, content_type) or None on failure.
+    """
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    if not account_sid or not auth_token:
+        logger.error("[sms] TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set — cannot fetch media")
+        return None
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        response = await client.get(url, auth=(account_sid, auth_token))
+
+    if response.status_code != 200:
+        logger.error(f"[sms] Failed to fetch media from Twilio: {response.status_code} - {response.text}")
+        return None
+
+    content_type = response.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+    return response.content, content_type
 
 async def handle_sms(
     From: str,
@@ -61,42 +85,39 @@ async def handle_sms(
         channel="sms",
     ))
 
-    # Synthesize and post to GroupMe
+    # Relay to GroupMe — raw text as written, no LLM paraphrasing. If there's an
+    # MMS image, it's re-hosted on GroupMe's Image Service and attached to the
+    # same message so it posts as one combined text+photo reply, same as if the
+    # sender had posted it in GroupMe directly.
     bot_id         = (circle.get('integration_config') or {}).get('groupme_bot_id')
     groupme_ext_id = circle.get('external_id')  # groupme:{group_id}
+    has_media      = int(NumMedia) > 0 and bool(MediaUrl0)
 
     if bot_id and groupme_ext_id:
-        async def post_caregiver_update():
-            try:
-                client = AsyncAnthropic()
-                result = await client.messages.create(
-                    model="claude-haiku-4-5-20251001",
-                    max_tokens=256,
-                    system=(
-                        "You summarize caregiver check-in messages for a family care circle. "
-                        "Write a single short paragraph (2-3 sentences max). "
-                        "Be warm and specific — include what the senior did, how they seemed, "
-                        "and anything worth knowing. No bullet points. No greeting. "
-                        "Do not invent details not present in the message."
-                    ),
-                    messages=[{
-                        "role": "user",
-                        "content": f"{person['name']} checked in: {Body}"
-                    }]
-                )
-                summary = result.content[0].text.strip()
-                await groupme_reply(
-                    bot_id,
-                    f"{person['name']} (via Take Five): {summary}",
-                    groupme_ext_id
-                )
-                logger.info(f"[sms] Caregiver update posted to GroupMe for circle {circle['name']}")
-            except Exception as e:
-                logger.error(f"[sms] Failed to synthesize or post caregiver update: {e}")
-        asyncio.create_task(post_caregiver_update())
+        async def relay_to_groupme():
+            relay_text = (
+                f"{person['name']} (via Take Five): {Body}" if Body.strip()
+                else f"{person['name']} (via Take Five) shared a photo:"
+            )
+            picture_url = None
+            if has_media:
+                fetched = await fetch_twilio_media(MediaUrl0)
+                if fetched:
+                    image_bytes, content_type = fetched
+                    picture_url = await upload_image_to_groupme(image_bytes, content_type)
+                    if not picture_url:
+                        logger.error("[sms] Image upload to GroupMe failed — posting text only")
+                else:
+                    logger.error("[sms] Could not fetch media from Twilio — posting text only")
+            await groupme_reply(bot_id, relay_text, groupme_ext_id, picture_url=picture_url)
+            logger.info(f"[sms] Caregiver update relayed to GroupMe for circle {circle['name']}")
+        asyncio.create_task(relay_to_groupme())
 
-    # MMS image detection
-    if int(NumMedia) > 0:
+    # MMS image detection — separate clinical vision pipeline (medication extraction
+    # etc.), independent of the raw relay above. Mirrors handle_groupme_webhook's
+    # process_image(): posts a reply when there is one (e.g. the medication
+    # confirmation card) and always logs an agent_note with the vision result.
+    if has_media:
         sms_payload = {
             "NumMedia": NumMedia,
             "MediaUrl0": MediaUrl0,
@@ -108,10 +129,43 @@ async def handle_sms(
         if image_attachment:
             async def process_sms_image():
                 result = await handle_image_message(image_attachment)
-                if result:
-                    _reply, _vision_result = result
-                    # SMS reply and logging TBD when SMS channel is active
-                    logger.info(f"[sms] Image processed — classification: {_vision_result.get('classification')}")
+                if not result:
+                    return
+                reply, vision_result = result
+                if reply:
+                    await groupme_reply(bot_id, reply, groupme_ext_id)
+
+                classification = vision_result.get("classification")
+                parts = [f"Image received from {image_attachment.sender_name} via SMS."]
+                if image_attachment.message_text:
+                    parts.append(f"Caption: \"{image_attachment.message_text}\".")
+
+                if classification == "MEDICATION":
+                    extracted = vision_result.get("extracted") or {}
+                    name = extracted.get("medication_name")
+                    brand = extracted.get("brand_name")
+                    dosage = extracted.get("dosage", "")
+                    instructions = extracted.get("instructions", "")
+                    kind = "supplement" if extracted.get("is_supplement") else "medication"
+                    label = f"{name}{f' ({brand})' if brand else ''}"
+                    parts.append(f"Extracted: {label}, {dosage}, {kind}, {instructions}.")
+                else:
+                    description = vision_result.get("description", "")
+                    text_found = vision_result.get("text_found")
+                    if description:
+                        parts.append(description)
+                    if text_found:
+                        parts.append(f"Text found: {text_found}.")
+
+                repo.log_message(
+                    circle_ext_id=groupme_ext_id,
+                    person_ext_id=None,
+                    body=" ".join(parts),
+                    raw_data=vision_result,
+                    msg_type="agent_note",
+                    direction="outbound",
+                    channel="sms",
+                )
             asyncio.create_task(process_sms_image())
 
     logger.info(f"Twilio SMS logged from {person['name']}: '{Body}'")

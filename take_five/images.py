@@ -9,6 +9,7 @@ to handle_image_message(). This module knows nothing about GroupMe specifics.
 """
 
 import logging
+import os
 import httpx
 import anthropic
 import json
@@ -213,9 +214,9 @@ def format_medication_message(extracted: dict, sender_name: str, confidence: str
 # Core pipeline
 # ---------------------------------------------------------------------------
 
-async def fetch_image_as_base64(url: str, headers: dict = None) -> tuple[str, str]:
+async def fetch_image_as_base64(url: str, headers: dict = None, auth: Optional[tuple] = None) -> tuple[str, str]:
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        response = await client.get(url, headers=headers or {})
+        response = await client.get(url, headers=headers or {}, auth=auth)
         response.raise_for_status()
 
     content_type = response.headers.get("content-type", "image/jpeg")
@@ -229,7 +230,14 @@ async def fetch_image_as_base64(url: str, headers: dict = None) -> tuple[str, st
 
 async def analyze_image(attachment: ImageAttachment) -> dict:
     logger.info(f"[images] Fetching image from {attachment.url}")
-    image_data, media_type = await fetch_image_as_base64(attachment.url)
+
+    # Twilio media URLs are protected and require Basic Auth with the account's
+    # SID/token — unlike GroupMe's i.groupme.com URLs, which are public.
+    auth = None
+    if attachment.channel == "sms":
+        auth = (os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+
+    image_data, media_type = await fetch_image_as_base64(attachment.url, auth=auth)
 
     logger.info(
         f"[images] Sending to Claude vision ({VISION_MODEL}) — "

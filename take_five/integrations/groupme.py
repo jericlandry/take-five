@@ -14,12 +14,54 @@ from take_five.images import extract_groupme_image, handle_image_message
 logger = logging.getLogger(__name__)
 
 GROUPME_URL = "https://api.groupme.com/v3/bots/post"
+GROUPME_IMAGE_SERVICE_URL = "https://image.groupme.com/pictures"
 GROUPME_HEADERS = {
     "User-Agent": "curl/7.68.0",
     "Content-Type": "application/json"
 }
 
 GROUPME_MAX_CHARS = 4000
+
+
+async def upload_image_to_groupme(image_bytes: bytes, content_type: str) -> Optional[str]:
+    """
+    Upload image bytes to GroupMe's Image Service so they can be attached to a bot
+    post. Bot posts can only reference i.groupme.com-hosted images via `picture_url`
+    — external URLs (e.g. Twilio media URLs) are not accepted directly, so images
+    arriving from other channels (SMS, future WhatsApp) must be re-hosted here first.
+
+    Requires GROUPME_USER_ACCESS_TOKEN — the same user access token already used
+    for group/bot setup in setup_groupme_circle(). Bots don't have their own token
+    for the Image Service.
+
+    Returns the picture_url, or None on failure (caller should fall back to a
+    text-only post rather than dropping the message).
+    """
+    access_token = os.getenv("GROUPME_USER_ACCESS_TOKEN")
+    if not access_token:
+        logger.error("[groupme] GROUPME_USER_ACCESS_TOKEN not set — cannot upload image")
+        return None
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            GROUPME_IMAGE_SERVICE_URL,
+            headers={
+                "X-Access-Token": access_token,
+                "Content-Type": content_type,
+            },
+            content=image_bytes,
+        )
+
+    if response.status_code != 200:
+        logger.error(f"[groupme] Image upload failed: {response.status_code} - {response.text}")
+        return None
+
+    payload = response.json().get("payload", {})
+    picture_url = payload.get("picture_url") or payload.get("url")
+    if not picture_url:
+        logger.error(f"[groupme] Image upload response missing picture_url: {response.text}")
+        return None
+    return picture_url
 
 
 def split_for_groupme(text: str, limit: int = GROUPME_MAX_CHARS) -> list[str]:
@@ -75,20 +117,26 @@ def send_message(bot_id: str, text: str) -> bool:
     return False
 
 
-async def send_message_async(bot_id: str, text: str) -> bool:
+async def send_message_async(bot_id: str, text: str, picture_url: Optional[str] = None) -> bool:
     """Async version for use inside the FastAPI webhook.
 
     bot_id comes from care_circles.integration_config['groupme_bot_id'].
     Automatically splits text that exceeds GROUPME_MAX_CHARS at sentence
-    boundaries and sends each chunk sequentially.
+    boundaries and sends each chunk sequentially. If picture_url is given
+    (an i.groupme.com URL from upload_image_to_groupme), it's attached to
+    the first chunk only, so a long message with an image still posts as
+    one photo attached to one logical reply, not one per chunk.
     """
     chunks = split_for_groupme(text)
     all_ok = True
     async with httpx.AsyncClient() as client:
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks):
+            body = {"bot_id": bot_id, "text": chunk}
+            if picture_url and i == 0:
+                body["picture_url"] = picture_url
             response = await client.post(
                 GROUPME_URL,
-                json={"bot_id": bot_id, "text": chunk},
+                json=body,
                 headers=GROUPME_HEADERS
             )
             if response.status_code == 202:
@@ -99,30 +147,33 @@ async def send_message_async(bot_id: str, text: str) -> bool:
     return all_ok
 
 
-async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_id: Optional[str] = None):
+async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_id: Optional[str] = None, picture_url: Optional[str] = None):
     """
     Post a reply to GroupMe and log it as an outbound agent_note.
-    No-op if bot_id or text is missing.
+    No-op if bot_id is missing, or if there's neither text nor an image to send.
 
     Internal sentinels ([SAVED: ...], [PATCHED: ...]) are stripped from the
     visible GroupMe message but preserved in the logged body so Claude can
     read them in future turns for state tracking.
     """
-    if not bot_id or not text:
+    if not bot_id or (not text and not picture_url):
         return
     # Strip sentinel lines before posting — users never see them
     visible_text = "\n".join(
-        line for line in text.splitlines()
+        line for line in (text or "").splitlines()
         if not line.startswith("[SAVED:") and not line.startswith("[PATCHED:")
     ).strip()
-    await send_message_async(bot_id, visible_text)
+    await send_message_async(bot_id, visible_text, picture_url=picture_url)
     if circle_ext_id:
         try:
+            raw_data = {"source": "t5_bot", "bot_id": bot_id}
+            if picture_url:
+                raw_data["picture_url"] = picture_url
             repo.log_message(
                 circle_ext_id=circle_ext_id,
                 person_ext_id=None,
-                body=text,
-                raw_data={"source": "t5_bot", "bot_id": bot_id},
+                body=text or "[image]",
+                raw_data=raw_data,
                 msg_type="agent_note",
                 direction="outbound",
                 channel="groupme",
