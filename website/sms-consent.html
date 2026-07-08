@@ -60,6 +60,9 @@
   .consent-details p { font-size: 0.82rem; line-height: 1.6; color: var(--gray-600); margin-bottom: 0.5rem; }
   .consent-details p:last-child { margin-bottom: 0; }
 
+  .consent-hint { display: none; font-size: 0.82rem; font-style: italic; color: var(--teal-600); margin-top: 0.6rem; }
+  .consent-hint.show { display: block; }
+
   .btn-submit { display: inline-block; padding: 0.85rem 2rem; background: var(--teal-500); color: var(--white); border: none; border-radius: 100px; font-family: 'Lato', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.15s; margin-top: 0.5rem; }
   .btn-submit:hover { background: var(--teal-600); transform: translateY(-1px); }
   .btn-submit:disabled { background: var(--gray-400); cursor: not-allowed; transform: none; }
@@ -128,12 +131,14 @@
     <div class="consent-check">
       <input type="checkbox" id="consent" />
       <label for="consent">
-        By checking this box and providing my mobile number, I agree to receive a one-time SMS welcome message and automated check-in confirmation replies from <strong>Take Five Care</strong>. Message frequency is low and based on my own check-ins. Message and data rates may apply. Reply <strong>STOP</strong> to opt out at any time. Reply <strong>HELP</strong> for help. View our <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms of Service</a>.
+        I agree to receive a one-time SMS welcome message and automated check-in confirmation replies from <strong>Take Five Care</strong>. Message frequency is low and based on my own check-ins. Message and data rates may apply. Reply <strong>STOP</strong> to opt out at any time. Reply <strong>HELP</strong> for help.
       </label>
     </div>
+    <p class="consent-hint" id="consent-hint">Please check the box above to opt in to text messages.</p>
     <div class="consent-details">
       <p>Mobile opt-in data and consent will not be shared with third parties or affiliates for marketing purposes.</p>
       <p>To opt out at any time, reply <strong>STOP</strong> to any message. To get help, reply <strong>HELP</strong>. For support, visit <a href="https://takefive.care">takefive.care</a>.</p>
+      <p>This SMS program is separate from your Take Five account. See our <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms of Service</a>.</p>
     </div>
   </div>
 
@@ -162,15 +167,24 @@
   const phoneInput = document.getElementById('phone');
 
   function checkReady() {
-    const ready = checkbox.checked && nameInput.value.trim() && phoneInput.value.trim();
+    // Button availability depends only on contact info, not the consent
+    // checkbox — SMS consent must stay a voluntary choice, never a gate
+    // on completing the form.
+    const ready = nameInput.value.trim() && phoneInput.value.trim();
     submitBtn.disabled = !ready;
   }
 
-  checkbox.addEventListener('change', checkReady);
   nameInput.addEventListener('input', checkReady);
   phoneInput.addEventListener('input', checkReady);
+  checkbox.addEventListener('change', () => {
+    if (checkbox.checked) document.getElementById('consent-hint').classList.remove('show');
+  });
 
   function handleSubmit() {
+    if (!checkbox.checked) {
+      document.getElementById('consent-hint').classList.add('show');
+      return;
+    }
     submitBtn.disabled = true;
     submitBtn.textContent = 'Opted in';
     document.getElementById('success-msg').style.display = 'block';
