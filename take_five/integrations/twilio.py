@@ -169,5 +169,20 @@ async def handle_sms(
             asyncio.create_task(process_sms_image())
 
     logger.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
-    response.message(f"Got it, {person['name']}. Thanks for the update.")
+
+    # Placeholder confirmation reply — sent via TwiML, not a separate REST call.
+    # TODO: personalize based on circle/context once the pipeline supports it.
+    confirmation_text = f"Got it, {person['name']}. Thanks for the update."
+    logger.info(f"[sms] Sending confirmation reply to {person['name']} ({From}): '{confirmation_text}'")
+    repo.log_message(
+        circle_ext_id=circle_ext_id,
+        person_ext_id=None,
+        body=confirmation_text,
+        raw_data={"from": To, "to": From, "body": confirmation_text},
+        msg_type="agent_note",
+        direction="outbound",
+        channel="sms",
+    )
+
+    response.message(confirmation_text)
     return Response(content=str(response), media_type="application/xml")
