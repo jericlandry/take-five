@@ -112,6 +112,7 @@
 
 <h2>Opt in to SMS notifications</h2>
 <p>If your family administrator has asked you to provide your number, complete the form below to confirm your consent.</p>
+<p><strong>This step is optional.</strong> You can be part of your family's care circle without providing a phone number — SMS is simply one way to stay connected. Declining does not affect your ability to participate in your care circle.</p>
 
 <div class="form-card">
   <div class="form-group">
@@ -136,7 +137,7 @@
     </div>
   </div>
 
-  <button class="btn-submit" id="submit-btn" disabled onclick="handleSubmit()">Confirm enrollment</button>
+  <button class="btn-submit" id="submit-btn" disabled onclick="handleSubmit()">Opt in to text messages</button>
 
   <div class="success" id="success-msg">
     <p>Thank you — your consent has been recorded. You'll receive a welcome message from Take Five Care shortly.</p>
@@ -171,7 +172,7 @@
 
   function handleSubmit() {
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Enrolled';
+    submitBtn.textContent = 'Opted in';
     document.getElementById('success-msg').style.display = 'block';
   }
 </script>
