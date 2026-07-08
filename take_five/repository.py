@@ -138,6 +138,21 @@ class TakeFiveRepository:
             'dob': kwargs.get('date_of_birth'),
         })
 
+    # --- LEADS ---
+
+    def create_lead(self, lead_type: str, name: str, email: str,
+                     phone: Optional[str] = None, details: Optional[Dict] = None,
+                     source: Optional[str] = None) -> Dict:
+        query = """
+            INSERT INTO leads (lead_type, name, email, phone, details, source)
+            VALUES (%(lead_type)s, %(name)s, %(email)s, %(phone)s, %(details)s, %(source)s)
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'lead_type': lead_type, 'name': name, 'email': email,
+            'phone': phone, 'details': Json(details or {}), 'source': source,
+        })
+
     # --- CARE CIRCLES ---
 
     def create_care_circle(self, ensemble_id: str, name: str, status: str = 'active',

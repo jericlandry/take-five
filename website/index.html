@@ -18,19 +18,21 @@
   html { scroll-behavior: smooth; }
   body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--cream); color: var(--text); overflow-x: hidden; }
 
-  /* NAV */
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 2.5rem; background: rgba(249,246,240,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--gray-200); }
-  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-  .nav-logo { width: 32px; height: 32px; }
-  .nav-name { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--teal-800); letter-spacing: -0.02em; }
-  .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; }
-  .nav-links a { font-size: 0.85rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-600); text-decoration: none; transition: color 0.2s; }
-  .nav-links a:hover { color: var(--teal-500); }
-  .nav-cta { background: var(--teal-500) !important; color: var(--white) !important; padding: 0.5rem 1.25rem; border-radius: 100px; font-weight: 700 !important; }
-  .nav-cta:hover { background: var(--teal-600) !important; }
+  /* SIDE NAV */
+  .side-nav { position: fixed; top: 0; left: 0; bottom: 0; width: 220px; z-index: 100; background: var(--teal-900); display: flex; flex-direction: column; padding: 1.5rem 0; border-right: 1px solid rgba(93,202,165,0.15); }
+  .side-nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; padding: 0 1.5rem 1.75rem; }
+  .side-nav-logo { width: 28px; height: 28px; flex-shrink: 0; }
+  .side-nav-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--teal-100); letter-spacing: -0.02em; }
+  .side-nav-links { list-style: none; display: flex; flex-direction: column; gap: 2px; padding: 0 0.75rem; }
+  .side-nav-links a { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.75rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; color: var(--teal-100); text-decoration: none; transition: background 0.15s, color 0.15s; }
+  .side-nav-links a svg { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .side-nav-links a:hover { background: rgba(93,202,165,0.12); color: var(--white); }
+  .side-nav-links a.cta { background: var(--teal-300); color: var(--teal-900); justify-content: center; margin-top: 0.5rem; }
+  .side-nav-links a.cta:hover { background: var(--white); color: var(--teal-900); }
+  body { margin-left: 220px; }
 
   /* HERO */
-  .hero { min-height: 100vh; background: var(--teal-800); display: grid; grid-template-columns: 1fr 1fr; align-items: center; position: relative; overflow: hidden; padding-top: 5rem; }
+  .hero { min-height: 100vh; background: var(--teal-800); display: grid; grid-template-columns: 1fr 1fr; align-items: center; position: relative; overflow: hidden; }
   .hero-bg { position: absolute; border-radius: 50%; opacity: 0.06; background: var(--teal-300); }
   .hero-bg.c1 { width: 600px; height: 600px; top: -200px; right: -100px; }
   .hero-bg.c2 { width: 300px; height: 300px; bottom: 50px; left: 100px; }
@@ -67,6 +69,23 @@
   .sec-title.light em { color: var(--teal-300); }
   .sec-body { font-size: 1.05rem; line-height: 1.75; color: var(--gray-600); max-width: 560px; }
   .sec-body.light { color: var(--teal-100); }
+  .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+  .lifelog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; }
+  .pad-xl { padding: 7rem 5rem; }
+  .what-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin: 2rem 0 3.5rem; }
+  .what-step { border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.5rem; background: var(--white); }
+  .what-step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--teal-500); color: var(--white); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 0.9rem; margin-bottom: 1rem; }
+  .what-step-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.4rem; }
+  .what-step-body { font-size: 0.85rem; line-height: 1.55; color: var(--gray-600); }
+  .demo-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .demo-tab { padding: 0.6rem 1.25rem; border-radius: 100px; border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-600); font-family: 'Lato', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .demo-tab.active { background: var(--teal-500); border-color: var(--teal-500); color: var(--white); }
+  .demo-panel { display: none; }
+  .demo-panel.active { display: block; }
+  .demo-card { border-radius: 20px; padding: 2.5rem; margin-top: 1.5rem; }
+  .demo-card.dark { background: var(--teal-900); }
+  .demo-card.tint { background: var(--teal-50); }
+  .demo-card.light { background: var(--white); border: 1px solid var(--gray-200); }
 
   /* SCIENCE */
   .science { background: var(--teal-800); position: relative; overflow: hidden; }
@@ -227,6 +246,27 @@
   .cta-btn:hover { background: var(--white); transform: translateY(-1px); }
   .cta-note { margin-top: 1rem; font-size: 0.8rem; color: var(--teal-100); opacity: 0.6; position: relative; z-index: 2; }
 
+  /* LEAD FORM */
+  .lead-card { background: var(--teal-800); border-radius: 20px; padding: 2.5rem; max-width: 480px; margin: 2.5rem 0 0; }
+  .lead-tabs { display: flex; gap: 8px; background: rgba(255,255,255,0.08); border-radius: 100px; padding: 4px; margin-bottom: 1.5rem; }
+  .lead-tab { flex: 1; min-width: 0; border: none; border-radius: 100px; padding: 0.6rem 0.5rem; font-family: 'Lato', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; background-color: transparent; color: var(--teal-100); transition: background-color 0.2s, color 0.2s; }
+  .lead-tab.active { background-color: var(--teal-300); color: var(--teal-900); }
+  .lead-form { display: flex; flex-direction: column; gap: 0.75rem; }
+  .lead-field { box-sizing: border-box; line-height: 1.4; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(93,202,165,0.45); background-color: rgba(255,255,255,0.16); color: var(--white); font-family: 'Lato', sans-serif; font-size: 0.9rem; outline: none; width: 100%; }
+  .lead-field::placeholder { color: rgba(255,255,255,0.8); opacity: 1; }
+  .lead-dd-wrap { position: relative; }
+  .lead-dd-btn { width: 100%; text-align: left; box-sizing: border-box; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(93,202,165,0.45); background-color: rgba(255,255,255,0.16); color: rgba(255,255,255,0.8); font-family: 'Lato', sans-serif; font-size: 0.9rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .lead-dd-btn.selected { color: var(--white); }
+  .lead-dd-list { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--white); border-radius: 10px; overflow: hidden; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+  .lead-dd-list.open { display: block; }
+  .lead-dd-opt { padding: 0.7rem 1rem; color: var(--teal-900); font-size: 0.88rem; cursor: pointer; }
+  .lead-dd-opt:hover { background-color: var(--teal-50); }
+  .lead-submit { margin-top: 0.5rem; padding: 0.9rem; border: none; border-radius: 100px; background-color: var(--teal-300); color: var(--teal-900); font-family: 'Lato', sans-serif; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: background-color 0.2s; }
+  .lead-submit:hover { background-color: var(--white); }
+  .lead-note { text-align: center; font-size: 0.8rem; color: var(--gray-400); margin-top: 0.9rem; }
+  .lead-success { display: none; text-align: center; padding: 2rem 1rem; }
+  .lead-success.show { display: block; }
+
   /* FOOTER */
   footer { background: var(--teal-900); padding: 3rem 5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; border-top: 1px solid rgba(93,202,165,0.1); }
   .footer-brand { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--teal-300); }
@@ -238,16 +278,21 @@
   @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 
   @media (max-width: 900px) {
-    nav { padding: 1rem 1.5rem; }
-    .nav-links { display: none; }
-    section, .story-sec { padding: 4rem 1.75rem; }
+    body { margin-left: 0; padding-bottom: 64px; }
+    .side-nav { top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: 64px; flex-direction: row; align-items: center; padding: 0 0.5rem; border-right: none; border-top: 1px solid rgba(93,202,165,0.15); }
+    .side-nav-brand { display: flex; padding: 0 0.5rem; flex-shrink: 0; }
+    .side-nav-name { display: none; }
+    .side-nav-links { flex-direction: row; flex: 1; padding: 0; gap: 0; }
+    .side-nav-links a { flex: 1; flex-direction: column; gap: 0.2rem; padding: 0.5rem 0.25rem; font-size: 0.62rem; text-align: center; border-radius: 8px; white-space: nowrap; }
+    section, .story-sec, .pad-xl { padding: 4rem 1.75rem; }
     .hero { grid-template-columns: 1fr; padding: 6rem 1.75rem 3rem; }
+    .hero-content { padding: 0; }
     .hero-visual { display: none; }
     .proof-bar { padding: 1.25rem 1.75rem; flex-direction: column; align-items: flex-start; }
-    .origin, .dignity, .lifelog { grid-template-columns: 1fr; gap: 2.5rem; }
+    .origin, .dignity, .lifelog, .split-grid, .lifelog-grid { grid-template-columns: 1fr; gap: 2.5rem; }
     .digest-inner { grid-template-columns: 1fr; gap: 2.5rem; }
     .story-inner { grid-template-columns: 1fr; gap: 2.5rem; }
-    .cards-4, .steps, .feat-grid { grid-template-columns: 1fr 1fr; }
+    .cards-4, .steps, .feat-grid, .what-steps { grid-template-columns: 1fr 1fr; }
     .science-grid { grid-template-columns: 1fr 1fr; }
     .price-cards { grid-template-columns: 1fr; max-width: 420px; }
     .cta { padding: 4rem 1.75rem; }
@@ -255,17 +300,17 @@
     footer { padding: 2rem 1.75rem; flex-direction: column; align-items: flex-start; }
   }
   @media (max-width: 600px) {
-    .cards-4, .steps, .feat-grid, .science-grid { grid-template-columns: 1fr; }
+    .cards-4, .steps, .feat-grid, .science-grid, .what-steps { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
 
 <!-- NAV -->
-<nav>
-  <a href="#" class="nav-brand">
-    <svg class="nav-logo" viewBox="0 0 56 56" fill="none">
-      <g stroke="#1D9E75" stroke-width="1.5" fill="none">
+<nav class="side-nav">
+  <a href="#" class="side-nav-brand">
+    <svg class="side-nav-logo" viewBox="0 0 56 56" fill="none">
+      <g stroke="#5DCAA5" stroke-width="1.5" fill="none">
         <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
         <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
         <line x1="6" y1="21" x2="28" y2="6"/>
@@ -277,12 +322,13 @@
       <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
       <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
     </svg>
-    <span class="nav-name">Take Five</span>
+    <span class="side-nav-name">Take Five</span>
   </a>
-  <ul class="nav-links">
-    <li><a href="#science">The science</a></li>
-    <li><a href="#features">Features</a></li>
-    <li><a href="#pilot" class="nav-cta">Now in pilot</a></li>
+  <ul class="side-nav-links">
+    <li><a href="#why"><svg viewBox="0 0 16 16"><path d="M8 2a4 4 0 00-4 4c0 2 1 3 2 4l.5 2h3l.5-2c1-1 2-2 2-4a4 4 0 00-4-4z"/><path d="M6.5 14h3"/></svg>Why it matters</a></li>
+    <li><a href="#features"><svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>How it works</a></li>
+    <li><a href="#action"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M6.5 5.5l4 2.5-4 2.5z"/></svg>See it in action</a></li>
+    <li><a href="#pilot" class="cta"><svg viewBox="0 0 16 16"><path d="M8 1l1.5 4.5H14l-3.5 2.5L11.5 12 8 9.5 4.5 12l1-4L2 5.5h4.5z"/></svg>Now in pilot</a></li>
   </ul>
 </nav>
 
@@ -296,7 +342,7 @@
     <p class="hero-sub">An AI care agent that lives in your family's group chat — answering questions, tracking medications, surfacing what matters, and sending a weekly digest that keeps everyone genuinely in the loop. No new app. No new habits. Just a phone number.</p>
     <div class="actions">
       <a href="#pilot" class="btn btn-primary">Now in pilot</a>
-      <a href="#science" class="btn btn-ghost">See the science</a>
+      <a href="#why" class="btn btn-ghost">See the science</a>
     </div>
   </div>
   <div class="hero-visual">
@@ -341,54 +387,47 @@
   <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Now in pilot · by invitation</span></div>
 </div>
 
-<!-- VISION -->
-<section style="background:var(--teal-600);padding:6rem 5rem;position:relative;overflow:hidden;">
-  <div style="position:absolute;width:700px;height:700px;border-radius:50%;background:var(--teal-600);opacity:0.08;top:-300px;right:-200px;"></div>
-  <div style="position:relative;z-index:2;max-width:820px;">
-    <p class="eyebrow">The mission</p>
-    <h2 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:400;line-height:1.2;color:var(--white);margin-bottom:0.75rem;letter-spacing:-0.02em;">We are setting out to rethink<br>what it means to care for aging loved ones.</h2>
-    <p style="font-family:'Playfair Display',serif;font-size:clamp(1.5rem,2.5vw,2rem);font-weight:400;font-style:italic;color:var(--teal-300);margin-bottom:2rem;">with dignity.</p>
-    <p class="sec-body light" style="max-width:640px;">Take Five travels with your loved one wherever they are: at home, in independent living, in assisted living, anywhere a care circle gathers around them. The coordination need doesn't end when they relocate. Neither do we.</p>
-  </div>
-</section>
+<!-- WHY -->
+<section style="background:var(--teal-900);position:relative;overflow:hidden;" id="why">
+  <div style="position:absolute;width:600px;height:600px;border-radius:50%;background:var(--teal-800);opacity:0.4;top:-250px;right:-150px;"></div>
+  <div style="position:relative;z-index:2;">
+    <p class="eyebrow">The why</p>
+    <h2 class="sec-title light" style="max-width:760px;">Coordination collapse costs connection.<br><em>Connection is healthcare.</em></h2>
+    <p class="sec-body light" style="max-width:640px;margin-bottom:2.5rem;">Whether a loved one is at home, in independent living, or anywhere in between, the same pattern repeats: one person carries the coordination, everyone else drifts to the periphery, and the human connection that keeps people healthy quietly fades.</p>
 
-<section class="science" id="science">
-  <p class="eyebrow">The science</p>
-  <h2 class="sec-title light">Social connection<br><em>is healthcare.</em></h2>
-  <p class="sec-body light" style="margin-bottom:0; max-width:640px;">The research is unambiguous. Keeping aging loved ones connected to people, to stories, to life is one of the most powerful health interventions available. Take Five is built on this science.</p>
-  <div class="science-grid">
-    <div class="stat"><div class="stat-num">29%</div><p class="stat-label">Increased risk of premature death from social isolation — comparable to smoking or obesity (National Academies, 2020)</p></div>
-    <div class="stat"><div class="stat-num">50%</div><p class="stat-label">Increased risk of dementia among older adults experiencing chronic loneliness or isolation (HHS, 2023)</p></div>
-    <div class="stat"><div class="stat-num">15</div><p class="stat-label">Cigarettes per day — the equivalent mortality impact of being socially disconnected (U.S. Surgeon General, 2023)</p></div>
-    <div class="stat"><div class="stat-num">1 in 2</div><p class="stat-label">U.S. adults report measurable loneliness — declared a public health epidemic (Surgeon General's Advisory, 2023)</p></div>
-  </div>
-  <blockquote class="sci-quote">
-    <p>"Social connection is a significant predictor of longevity and better physical, cognitive, and mental health, while social isolation and loneliness are significant predictors of premature death and poor health."</p>
-    <cite>U.S. Surgeon General's Advisory on the Epidemic of Loneliness and Isolation (2023) · National Academies of Sciences, Engineering &amp; Medicine · World Health Organization Commission on Social Connection</cite>
-  </blockquote>
-</section>
+    <div style="display:flex;flex-direction:column;gap:1.25rem;max-width:640px;margin-bottom:3rem;">
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+        <div><div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">One person carries everything</div><p style="font-size:0.9rem;line-height:1.6;color:var(--teal-100);">One person manages schedules, medications, and decisions, often from a distance, while others stay peripheral or simply don't know how to help.</p></div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+        <div><div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Tasks fall through the cracks</div><p style="font-size:0.9rem;line-height:1.6;color:var(--teal-100);">No shared visibility means no shared accountability. Things get missed. Crises happen that didn't have to.</p></div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+        <div><div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Connection quietly fades</div><p style="font-size:0.9rem;line-height:1.6;color:var(--teal-100);">As logistics take over, the human connection suffers. Isolation grows quietly, dangerously, even when someone is surrounded by people.</p></div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+        <div><div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Stories are lost forever</div><p style="font-size:0.9rem;line-height:1.6;color:var(--teal-100);">Every elder is a living archive. Without someone asking the right questions, those stories disappear when they do.</p></div>
+      </div>
+    </div>
 
-<!-- BETWEEN VISITS -->
-<section style="background:var(--teal-900);padding:7rem 5rem;position:relative;overflow:hidden;">
-  <div style="position:absolute;width:500px;height:500px;border-radius:50%;background:var(--teal-800);opacity:0.4;top:-200px;right:-100px;"></div>
-  <div style="position:relative;z-index:2;max-width:720px;">
-    <h2 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:400;line-height:1.2;color:var(--white);margin-bottom:2rem;letter-spacing:-0.02em;">Between visits is where<br><em style="color:var(--teal-300);">Take Five lives.</em></h2>
-    <p style="font-size:1.1rem;line-height:1.85;color:var(--teal-100);margin-bottom:1.5rem;">Not in the doctor's office — in the group chat, at the end of a longer message, almost as an afterthought. The observation nobody logged. The symptom that came up once and disappeared. The pattern no one connected.</p>
-    <p style="font-size:1.1rem;line-height:1.85;color:var(--teal-100);margin-bottom:2rem;">This is where care breaks down.<br>And it's where Take Five pays attention.</p>
-    <p style="font-family:'Playfair Display',serif;font-size:1.35rem;font-style:italic;font-weight:400;color:var(--white);line-height:1.6;">Nothing your family shares gets lost.<br>Take Five finds what matters<br>and makes sure it gets to the right people.</p>
-  </div>
-</section>
+    <div class="science-grid" style="margin:0 0 2rem;">
+      <div class="stat"><div class="stat-num">29%</div><p class="stat-label">Increased risk of premature death from social isolation (National Academies, 2020)</p></div>
+      <div class="stat"><div class="stat-num">50%</div><p class="stat-label">Increased risk of dementia among older adults experiencing chronic loneliness (HHS, 2023)</p></div>
+      <div class="stat"><div class="stat-num">15</div><p class="stat-label">Cigarettes per day — equivalent mortality impact of social disconnection (U.S. Surgeon General, 2023)</p></div>
+      <div class="stat"><div class="stat-num">1 in 2</div><p class="stat-label">U.S. adults report measurable loneliness — a declared public health epidemic (2023)</p></div>
+    </div>
 
-<!-- PROBLEM -->
-<section class="problem">
-  <p class="eyebrow">The problem</p>
-  <h2 class="sec-title">Coordination collapse<br><em>leaves aging loved ones without the support they deserve.</em></h2>
-  <p class="sec-body" style="margin-bottom:3rem;">Whether a loved one is at home, in independent living, or anywhere in between, when coordination fails, connection fades. And that has real health consequences.</p>
-  <div class="cards-4">
-    <div class="prob-card"><div class="prob-num">01</div><div class="prob-title">One person carries everything</div><p class="prob-body">One person manages schedules, medications, and decisions, often from a distance, while others stay peripheral or simply don't know how to help.</p></div>
-    <div class="prob-card"><div class="prob-num">02</div><div class="prob-title">Tasks fall through the cracks</div><p class="prob-body">No shared visibility means no shared accountability. Things get missed. Crises happen that didn't have to.</p></div>
-    <div class="prob-card"><div class="prob-num">03</div><div class="prob-title">Connection quietly fades</div><p class="prob-body">As logistics take over, the human connection suffers. Isolation grows quietly, dangerously, even when someone is surrounded by people.</p></div>
-    <div class="prob-card"><div class="prob-num">04</div><div class="prob-title">Stories are lost forever</div><p class="prob-body">Every elder is a living archive. Without someone asking the right questions, those stories disappear when they do.</p></div>
+    <blockquote class="sci-quote" style="margin-bottom:3rem;">
+      <p>"Social connection is a significant predictor of longevity and better physical, cognitive, and mental health, while social isolation and loneliness are significant predictors of premature death and poor health."</p>
+      <cite>U.S. Surgeon General's Advisory on the Epidemic of Loneliness and Isolation (2023)</cite>
+    </blockquote>
+
+    <p style="font-size:1.1rem;line-height:1.85;color:var(--teal-100);margin-bottom:1.5rem;max-width:680px;">This is where care actually breaks down — not in the doctor's office, but between visits. In the group chat, at the end of a longer message, almost as an afterthought. The observation nobody logged. The symptom that came up once and disappeared.</p>
+    <p style="font-family:'Playfair Display',serif;font-size:1.35rem;font-style:italic;font-weight:400;color:var(--white);line-height:1.6;max-width:680px;">Nothing your family shares gets lost.<br>Take Five finds what matters and makes sure it gets to the right people.</p>
   </div>
 </section>
 
@@ -413,207 +452,13 @@
   </div>
 </section>
 
-<!-- HOW IT WORKS -->
-<section class="how" id="how">
-  <p class="eyebrow">How it works</p>
-  <h2 class="sec-title light">Simple for everyone.<br><em>Powerful for families.</em></h2>
-  <p class="sec-body light">No apps. No training. No friction. Just a phone number and a calm, intelligent presence holding everything together.</p>
-  <div class="steps">
-    <div class="step"><div class="step-num">1</div><div class="step-title">Set up your care circle</div><p class="step-body">Invite family, professional caregivers, and anyone in your parent's support network. Each person gets role-appropriate visibility.</p></div>
-    <div class="step"><div class="step-num">2</div><div class="step-title">Professional caregivers check in by SMS</div><p class="step-body">Your home aide or agency nurse texts a Take Five number after each visit — naturally, like any text. Their update flows into the care record automatically. They never join the family chat. The family always knows what happened.</p></div>
-    <div class="step"><div class="step-num">3</div><div class="step-title">The agent holds it all</div><p class="step-body">Take Five parses every update, maintains the care log and life log, assigns tasks, and surfaces what matters before it becomes a crisis.</p></div>
-    <div class="step"><div class="step-num">4</div><div class="step-title">Family gets a weekly digest</div><p class="step-body">Every week: what happened, patterns worth noting, what needs a decision. The sibling in Denver feels genuinely present without anyone having to write a summary by hand.</p></div>
-    <div class="step"><div class="step-num">5</div><div class="step-title">The Story grows over time</div><p class="step-body">Each week the agent asks one gentle question. The answers build into a memoir — her life, in her own words, preserved forever.</p></div>
-    <div class="step"><div class="step-num">6</div><div class="step-title">Hard decisions, made together</div><p class="step-body">When the hardest question comes, the agent gives your whole family the same data, the same guidance, and a way to decide together with dignity.</p></div>
-  </div>
-</section>
-
-<!-- FEATURES -->
-<section class="features" id="features">
-  <p class="eyebrow light">Features</p>
-  <h2 class="sec-title">Built for how<br><em>families actually work.</em></h2>
-  <div class="feat-grid">
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h12M4 10h8M4 14h5"/><rect x="2" y="3" width="16" height="14" rx="2"/></svg></div><div class="feat-title">Weekly family digest</div><p class="feat-body">One warm weekly summary of what happened, what she's reading, what needs attention. The sibling in Denver stays genuinely close without anyone having to write it by hand.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3l2.5 5 5.5.8-4 3.9.9 5.5L10 16l-4.9 2.2.9-5.5L2 8.8l5.5-.8z"/></svg></div><div class="feat-title">Proactive alerts</div><p class="feat-body">Missed check-ins, medication gaps, and pattern changes surface before they become crises — not after.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M6 3h8M4 7h12M5 11l1 6h8l1-6"/><path d="M8 11v6M12 11v6"/></svg></div><div class="feat-title">Medication tracking</div><p class="feat-body">A structured medication list with name, dose, AM/PM/evening schedule, prescriber, and purpose, stored and kept current. Ask T5 what Dad's on and get an instant answer from the care record.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 2a4 4 0 100 8 4 4 0 000-8z"/><path d="M4 18c0-3 2.7-5 6-5s6 2 6 5"/><path d="M14 8h4M16 6v4"/></svg></div><div class="feat-title">Care team registry</div><p class="feat-body">Every doctor, specialist, and provider — name, specialty, phone, and notes — in one place the whole family can access. No more "who is Mom's cardiologist again?"</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4zM4 8h12M8 8v8"/></svg></div><div class="feat-title">Life Log</div><p class="feat-body">Books read, shows watched, walks taken. A living record of a life still being lived — because staying engaged is staying healthy.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg></div><div class="feat-title">Activity feed & digest archive</div><p class="feat-body">Every check-in, update, and care note in a running feed, plus every weekly digest saved and searchable. The full care history is always there when you need it.</p></div>
-    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z"/><path d="M10 7v4l2.5 2"/><path d="M3.5 3.5l13 13"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Safety & health signal tracker</div><p class="feat-body">T5 reads every message for safety and health signals — falls, recurring symptoms, behavioral changes — and surfaces patterns in the weekly digest that nobody would catch looking at one week at a time.</p></div>
-    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4z"/><path d="M8 4v12M4 8h4"/><path d="M12 10h4M12 13h3"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Document registry</div><p class="feat-body">Where's the will? Who has power of attorney? A shared registry of important documents — where they live, who to call — so the whole family knows before they need to know.</p></div>
-    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M3 5h14v10H3z"/><path d="M3 5l7 6 7-6"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Call transcript ingestion</div><p class="feat-body">Upload a transcript from the weekly family call and T5 pulls out what matters — decisions made, health observations, follow-up items — so nothing important stays buried in whoever took notes.</p></div>
-  </div>
-</section>
-
-<!-- ASK T5 -->
-<section style="background:var(--teal-900);padding:6rem 5rem;position:relative;overflow:hidden;" id="ask">
-  <div style="position:absolute;width:400px;height:400px;border-radius:50%;background:var(--teal-600);opacity:0.1;top:-150px;left:-100px;"></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;position:relative;z-index:2;">
-    <div>
-      <p class="eyebrow">The knowledgebase</p>
-      <h2 class="sec-title light">Everything shared.<br><em>Nothing lost.</em></h2>
-      <p class="sec-body light">Every check-in, every update, every note shared in the group chat is stored in a care record, not buried in scroll. Ask T5 a question and it answers from the full history of everything that's been shared.</p>
-      <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:2rem;">
-        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
-          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
-          <div style="font-size:0.95rem;color:var(--white);font-family:'Playfair Display',serif;font-style:italic;">"What medications is Mom on?"</div>
-        </div>
-        <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(93,202,165,0.3);border-radius:10px;padding:1rem 1.25rem;">
-          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">T5 answers</div>
-          <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">She's currently on 6 medications. Amlodipine 5mg (AM) for blood pressure, Dayvigo 5mg at bedtime for sleep, and 4 others. Want the full list?</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
-          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
-          <div style="font-size:0.95rem;color:var(--white);font-family:'Playfair Display',serif;font-style:italic;">"When did the aide last come?"</div>
-        </div>
-        <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(93,202,165,0.3);border-radius:10px;padding:1rem 1.25rem;">
-          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">T5 answers</div>
-          <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">Rosa checked in yesterday at 9:14am. Good visit — Mom finished her book, ate well, all meds taken. Thursday's visit hasn't been confirmed yet.</div>
-        </div>
-      </div>
-    </div>
-    <div>
-      <p class="sec-body light" style="margin-bottom:1.5rem;">No digging through old messages. No calling the sibling who "keeps track of everything." The care record is the shared memory your whole circle can query, from anywhere, at any time.</p>
-      <div style="display:flex;flex-direction:column;gap:1rem;">
-        <div style="display:flex;gap:1rem;align-items:flex-start;">
-          <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
-          <div>
-            <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Medications & schedules</div>
-            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Current meds, doses, timing, and prescribers. Always current, always queryable.</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:1rem;align-items:flex-start;">
-          <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
-          <div>
-            <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Doctors & care team</div>
-            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Every provider's name, specialty, and phone. Searchable and stored, not buried in a text thread.</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:1rem;align-items:flex-start;">
-          <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
-          <div>
-            <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Visit history</div>
-            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Who came, when, what happened — a timestamped record built from every caregiver check-in.</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:1rem;align-items:flex-start;">
-          <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
-          <div>
-            <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Appointments & decisions</div>
-            <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Upcoming visits, past appointments, and the decisions made along the way — preserved in context.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- WEEKLY DIGEST -->
-<section style="background:var(--white);padding:6rem 5rem;" id="digest">
-  <div class="digest-inner">
-    <div>
-      <p class="eyebrow light">The weekly digest</p>
-      <h2 class="sec-title">One warm summary.<br><em>The whole family,<br>on the same page.</em></h2>
-      <p class="sec-body" style="margin-bottom:1.5rem;">Every week T5 synthesizes everything shared in the care circle: what happened, how they're doing, what they've been into, and what needs a decision. The sibling in Denver who wants to help but hasn't felt in the loop reads it over coffee and finally does.</p>
-      <p class="sec-body">The digest isn't just a recap. It's where the pattern-recognition lives: the reading streak, the uptick in good days, the fall that got mentioned twice. All of it held together in one place your whole family can trust.</p>
-    </div>
-    <div>
-      <div class="digest-card" style="background:var(--teal-800);border:1px solid rgba(93,202,165,0.2);">
-        <div class="digest-card-header" style="background:rgba(93,202,165,0.1);border-bottom:1px solid rgba(93,202,165,0.15);">
-          <span class="digest-card-label">Weekly digest · example</span>
-          <span class="digest-card-date">Week of June 1–7, 2026</span>
-        </div>
-        <div class="digest-card-body">
-          <div class="digest-section">
-            <div class="digest-section-head">Who visited</div>
-            <p class="digest-text">Mark — Monday. Sarah — Friday and Saturday. Next visit planned for Wednesday the 10th.</p>
-          </div>
-          <div class="digest-divider"></div>
-          <div class="digest-section">
-            <div class="digest-section-head">How they're doing</div>
-            <p class="digest-text">Dad — good spirits and engaged, but two falls reported recently and neck pain continues. Mom — variable week. <em>Good mood Friday, harder Saturday</em> — hearing aid wasn't charged, which caused sensory overload.</p>
-          </div>
-          <div class="digest-divider"></div>
-          <div class="digest-section">
-            <div class="digest-section-head">Highlights</div>
-            <p class="digest-text">Dad went down a rabbit hole researching eggplant after dinner — <em>turns out it's called aubergine.</em> The whiteboard is in motion; Mom responded positively. Sarah went to mass with them Saturday and restocked meds for the next 30 days.</p>
-          </div>
-          <div class="digest-divider"></div>
-          <div class="digest-section">
-            <div class="digest-section-head amber">What needs attention</div>
-            <p class="digest-text amber">Two recent falls — one outside, one in the kitchen where the fire department was called. No injuries noted but both worth confirming. <em>Dr. Patel appointment June 9 needs confirmation</em> — wasn't on the calendar as of Tuesday. Neck pain should be raised at that visit.</p>
-          </div>
-          <div class="digest-divider"></div>
-          <div class="digest-section">
-            <div class="digest-section-head">Coming up</div>
-            <p class="digest-text">Dr. Patel — Tuesday, June 9 · Family visit — Wednesday, June 10</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- LIFE LOG -->
-<section class="lifelog">
-  <div>
-    <p class="eyebrow light">The Life Log</p>
-    <h2 class="sec-title">Not just what she needs.<br><em>What she loves.</em></h2>
-    <p class="sec-body">Most care apps track what's wrong. Take Five tracks what's alive. Research shows that daily engagement in books, shows, conversations, and movement is one of the most powerful protections against cognitive decline and premature mortality.</p>
-    <div class="ll-items">
-      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M3 3h12v12H3z"/><path d="M3 7h12M7 7v8"/></svg></div><div><div class="ll-title">Books &amp; reading</div><p class="ll-body">Currently reading, just finished, loved or didn't — the reading life tracked naturally through caregiver check-ins.</p></div></div>
-      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="14" height="11" rx="2"/><path d="M7 14v2M11 14v2M5 16h8"/></svg></div><div><div class="ll-title">Shows &amp; films</div><p class="ll-body">What she's watching, what made her laugh — so the next caregiver already has something to talk about.</p></div></div>
-      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.5 2"/></svg></div><div><div class="ll-title">Activities &amp; movement</div><p class="ll-body">Walks, garden time, phone calls with grandkids. Small signals of vitality — and early warnings when they stop.</p></div></div>
-      <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M9 2l2 4 4.5.7-3.2 3.1.8 4.5L9 12.2l-4 2.1.8-4.5L2.5 6.7 7 6z"/></svg></div><div><div class="ll-title">Mood &amp; good days</div><p class="ll-body">A simple daily signal. One tap from the caregiver. Over time the most valuable dataset in the product.</p></div></div>
-    </div>
-  </div>
-  <div>
-    <div class="feed">
-      <div class="feed-label">Today's care circle feed</div>
-      <div class="feed-item"><div class="feed-time">Rosa · 9:14am</div><div class="feed-text">Good morning. She finished her mystery novel — <em>seemed really satisfied.</em> Started the next one already. Good appetite, all meds taken.</div></div>
-      <div class="feed-item"><div class="feed-time">Take Five · 11:00am</div><div class="feed-text"><em>Milestone:</em> Mom has finished 8 books since joining Take Five — averaging one every 3 weeks.</div></div>
-      <div class="feed-item"><div class="feed-time">Rosa · 2:30pm</div><div class="feed-text">Afternoon walk — made it to the corner and back. She talked about the garden the whole way. <em>Good energy today.</em></div></div>
-      <div class="feed-item"><div class="feed-time">Take Five · this Sunday</div><div class="feed-text"><em>Weekly digest:</em> Great week. Book finished, walk completed, good mood. One item needs attention — Thursday aide visit unconfirmed.</div></div>
-    </div>
-  </div>
-</section>
-
-<!-- APPOINTMENT PREP -->
-<section style="background:var(--white);padding:6rem 5rem;">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;">
-    <div>
-      <p class="eyebrow light">Appointment prep</p>
-      <h2 class="sec-title">Walk into every<br>appointment <em>ready.</em></h2>
-      <p class="sec-body">Before the doctor visit, T5 assembles a summary from the care record: recent mood patterns, medication changes, symptoms mentioned in check-ins, questions the family has been asking. Everything the doctor needs to know, and nothing you'll scramble to remember in the waiting room.</p>
-      <p class="sec-body" style="margin-top:1rem;">Appointment prep packets are generated automatically and sent to the family before each scheduled visit. No prep required.</p>
-    </div>
-    <div style="background:var(--teal-50);border-radius:16px;padding:2rem;">
-      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--teal-500);margin-bottom:1.25rem;">Appointment prep · Dr. Yiou · April 7</div>
-      <div style="display:flex;flex-direction:column;gap:1rem;">
-        <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
-          <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Since last visit</div>
-          <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Sleep has been inconsistent — 4 mentions of restless nights across caregiver check-ins. Dayvigo started March 23. Mood generally positive; one difficult day noted March 29.</div>
-        </div>
-        <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
-          <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Medication changes</div>
-          <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Dayvigo 5mg added at bedtime. Temazepam use flagged for review. All other medications unchanged.</div>
-        </div>
-        <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
-          <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Questions from the family</div>
-          <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Is the anxiety improving? What should we watch for with the new sleep medication? When are labs due?</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- DIGNITY -->
-<section class="dignity">
+<section class="dignity" id="dignity">
   <p class="eyebrow">Built on dignity</p>
   <h2 class="sec-title">They are at the<br><em>center of this.</em></h2>
   <div class="dignity-inner">
     <div>
-      <blockquote class="dig-quote">Dignity is the difference between being cared for and being managed.<cite>— Eric Landry, Founder</cite></blockquote>
+      <blockquote class="dig-quote">Dignity is the difference between being cared for and being managed.<cite class="dig-cite">— Eric Landry, Founder</cite></blockquote>
     </div>
     <div>
       <div class="pillars">
@@ -625,15 +470,265 @@
   </div>
 </section>
 
+<!-- WHAT -->
+<section class="features" id="features">
+  <p class="eyebrow light">The what</p>
+  <h2 class="sec-title">Simple to use.<br><em>Built for how families actually work.</em></h2>
+  <p class="sec-body">No apps. No training. No friction — just a phone number and a calm, intelligent presence holding everything together.</p>
+
+  <div class="what-steps">
+    <div class="what-step"><div class="what-step-num">1</div><div class="what-step-title">Set up your care circle</div><p class="what-step-body">Invite family, professional caregivers, and anyone in your parent's support network. Each person gets role-appropriate visibility.</p></div>
+    <div class="what-step"><div class="what-step-num">2</div><div class="what-step-title">Professional caregivers check in by SMS</div><p class="what-step-body">Your home aide or agency nurse texts a Take Five number after each visit — naturally, like any text. They never join the family chat. The family always knows what happened.</p></div>
+    <div class="what-step"><div class="what-step-num">3</div><div class="what-step-title">The agent holds it all</div><p class="what-step-body">Take Five parses every update, maintains the care log and life log, assigns tasks, and surfaces what matters before it becomes a crisis.</p></div>
+    <div class="what-step"><div class="what-step-num">4</div><div class="what-step-title">Family gets a weekly digest</div><p class="what-step-body">Every week: what happened, patterns worth noting, what needs a decision — without anyone having to write a summary by hand.</p></div>
+    <div class="what-step"><div class="what-step-num">5</div><div class="what-step-title">The Story grows over time</div><p class="what-step-body">Each week the agent asks one gentle question. The answers build into a memoir — her life, in her own words, preserved forever.</p></div>
+    <div class="what-step"><div class="what-step-num">6</div><div class="what-step-title">Hard decisions, made together</div><p class="what-step-body">When the hardest question comes, the agent gives your whole family the same data, the same guidance, and a way to decide together with dignity.</p></div>
+  </div>
+
+  <div class="feat-grid">
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h12M4 10h8M4 14h5"/><rect x="2" y="3" width="16" height="14" rx="2"/></svg></div><div class="feat-title">Weekly family digest</div><p class="feat-body">One warm weekly summary of what happened, what she's reading, what needs attention. The sibling in Denver stays genuinely close without anyone having to write it by hand.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3l2.5 5 5.5.8-4 3.9.9 5.5L10 16l-4.9 2.2.9-5.5L2 8.8l5.5-.8z"/></svg></div><div class="feat-title">Proactive alerts</div><p class="feat-body">Missed check-ins, medication gaps, and pattern changes surface before they become crises — not after.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M6 3h8M4 7h12M5 11l1 6h8l1-6"/><path d="M8 11v6M12 11v6"/></svg></div><div class="feat-title">Medication tracking</div><p class="feat-body">A structured medication list with name, dose, AM/PM/evening schedule, prescriber, and purpose, stored and kept current. Ask T5 what Dad's on and get an instant answer from the care record.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 2a4 4 0 100 8 4 4 0 000-8z"/><path d="M4 18c0-3 2.7-5 6-5s6 2 6 5"/><path d="M14 8h4M16 6v4"/></svg></div><div class="feat-title">Care team registry</div><p class="feat-body">Every doctor, specialist, and provider — name, specialty, phone, and notes — in one place the whole family can access. No more "who is Mom's cardiologist again?"</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4zM4 8h12M8 8v8"/></svg></div><div class="feat-title">Life Log</div><p class="feat-body">Books read, shows watched, walks taken. A living record of a life still being lived — because staying engaged is staying healthy.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg></div><div class="feat-title">Activity feed & digest archive</div><p class="feat-body">Every check-in, update, and care note in a running feed, plus every weekly digest saved and searchable. The full care history is always there when you need it.</p></div>
+    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z"/><path d="M10 7v4l2.5 2"/><path d="M3.5 3.5l13 13"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Safety & health signal tracker</div><p class="feat-body">T5 reads every message for safety and health signals — falls, recurring symptoms, behavioral changes — and surfaces patterns in the weekly digest that nobody would catch looking at one week at a time.</p></div>
+    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4z"/><path d="M8 4v12M4 8h4"/><path d="M12 10h4M12 13h3"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Document registry</div><p class="feat-body">Where's the will? Who has power of attorney? A shared registry of important documents — where they live, who to call — so the whole family knows before they need to know.</p></div>
+    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M3 5h14v10H3z"/><path d="M3 5l7 6 7-6"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Call transcript ingestion</div><p class="feat-body">Upload a transcript from the weekly family call and T5 pulls out what matters — decisions made, health observations, follow-up items — so nothing important stays buried in whoever took notes.</p></div>
+  </div>
+
+  <h3 id="action" style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:400;color:var(--teal-800);margin:3.5rem 0 0.5rem;">See it <em style="color:var(--teal-500);font-style:italic;">in action.</em></h3>
+  <p class="sec-body" style="margin-bottom:0;">Four features, one place to see how they actually work.</p>
+
+  <div class="demo-tabs">
+    <button type="button" class="demo-tab active" id="demo-tab-ask" onclick="whatSwitchDemo('ask')">Ask T5</button>
+    <button type="button" class="demo-tab" id="demo-tab-digest" onclick="whatSwitchDemo('digest')">Weekly digest</button>
+    <button type="button" class="demo-tab" id="demo-tab-lifelog" onclick="whatSwitchDemo('lifelog')">Life Log</button>
+    <button type="button" class="demo-tab" id="demo-tab-appt" onclick="whatSwitchDemo('appt')">Appointment prep</button>
+  </div>
+
+  <div class="demo-panel active" id="demo-panel-ask">
+    <div class="demo-card dark">
+      <div class="split-grid">
+        <div>
+          <p class="eyebrow">The knowledgebase</p>
+          <h2 class="sec-title light">Everything shared.<br><em>Nothing lost.</em></h2>
+          <p class="sec-body light">Every check-in, every update, every note shared in the group chat is stored in a care record, not buried in scroll. Ask T5 a question and it answers from the full history of everything that's been shared.</p>
+          <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:2rem;">
+            <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
+              <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
+              <div style="font-size:0.95rem;color:var(--white);font-family:'Playfair Display',serif;font-style:italic;">"What medications is Mom on?"</div>
+            </div>
+            <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(93,202,165,0.3);border-radius:10px;padding:1rem 1.25rem;">
+              <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">T5 answers</div>
+              <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">She's currently on 6 medications. Amlodipine 5mg (AM) for blood pressure, Dayvigo 5mg at bedtime for sleep, and 4 others. Want the full list?</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
+              <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
+              <div style="font-size:0.95rem;color:var(--white);font-family:'Playfair Display',serif;font-style:italic;">"When did the aide last come?"</div>
+            </div>
+            <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(93,202,165,0.3);border-radius:10px;padding:1rem 1.25rem;">
+              <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">T5 answers</div>
+              <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">Rosa checked in yesterday at 9:14am. Good visit — Mom finished her book, ate well, all meds taken. Thursday's visit hasn't been confirmed yet.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="sec-body light" style="margin-bottom:1.5rem;">No digging through old messages. No calling the sibling who "keeps track of everything." The care record is the shared memory your whole circle can query, from anywhere, at any time.</p>
+          <div style="display:flex;flex-direction:column;gap:1rem;">
+            <div style="display:flex;gap:1rem;align-items:flex-start;">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Medications & schedules</div>
+                <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Current meds, doses, timing, and prescribers. Always current, always queryable.</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:1rem;align-items:flex-start;">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Doctors & care team</div>
+                <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Every provider's name, specialty, and phone. Searchable and stored, not buried in a text thread.</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:1rem;align-items:flex-start;">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Visit history</div>
+                <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Who came, when, what happened — a timestamped record built from every caregiver check-in.</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:1rem;align-items:flex-start;">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Appointments & decisions</div>
+                <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Upcoming visits, past appointments, and the decisions made along the way — preserved in context.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-panel" id="demo-panel-digest">
+    <div class="demo-card light">
+      <div class="digest-inner">
+        <div>
+          <p class="eyebrow light">The weekly digest</p>
+          <h2 class="sec-title">One warm summary.<br><em>The whole family,<br>on the same page.</em></h2>
+          <p class="sec-body" style="margin-bottom:1.5rem;">Every week T5 synthesizes everything shared in the care circle: what happened, how they're doing, what they've been into, and what needs a decision. The sibling in Denver who wants to help but hasn't felt in the loop reads it over coffee and finally does.</p>
+          <p class="sec-body">The digest isn't just a recap. It's where the pattern-recognition lives: the reading streak, the uptick in good days, the fall that got mentioned twice. All of it held together in one place your whole family can trust.</p>
+        </div>
+        <div>
+          <div class="digest-card" style="background:var(--teal-800);border:1px solid rgba(93,202,165,0.2);">
+            <div class="digest-card-header" style="background:rgba(93,202,165,0.1);border-bottom:1px solid rgba(93,202,165,0.15);">
+              <span class="digest-card-label">Weekly digest · example</span>
+              <span class="digest-card-date">Week of June 1–7, 2026</span>
+            </div>
+            <div class="digest-card-body">
+              <div class="digest-section">
+                <div class="digest-section-head">Who visited</div>
+                <p class="digest-text">Mark — Monday. Sarah — Friday and Saturday. Next visit planned for Wednesday the 10th.</p>
+              </div>
+              <div class="digest-divider"></div>
+              <div class="digest-section">
+                <div class="digest-section-head">How they're doing</div>
+                <p class="digest-text">Dad — good spirits and engaged, but two falls reported recently and neck pain continues. Mom — variable week. <em>Good mood Friday, harder Saturday</em> — hearing aid wasn't charged, which caused sensory overload.</p>
+              </div>
+              <div class="digest-divider"></div>
+              <div class="digest-section">
+                <div class="digest-section-head">Highlights</div>
+                <p class="digest-text">Dad went down a rabbit hole researching eggplant after dinner — <em>turns out it's called aubergine.</em> The whiteboard is in motion; Mom responded positively. Sarah went to mass with them Saturday and restocked meds for the next 30 days.</p>
+              </div>
+              <div class="digest-divider"></div>
+              <div class="digest-section">
+                <div class="digest-section-head amber">What needs attention</div>
+                <p class="digest-text amber">Two recent falls — one outside, one in the kitchen where the fire department was called. No injuries noted but both worth confirming. <em>Dr. Patel appointment June 9 needs confirmation</em> — wasn't on the calendar as of Tuesday. Neck pain should be raised at that visit.</p>
+              </div>
+              <div class="digest-divider"></div>
+              <div class="digest-section">
+                <div class="digest-section-head">Coming up</div>
+                <p class="digest-text">Dr. Patel — Tuesday, June 9 · Family visit — Wednesday, June 10</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-panel" id="demo-panel-lifelog">
+    <div class="demo-card tint">
+      <div class="lifelog-grid">
+        <div>
+          <p class="eyebrow light">The Life Log</p>
+          <h2 class="sec-title">Not just what she needs.<br><em>What she loves.</em></h2>
+          <p class="sec-body">Most care apps track what's wrong. Take Five tracks what's alive. Research shows that daily engagement in books, shows, conversations, and movement is one of the most powerful protections against cognitive decline and premature mortality.</p>
+          <div class="ll-items">
+            <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M3 3h12v12H3z"/><path d="M3 7h12M7 7v8"/></svg></div><div><div class="ll-title">Books &amp; reading</div><p class="ll-body">Currently reading, just finished, loved or didn't — the reading life tracked naturally through caregiver check-ins.</p></div></div>
+            <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="14" height="11" rx="2"/><path d="M7 14v2M11 14v2M5 16h8"/></svg></div><div><div class="ll-title">Shows &amp; films</div><p class="ll-body">What she's watching, what made her laugh — so the next caregiver already has something to talk about.</p></div></div>
+            <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.5 2"/></svg></div><div><div class="ll-title">Activities &amp; movement</div><p class="ll-body">Walks, garden time, phone calls with grandkids. Small signals of vitality — and early warnings when they stop.</p></div></div>
+            <div class="ll-item"><div class="ll-icon"><svg viewBox="0 0 18 18" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M9 2l2 4 4.5.7-3.2 3.1.8 4.5L9 12.2l-4 2.1.8-4.5L2.5 6.7 7 6z"/></svg></div><div><div class="ll-title">Mood &amp; good days</div><p class="ll-body">A simple daily signal. One tap from the caregiver. Over time the most valuable dataset in the product.</p></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="feed">
+            <div class="feed-label">Today's care circle feed</div>
+            <div class="feed-item"><div class="feed-time">Rosa · 9:14am</div><div class="feed-text">Good morning. She finished her mystery novel — <em>seemed really satisfied.</em> Started the next one already. Good appetite, all meds taken.</div></div>
+            <div class="feed-item"><div class="feed-time">Take Five · 11:00am</div><div class="feed-text"><em>Milestone:</em> Mom has finished 8 books since joining Take Five — averaging one every 3 weeks.</div></div>
+            <div class="feed-item"><div class="feed-time">Rosa · 2:30pm</div><div class="feed-text">Afternoon walk — made it to the corner and back. She talked about the garden the whole way. <em>Good energy today.</em></div></div>
+            <div class="feed-item"><div class="feed-time">Take Five · this Sunday</div><div class="feed-text"><em>Weekly digest:</em> Great week. Book finished, walk completed, good mood. One item needs attention — Thursday aide visit unconfirmed.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-panel" id="demo-panel-appt">
+    <div class="demo-card light">
+      <div class="split-grid">
+        <div>
+          <p class="eyebrow light">Appointment prep</p>
+          <h2 class="sec-title">Walk into every<br>appointment <em>ready.</em></h2>
+          <p class="sec-body">Before the doctor visit, T5 assembles a summary from the care record: recent mood patterns, medication changes, symptoms mentioned in check-ins, questions the family has been asking. Everything the doctor needs to know, and nothing you'll scramble to remember in the waiting room.</p>
+          <p class="sec-body" style="margin-top:1rem;">Appointment prep packets are generated automatically and sent to the family before each scheduled visit. No prep required.</p>
+        </div>
+        <div style="background:var(--teal-50);border-radius:16px;padding:2rem;">
+          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--teal-500);margin-bottom:1.25rem;">Appointment prep · Dr. Yiou · April 7</div>
+          <div style="display:flex;flex-direction:column;gap:1rem;">
+            <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
+              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Since last visit</div>
+              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Sleep has been inconsistent — 4 mentions of restless nights across caregiver check-ins. Dayvigo started March 23. Mood generally positive; one difficult day noted March 29.</div>
+            </div>
+            <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
+              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Medication changes</div>
+              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Dayvigo 5mg added at bedtime. Temazepam use flagged for review. All other medications unchanged.</div>
+            </div>
+            <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
+              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Questions from the family</div>
+              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Is the anxiety improving? What should we watch for with the new sleep medication? When are labs due?</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- PILOT -->
-<section style="background:var(--cream);padding:6rem 5rem;" id="pilot">
+<section style="background:var(--cream);padding:6rem 5rem;min-height:100vh;display:flex;flex-direction:column;justify-content:center;" id="pilot">
   <p class="eyebrow">Now in pilot</p>
   <h2 class="sec-title" style="margin-bottom:1.25rem;">Invitation only,<br><em>for now.</em></h2>
-  <p class="sec-body" style="max-width:520px;">Take Five is currently in active pilot testing with a small number of families. We're moving carefully, learning from real care circles before opening more widely. If you're interested in being considered for a future pilot, reach out directly.</p>
-  <div style="margin-top:2.5rem;">
-    <a href="mailto:jericlandry@gmail.com" style="display:inline-block;padding:0.9rem 2rem;border-radius:100px;background:var(--teal-500);color:var(--white);font-family:'Lato',sans-serif;font-size:0.9rem;font-weight:700;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='var(--teal-600)'" onmouseout="this.style.background='var(--teal-500)'">Get in touch</a>
+  <p class="sec-body" style="max-width:520px;">Take Five is currently in active pilot testing with a small number of families. Tell us a bit about your situation below and we'll reach out as we open up the pilot.</p>
+
+  <div class="lead-card">
+    <div class="lead-tabs">
+      <button type="button" class="lead-tab active" id="lead-tab-family" onclick="leadSwitchTrack('family')">I'm a family</button>
+      <button type="button" class="lead-tab" id="lead-tab-agency" onclick="leadSwitchTrack('agency')">I'm a facility or agency</button>
+    </div>
+    <form class="lead-form" id="lead-form" onsubmit="return leadSubmit(event)">
+      <input class="lead-field" required placeholder="Your name" name="name">
+      <input class="lead-field" required type="email" placeholder="Email address" name="email">
+      <input type="text" name="website" id="lead-honeypot" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;opacity:0;" aria-hidden="true">
+      <div id="lead-fields-family">
+        <div class="lead-dd-wrap">
+          <button type="button" class="lead-dd-btn" id="lead-dd1-btn" onclick="leadToggleDD('lead-dd1')">
+            <span id="lead-dd1-label">How many people are involved in coordinating care right now?</span>
+            <svg width="12" height="8" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" stroke="#5DCAA5" stroke-width="1.5" fill="none"/></svg>
+          </button>
+          <div class="lead-dd-list" id="lead-dd1-list">
+            <div class="lead-dd-opt" onclick="leadPickDD('lead-dd1','Just me')">Just me</div>
+            <div class="lead-dd-opt" onclick="leadPickDD('lead-dd1','2-3 of us')">2-3 of us</div>
+            <div class="lead-dd-opt" onclick="leadPickDD('lead-dd1','4 or more of us')">4 or more of us</div>
+          </div>
+        </div>
+        <div class="lead-dd-wrap" style="margin-top:0.75rem;">
+          <button type="button" class="lead-dd-btn" id="lead-dd2-btn" onclick="leadToggleDD('lead-dd2')">
+            <span id="lead-dd2-label">Is your family member currently living at home?</span>
+            <svg width="12" height="8" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" stroke="#5DCAA5" stroke-width="1.5" fill="none"/></svg>
+          </button>
+          <div class="lead-dd-list" id="lead-dd2-list">
+            <div class="lead-dd-opt" onclick="leadPickDD('lead-dd2','Yes, on their own')">Yes, on their own</div>
+            <div class="lead-dd-opt" onclick="leadPickDD('lead-dd2','Yes, with help')">Yes, with help</div>
+            <div class="lead-dd-opt" onclick="leadPickDD('lead-dd2','Recently moved to assisted living or memory care')">Recently moved to assisted living or memory care</div>
+          </div>
+        </div>
+      </div>
+      <div id="lead-fields-agency" style="display:none;">
+        <input class="lead-field" placeholder="Organization name" name="org_name">
+      </div>
+      <textarea class="lead-field" id="lead-notes" name="notes" rows="2" placeholder="Anything else you'd like us to know? (e.g. your relationship to them, or what's been hardest)"></textarea>
+      <button type="submit" class="lead-submit">Join the waitlist</button>
+      <p id="lead-error" style="display:none;color:#F28B82;font-size:0.8rem;text-align:center;margin-top:0.25rem;">Something went wrong — please try again, or email us directly.</p>
+    </form>
+    <div class="lead-success" id="lead-success">
+      <p style="font-family:'Playfair Display',serif;font-size:1.2rem;font-style:italic;color:var(--white);margin-bottom:0.5rem;">Thanks for reaching out.</p>
+      <p style="font-size:0.9rem;color:var(--teal-100);">We'll be in touch as we open up the pilot.</p>
+    </div>
+    <p class="lead-note">No credit card. No commitment. Just a spot in line.</p>
   </div>
-  <p style="margin-top:1rem;font-size:0.8rem;color:var(--gray-400);">No forms. Just a conversation.</p>
+
+  <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--gray-400);">Prefer email? <a href="mailto:jericlandry@gmail.com" style="color:var(--teal-500);">Reach out directly</a>.</p>
 </section>
 
 <!-- FOOTER -->
@@ -643,11 +738,110 @@
     <div class="footer-tagline">For everyone who showed up.</div>
   </div>
   <ul class="footer-links">
-    <li><a href="#">About</a></li><li><a href="#science">The science</a></li>
+    <li><a href="#">About</a></li><li><a href="#why">The why</a></li>
     <li><a href="#">Privacy</a></li><li><a href="mailto:jericlandry@gmail.com">Contact</a></li>
   </ul>
   <div style="font-size:0.8rem;color:rgba(159,225,203,0.4);">© 2026 Take Five · takefive.care</div>
 </footer>
 
+<script>
+function leadSwitchTrack(track){
+  var famTab=document.getElementById('lead-tab-family');
+  var agTab=document.getElementById('lead-tab-agency');
+  var famFields=document.getElementById('lead-fields-family');
+  var agFields=document.getElementById('lead-fields-agency');
+  var notes=document.getElementById('lead-notes');
+  if(track==='family'){
+    famTab.classList.add('active'); agTab.classList.remove('active');
+    famFields.style.display='block'; agFields.style.display='none';
+    notes.placeholder="Anything else you'd like us to know? (e.g. your relationship to them, or what's been hardest)";
+  } else {
+    agTab.classList.add('active'); famTab.classList.remove('active');
+    agFields.style.display='block'; famFields.style.display='none';
+    notes.placeholder="Anything else you'd like us to know? (e.g. your role, number of clients)";
+  }
+}
+function leadCloseAllDD(){
+  ['lead-dd1','lead-dd2'].forEach(function(id){
+    var list=document.getElementById(id+'-list');
+    if(list){ list.classList.remove('open'); }
+  });
+}
+function leadToggleDD(id){
+  var list=document.getElementById(id+'-list');
+  var isOpen=list.classList.contains('open');
+  leadCloseAllDD();
+  if(!isOpen){ list.classList.add('open'); }
+}
+function leadPickDD(id,text){
+  document.getElementById(id+'-label').textContent=text;
+  document.getElementById(id+'-btn').classList.add('selected');
+  document.getElementById(id+'-list').classList.remove('open');
+}
+async function leadSubmit(e){
+  e.preventDefault();
+  var isFamily = document.getElementById('lead-tab-family').classList.contains('active');
+  var form = document.getElementById('lead-form');
+  var name = form.elements['name'].value.trim();
+  var email = form.elements['email'].value.trim();
+  var notes = document.getElementById('lead-notes').value.trim();
+  var honeypot = document.getElementById('lead-honeypot').value;
+  var errEl = document.getElementById('lead-error');
+  errEl.style.display = 'none';
+
+  var details = {};
+  if(notes){ details.notes = notes; }
+
+  if(isFamily){
+    var peopleBtn = document.getElementById('lead-dd1-btn');
+    var livingBtn = document.getElementById('lead-dd2-btn');
+    if(peopleBtn.classList.contains('selected')){ details.people_involved = document.getElementById('lead-dd1-label').textContent; }
+    if(livingBtn.classList.contains('selected')){ details.living_situation = document.getElementById('lead-dd2-label').textContent; }
+  } else {
+    var orgField = form.elements['org_name'];
+    var orgName = orgField ? orgField.value.trim() : '';
+    if(orgName){ details.org_name = orgName; }
+  }
+
+  var payload = {
+    lead_type: isFamily ? 'family' : 'agency',
+    name: name,
+    email: email,
+    details: details,
+    website: honeypot
+  };
+
+  var submitBtn = document.querySelector('.lead-submit');
+  var originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Sending\u2026';
+  submitBtn.disabled = true;
+
+  try {
+    var res = await fetch('https://take-five.onrender.com/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){ throw new Error('Request failed with status ' + res.status); }
+    document.getElementById('lead-form').style.display='none';
+    document.querySelector('.lead-tabs').style.display='none';
+    document.getElementById('lead-success').classList.add('show');
+  } catch(err){
+    console.error('[lead-submit]', err);
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+    errEl.style.display = 'block';
+  }
+  return false;
+}
+function whatSwitchDemo(name){
+  var tabs = {ask:'demo-tab-ask', digest:'demo-tab-digest', lifelog:'demo-tab-lifelog', appt:'demo-tab-appt'};
+  var panels = {ask:'demo-panel-ask', digest:'demo-panel-digest', lifelog:'demo-panel-lifelog', appt:'demo-panel-appt'};
+  Object.keys(tabs).forEach(function(key){
+    document.getElementById(tabs[key]).classList.toggle('active', key===name);
+    document.getElementById(panels[key]).classList.toggle('active', key===name);
+  });
+}
+</script>
 </body>
 </html>

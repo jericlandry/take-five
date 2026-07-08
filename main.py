@@ -21,6 +21,7 @@ from take_five.schemas import (
     CreateClinicalRecordRequest, UpdateClinicalRecordRequest,
     UpdateEnsembleMembershipRequest,
     InvitePersonRequest,
+    CreateLeadRequest,
     MessageRequest, DigestRequest,
 )
 from take_five.summaries import generate_weekly_digest
@@ -930,5 +931,29 @@ async def serve_app():
 @open_router.get("/admin/{file_name}")
 async def read_admin(file_name: str):
     return FileResponse(f'admin/{file_name}')
+
+@open_router.post("/leads")
+async def create_lead(body: CreateLeadRequest):
+    """
+    Public endpoint for the homepage pilot signup form (family or agency).
+    No auth — this is a public lead-capture form. Honeypot field ('website')
+    must stay empty; if filled, silently drop the submission.
+    """
+    if body.website:
+        logger.info("[leads] Honeypot triggered, dropping submission")
+        return {"status": "ok"}
+    if body.lead_type not in ('family', 'agency'):
+        raise HTTPException(status_code=400, detail="lead_type must be 'family' or 'agency'")
+    lead = repo.create_lead(
+        lead_type=body.lead_type,
+        name=body.name,
+        email=body.email,
+        phone=body.phone,
+        details=body.details,
+        source=body.source or 'homepage',
+    )
+    logger.info(f"[leads] New {body.lead_type} lead: {body.name} ({body.email})")
+    return {"status": "ok", "lead": row_to_dict(lead)}
+
 
 app.include_router(open_router)

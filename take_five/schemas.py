@@ -71,6 +71,16 @@ class InvitePersonRequest(BaseModel):
     circle_id: str
 
 
+class CreateLeadRequest(BaseModel):
+    lead_type: str  # 'family' | 'agency'
+    name: str
+    email: str
+    phone: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    source: Optional[str] = None
+    website: Optional[str] = None  # honeypot — must stay empty
+
+
 class UpdateEnsembleMembershipRequest(BaseModel):
     ensemble_id: str
     user_role: str  # 'admin' | 'member'
