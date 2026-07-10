@@ -53,11 +53,12 @@ Set corroboration_suggested to true when:
 - mention_style is oblique AND confidence is below 0.80
 - the signal is secondhand or reported speech ("she said", "he mentioned", "I heard")
 - the observation is ambiguous enough that confirmation from another circle member would meaningfully change how it should be interpreted
+- the signal describes an ongoing safety RISK or CONCERN rather than something that already happened — "fall risk", "unsteady on the stairs", "shouldn't be driving anymore", "worried he'll fall getting out of the tub". A risk assessment is a judgment call, not a fact — one person's read on danger can differ from another's, and falls are a leading cause of serious injury and hospitalization in older adults, so these are worth surfacing to the circle rather than logged silently. This applies even at high confidence with direct mention style — being sure about what was said is not the same as the risk itself being settled or already acted on.
 
 Set corroboration_suggested to false when:
-- signal_category is safety OR signal_type contains fall, injury, fracture, emergency, 911, firemen, ambulance — never corroborate hard incidents regardless of mention style or confidence
-- confidence is 0.85 or above with direct mention style
-- the signal comes from a professional caregiver's firsthand observation
+- the signal is a DISCRETE safety incident that already occurred — an actual fall, injury, fracture, emergency, 911 call, or ambulance visit happened. Never corroborate these regardless of mention style or confidence — the event either happened or it didn't, and corroboration can't change that. This does NOT cover fall risk, unsteadiness, or other forward-looking safety concerns — see above, those should almost always be corroborated.
+- confidence is 0.85 or above with direct mention style, and the signal is not a safety risk or concern (see above)
+- the signal comes from a professional caregiver's firsthand observation of a discrete event
 - the signal is a discrete, specific event (a fall happened, a medication was refused) even if reported secondhand — the event either happened or it didn't, corroboration won't change that
 
 Return ONLY a valid JSON array. No preamble, no explanation, no markdown, no code fences. Do not wrap output in backticks of any kind. Do not reconsider or add commentary after the array. Raw JSON array only, nothing else. If no signals found, return [].
