@@ -202,27 +202,27 @@ def save_signal(conn, message_id: str, circle_id: str, subject_id: Optional[str]
             message_id, circle_id, subject_id,
             signal_category, signal_type,
             raw_excerpt, mention_style, confidence,
-            channel, corroboration_requested
+            channel, request_corroboration
         ) VALUES (
             %(message_id)s, %(circle_id)s, %(subject_id)s,
             %(signal_category)s, %(signal_type)s,
             %(raw_excerpt)s, %(mention_style)s, %(confidence)s,
-            %(channel)s, %(corroboration_requested)s
+            %(channel)s, %(request_corroboration)s
         )
         RETURNING id;
     """
     with conn.cursor() as cur:
         cur.execute(query, {
-            "message_id":              message_id,
-            "circle_id":               circle_id,
-            "subject_id":              subject_id,
-            "signal_category":         signal["signal_category"],
-            "signal_type":             signal["signal_type"],
-            "raw_excerpt":             signal.get("raw_excerpt"),
-            "mention_style":           signal.get("mention_style"),
-            "confidence":              signal.get("confidence"),
-            "channel":                 channel or "groupme",
-            "corroboration_requested": signal.get("corroboration_suggested", False),
+            "message_id":             message_id,
+            "circle_id":              circle_id,
+            "subject_id":             subject_id,
+            "signal_category":        signal["signal_category"],
+            "signal_type":            signal["signal_type"],
+            "raw_excerpt":            signal.get("raw_excerpt"),
+            "mention_style":          signal.get("mention_style"),
+            "confidence":             signal.get("confidence"),
+            "channel":                channel or "groupme",
+            "request_corroboration":  signal.get("corroboration_suggested", False),
         })
         return cur.fetchone()
 

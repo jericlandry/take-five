@@ -147,7 +147,6 @@ CREATE TABLE public.clinical_records (
 
 CREATE TABLE public.clinical_signals (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    parent_id uuid,
     message_id uuid NOT NULL,
     circle_id uuid NOT NULL,
     subject_id uuid,
@@ -157,8 +156,7 @@ CREATE TABLE public.clinical_signals (
     mention_style character varying(20),
     confidence double precision,
     channel character varying(20) DEFAULT 'groupme'::character varying,
-    response_type character varying(30),
-    corroboration_requested boolean DEFAULT false,
+    request_corroboration boolean DEFAULT false,
     corroboration_requested_at timestamp with time zone,
     superseded_by_id uuid,
     detected_at timestamp with time zone DEFAULT now()
@@ -650,15 +648,6 @@ ALTER TABLE ONLY public.clinical_signals
 
 ALTER TABLE ONLY public.clinical_signals
     ADD CONSTRAINT clinical_signals_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id);
-
-
---
--- TOC entry 3617 (class 2606 OID 24753)
--- Name: clinical_signals clinical_signals_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clinical_signals
-    ADD CONSTRAINT clinical_signals_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.clinical_signals(id);
 
 
 --

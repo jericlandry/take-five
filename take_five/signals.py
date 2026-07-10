@@ -188,7 +188,7 @@ async def detect_clinical_signals(
                 mention_style=signal.get("mention_style"),
                 confidence=signal.get("confidence"),
                 channel=channel,
-                corroboration_suggested=signal.get("corroboration_suggested", False),
+                request_corroboration=signal.get("corroboration_suggested", False),
             )
 
     except Exception as e:

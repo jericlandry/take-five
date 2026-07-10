@@ -438,9 +438,7 @@ class TakeFiveRepository:
         mention_style: Optional[str] = None,
         confidence: Optional[float] = None,
         channel: str = "groupme",
-        corroboration_suggested: bool = False,
-        parent_id: Optional[str] = None,
-        response_type: Optional[str] = None,
+        request_corroboration: bool = False,
         superseded_by_id: Optional[str] = None,
     ) -> Dict:
         """
@@ -452,32 +450,71 @@ class TakeFiveRepository:
                 message_id, circle_id, subject_id,
                 signal_category, signal_type,
                 raw_excerpt, mention_style, confidence,
-                channel, corroboration_requested,
-                parent_id, response_type, superseded_by_id
+                channel, request_corroboration,
+                superseded_by_id
             ) VALUES (
                 %(message_id)s, %(circle_id)s, %(subject_id)s,
                 %(signal_category)s, %(signal_type)s,
                 %(raw_excerpt)s, %(mention_style)s, %(confidence)s,
-                %(channel)s, %(corroboration_requested)s,
-                %(parent_id)s, %(response_type)s, %(superseded_by_id)s
+                %(channel)s, %(request_corroboration)s,
+                %(superseded_by_id)s
             )
             RETURNING *;
         """
         return self._execute(query, {
-            "message_id":              message_id,
-            "circle_id":               circle_id,
-            "subject_id":              subject_id,
-            "signal_category":         signal_category,
-            "signal_type":             signal_type,
-            "raw_excerpt":             raw_excerpt,
-            "mention_style":           mention_style,
-            "confidence":              confidence,
-            "channel":                 channel,
-            "corroboration_requested": corroboration_suggested,
-            "parent_id":               parent_id,
-            "response_type":           response_type,
-            "superseded_by_id":        superseded_by_id,
+            "message_id":             message_id,
+            "circle_id":              circle_id,
+            "subject_id":             subject_id,
+            "signal_category":        signal_category,
+            "signal_type":            signal_type,
+            "raw_excerpt":            raw_excerpt,
+            "mention_style":          mention_style,
+            "confidence":             confidence,
+            "channel":                channel,
+            "request_corroboration":  request_corroboration,
+            "superseded_by_id":       superseded_by_id,
         }, fetch="one")
+
+    def get_pending_corroboration_signals(self, circle_id: str, max_age_days: int = 7) -> List[Dict]:
+        """
+        Signals flagged as corroboration candidates that have never been asked
+        about. Ask-once model: once corroboration_requested_at is stamped, a
+        signal drops out of this list for good — no re-nudging, no resolution
+        tracking. Oldest-first, so the longest-waiting eligible signal surfaces
+        first.
+
+        Bounded by max_age_days: candidates older than the window are never
+        surfaced, not just deprioritized. Asking about something weeks old
+        feels disconnected from the conversation it came from, and this also
+        keeps a one-time historical backlog from dominating the queue once
+        this check goes live — aging out unasked is an acceptable outcome
+        under the ask-once model, same as never getting a reply.
+        """
+        query = """
+            SELECT cs.*, p.name AS subject_name
+            FROM clinical_signals cs
+            LEFT JOIN people p ON p.id = cs.subject_id
+            WHERE cs.circle_id = %(circle_id)s
+              AND cs.request_corroboration = true
+              AND cs.corroboration_requested_at IS NULL
+              AND cs.detected_at >= now() - make_interval(days => %(max_age_days)s)
+            ORDER BY cs.detected_at ASC;
+        """
+        return self._execute(
+            query,
+            {"circle_id": str(circle_id), "max_age_days": max_age_days},
+            fetch="all",
+        )
+
+    def mark_corroboration_requested(self, signal_id: str) -> Dict:
+        """Stamps corroboration_requested_at — the terminal state for check 2."""
+        query = """
+            UPDATE clinical_signals
+            SET corroboration_requested_at = now()
+            WHERE id = %(id)s
+            RETURNING *;
+        """
+        return self._execute(query, {"id": str(signal_id)}, fetch="one")
 
     # --- CLINICAL RECORDS ---
 
