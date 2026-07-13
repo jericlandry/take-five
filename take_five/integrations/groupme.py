@@ -8,7 +8,12 @@ from typing import Optional
 
 from take_five.repository import repo
 from take_five.pipeline import run_post_storage_pipeline
-from take_five.messages import ask_with_tools, generate_prep_packet
+from take_five.messages import (
+    ask_with_tools,
+    generate_prep_packet,
+    parse_prep_request,
+    resolve_prep_seniors,
+)
 from take_five.images import extract_groupme_image, handle_image_message
 
 logger = logging.getLogger(__name__)
@@ -345,14 +350,55 @@ async def handle_groupme_webhook(data: dict):
                 logger.info("[groupme] Prep packet trigger detected")
                 async def run_prep():
                     try:
-                        packet_text, followup_text = await generate_prep_packet(
-                            question=question,
-                            circle_id=circle_id,
-                            sender_person_id=sender_person_id,
-                        )
-                        await send_message_async(bot_id, packet_text)
-                        await asyncio.sleep(1.5)
-                        await groupme_reply(bot_id, followup_text, circle_ext_id)
+                        # Figure out which senior(s) this request is for before
+                        # generating anything. Circles with more than one senior
+                        # (e.g. a couple sharing a care circle) need this resolved
+                        # explicitly — see parse_prep_request / resolve_prep_seniors
+                        # in take_five/messages.py for why.
+                        roster = repo.fetch_circle_roster(circle_id)
+                        seniors = [r for r in roster if r.get("person_role") == "senior"]
+
+                        if not seniors:
+                            # No senior on record at all — let generate_prep_packet's
+                            # own "Mom" fallback handle it, same as before this fix.
+                            target_seniors = [{"id": None, "member_name": "Mom"}]
+                            parsed = None
+                        elif len(seniors) == 1:
+                            target_seniors = seniors
+                            parsed = None
+                        else:
+                            parsed = await parse_prep_request(question)
+                            target_seniors = resolve_prep_seniors(
+                                parsed["patient_mentions"], seniors
+                            )
+
+                        if len(seniors) > 1 and not target_seniors:
+                            names = " or ".join(s["member_name"] for s in seniors)
+                            await groupme_reply(
+                                bot_id,
+                                f"Prep pack for {names}? Send @T5 prep for [name]'s "
+                                f"appointment with the doctor/appointment details and I'll put it together.",
+                                circle_ext_id,
+                            )
+                            return
+
+                        doctor_name = parsed["doctor_name"] if parsed else None
+                        appointment_desc = parsed["appointment_desc"] if parsed else None
+
+                        for i, senior in enumerate(target_seniors):
+                            packet_text, followup_text = await generate_prep_packet(
+                                question=question,
+                                circle_id=circle_id,
+                                sender_person_id=sender_person_id,
+                                doctor_name=doctor_name,
+                                appointment_desc=appointment_desc,
+                                senior_person_id=str(senior["id"]) if senior["id"] else None,
+                            )
+                            await send_message_async(bot_id, packet_text)
+                            await asyncio.sleep(1.5)
+                            await groupme_reply(bot_id, followup_text, circle_ext_id)
+                            if i < len(target_seniors) - 1:
+                                await asyncio.sleep(1.5)
                     except Exception as e:
                         logger.error(f"[groupme] Prep packet failed: {e}", exc_info=True)
                         await groupme_reply(

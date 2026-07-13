@@ -264,8 +264,8 @@ class ContextBuilder:
 
         return "\n".join(lines)
 
-    def _build_clinical_records(self) -> str:
-        records = self.repo.get_clinical_records_for_circle(self.circle_id)
+    def _build_clinical_records(self, person_id: str = None) -> str:
+        records = self.repo.get_clinical_records_for_circle(self.circle_id, person_id=person_id)
         if not records:
             return "## Clinical Records\n_No clinical records on file._\n"
 
@@ -606,21 +606,121 @@ To add a question: reply @T5 add to prep [your question]
 """
 
 
+_PREP_COLLECTIVE_PHRASES = [
+    "mom and dad", "mother and father", "my parents", "the parents",
+    "both of them", "both", "them both", "everyone", "all of them", "them",
+]
+
+
+async def parse_prep_request(question: str) -> dict:
+    """
+    Extract the doctor name, appointment description, and any patient/senior
+    name mention(s) from a free-text prep-packet request, e.g.
+    "@T5 prep for Gomez's appointment with Dr. Yu on July 13" or
+    "prep pack for mom and dad's visit with Dr. Yu".
+
+    Returns {"doctor_name": str, "appointment_desc": str, "patient_mentions": list[str]}.
+    patient_mentions is a raw list of names/phrases as mentioned in the text
+    (e.g. ["morticia"], ["mom and dad"], []) — resolving them against the
+    circle roster is a separate step (see resolve_prep_seniors).
+    """
+    parse_prompt = f"""Extract the doctor name, appointment description, and any
+mentioned patient/senior name(s) from this text.
+Return JSON only, no other text. Format:
+{{"doctor_name": "...", "appointment_desc": "...", "patient_mentions": ["..."]}}
+If no doctor name is found, use "the doctor".
+If no appointment date/time is found, use "upcoming appointment".
+patient_mentions should list any name(s) or collective phrase (e.g. "mom and
+dad", "my parents", "both") referring to who the appointment/packet is for.
+Return an empty list if no one is named.
+
+Text: {question}"""
+
+    parse_response = ChatAnthropic(model="claude-haiku-4-5-20251001", max_tokens=200).invoke(
+        [HumanMessage(content=parse_prompt)]
+    )
+    try:
+        parsed = json.loads(parse_response.content.strip())
+        return {
+            "doctor_name":       parsed.get("doctor_name") or "the doctor",
+            "appointment_desc":  parsed.get("appointment_desc") or "upcoming appointment",
+            "patient_mentions":  parsed.get("patient_mentions") or [],
+        }
+    except Exception:
+        return {
+            "doctor_name":       "the doctor",
+            "appointment_desc":  "upcoming appointment",
+            "patient_mentions":  [],
+        }
+
+
+def resolve_prep_seniors(patient_mentions: list[str], seniors: list[dict]) -> list[dict]:
+    """
+    Match free-text patient mentions against a circle's senior roster rows
+    (each with at least 'id', 'member_name', 'person_aliases').
+
+    - A collective phrase ("mom and dad", "both", "my parents", etc.) resolves
+      to every senior in the circle.
+    - Otherwise, each mention is matched (case-insensitive, substring either
+      direction) against each senior's name and aliases.
+    - Returns the matched seniors in roster order, deduplicated. Can return an
+      empty list if nothing matched — caller should treat that as ambiguous
+      when there's more than one senior in the circle.
+    """
+    if not seniors:
+        return []
+
+    mentions_lower = [m.strip().lower() for m in patient_mentions if m and m.strip()]
+
+    # Only check phrase-in-mention (the mention text contains a known collective
+    # phrase), not the reverse — a short mention like "dad" is a substring of
+    # "mom and dad" and would otherwise false-positive as a collective phrase.
+    for mention in mentions_lower:
+        if any(phrase in mention for phrase in _PREP_COLLECTIVE_PHRASES):
+            return list(seniors)
+
+    matched_ids = set()
+    matched: list[dict] = []
+    for senior in seniors:
+        names_to_check = [senior.get("member_name") or ""]
+        aliases = senior.get("person_aliases") or []
+        names_to_check.extend(aliases)
+        names_lower = [n.strip().lower() for n in names_to_check if n]
+
+        for mention in mentions_lower:
+            if any(mention in name or name in mention for name in names_lower if name):
+                if senior["id"] not in matched_ids:
+                    matched_ids.add(senior["id"])
+                    matched.append(senior)
+                break
+
+    return matched
+
+
 async def generate_prep_packet(
     question: str,
     circle_id: str,
     sender_person_id: str = None,
     doctor_name: str = None,
     appointment_desc: str = None,
+    senior_person_id: str = None,
 ) -> tuple[str, str]:
     """
-    Generate a pre-visit appointment prep packet.
+    Generate a pre-visit appointment prep packet for one senior.
 
     If doctor_name and/or appointment_desc are provided directly (e.g. from the
     app's structured form), they are used as-is and Step 1's LLM parse is skipped
     for those fields. Otherwise both are derived from `question` via Haiku — this
     is the path used for free-text GroupMe requests like "@T5 prep for Gomez's
     appointment with Dr. Yu on July 13".
+
+    senior_person_id should identify which senior the packet is for. It's
+    required whenever a circle has more than one senior (e.g. a couple sharing
+    a care circle) — callers are responsible for resolving which senior(s) a
+    request is about (see parse_prep_request / resolve_prep_seniors) and calling
+    this once per senior for multi-senior requests. If omitted on a multi-senior
+    circle, this falls back to the circle's most message-active senior and logs
+    a warning, since that almost always means the caller has a resolution bug.
 
     Returns a tuple of (packet_text, followup_text) where:
     - packet_text is the full checklist to post to GroupMe and store in message history
@@ -631,29 +731,11 @@ async def generate_prep_packet(
     # -- Step 1: Parse doctor name and appointment description from the question --
     # Skip parsing for any field that was passed in directly.
     if doctor_name is None or appointment_desc is None:
-        parse_prompt = f"""Extract the doctor name and appointment description from this text.
-Return JSON only, no other text. Format: {{"doctor_name": "...", "appointment_desc": "..."}}
-If no doctor name is found, use "the doctor".
-If no appointment date/time is found, use "upcoming appointment".
-
-Text: {question}"""
-
-        parse_response = ChatAnthropic(model="claude-haiku-4-5-20251001", max_tokens=200).invoke(
-            [HumanMessage(content=parse_prompt)]
-        )
-        try:
-            import json as _json
-            parsed = _json.loads(parse_response.content.strip())
-            parsed_doctor = parsed.get("doctor_name", "the doctor")
-            parsed_appt   = parsed.get("appointment_desc", "upcoming appointment")
-        except Exception:
-            parsed_doctor = "the doctor"
-            parsed_appt   = "upcoming appointment"
-
+        parsed = await parse_prep_request(question)
         if doctor_name is None:
-            doctor_name = parsed_doctor
+            doctor_name = parsed["doctor_name"]
         if appointment_desc is None:
-            appointment_desc = parsed_appt
+            appointment_desc = parsed["appointment_desc"]
 
     logger.info(f"[prep_packet] Doctor: {doctor_name}, Appointment: {appointment_desc}")
 
@@ -713,10 +795,40 @@ Text: {question}"""
     # -- Step 4: Fetch messages for the lookback window --
     window_messages = repo.get_messages(circle_id, start_date=lookback_start)
 
-    # -- Step 5: Build context --
+    # Resolve which senior this packet is for. senior_person_id should be
+    # supplied by the caller (the app form always has one; the GroupMe path
+    # resolves it via parse_prep_request + resolve_prep_seniors before calling
+    # here). We only fall back to guessing when it's missing.
+    roster = repo.fetch_circle_roster(circle_id)
+    seniors = [r for r in roster if r.get("person_role") == "senior"]
+
+    if senior_person_id:
+        match = next((s for s in seniors if str(s["id"]) == str(senior_person_id)), None)
+        if match:
+            senior_name = match["member_name"]
+        else:
+            logger.warning(
+                f"[prep_packet] senior_person_id {senior_person_id} not found in "
+                f"circle {circle_id} roster — falling back to most-active senior"
+            )
+            senior_name = seniors[0]["member_name"] if seniors else "Mom"
+            senior_person_id = str(seniors[0]["id"]) if seniors else None
+    elif len(seniors) == 1:
+        senior_person_id = str(seniors[0]["id"])
+        senior_name = seniors[0]["member_name"]
+    else:
+        logger.warning(
+            f"[prep_packet] No senior_person_id resolved for circle {circle_id} "
+            f"with {len(seniors)} seniors — defaulting to most-active senior. "
+            f"This almost always means the caller has a resolution bug."
+        )
+        senior_name = seniors[0]["member_name"] if seniors else "Mom"
+        senior_person_id = str(seniors[0]["id"]) if seniors else None
+
+    # -- Step 5: Build context, scoped to this one senior's clinical records --
     ctx_builder = ContextBuilder(circle_id, question)
     ctx_builder._roster = ctx_builder._build_roster()
-    ctx_builder._clinical = ctx_builder._build_clinical_records()
+    ctx_builder._clinical = ctx_builder._build_clinical_records(person_id=senior_person_id)
 
     # Format windowed messages for the prompt
     msg_lines = []
@@ -727,11 +839,6 @@ Text: {question}"""
         body = msg.get("body") or ""
         msg_lines.append(f"- **{author}** ({ts}): {body}")
     messages_text = "\n".join(msg_lines) if msg_lines else "_No messages in this window._"
-
-    # Get senior name from roster
-    roster = repo.fetch_circle_roster(circle_id)
-    seniors = [r for r in roster if r.get("person_role") == "senior"]
-    senior_name = seniors[0]["member_name"] if seniors else "Mom"
 
     # -- Step 6: Call Claude with the prep packet prompt --
     human_content = PREP_PACKET_PROMPT.format(
@@ -772,6 +879,7 @@ Text: {question}"""
                     'appointment_desc': appointment_desc,
                     'lookback_desc':    lookback_desc,
                     'specialty':        specialty,
+                    'senior_person_id': senior_person_id,
                 },
                 channel='app',
             )

@@ -752,11 +752,16 @@ class TakeFiveRepository:
         circle_id: str,
         resource_type: Optional[str] = None,
         status: str = 'active',
+        person_id: Optional[str] = None,
     ) -> List[Dict]:
         """
-        Fetch clinical records for all seniors in a circle.
+        Fetch clinical records for seniors in a circle.
         Resolves seniors via circle_memberships — does not filter by circle_id
         on the clinical_records table.
+
+        If person_id is provided, scopes to that one senior only (e.g. for a
+        prep packet targeted at a single senior in a circle with multiple
+        seniors). Otherwise returns records for every senior in the circle.
         """
         query = """
             SELECT cr.*, p.name AS person_name
@@ -772,6 +777,10 @@ class TakeFiveRepository:
         if resource_type:
             query += " AND cr.resource_type = %(resource_type)s"
             params['resource_type'] = resource_type
+
+        if person_id:
+            query += " AND cr.person_id = %(person_id)s"
+            params['person_id'] = person_id
 
         query += " ORDER BY p.name, cr.created_at DESC"
         return self._execute(query, params, fetch='all')

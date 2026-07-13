@@ -791,8 +791,20 @@ async def app_generate_prep_packet(
     if not row:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    doctor_name      = body.get("doctor_name", "the doctor")
-    appointment_desc = body.get("appointment_desc", "upcoming appointment")
+    doctor_name       = body.get("doctor_name", "the doctor")
+    appointment_desc  = body.get("appointment_desc", "upcoming appointment")
+    # The admin frontend's prep-packet modal already has a patient selector
+    # (auto-hidden for single-senior circles) and sends the chosen senior as
+    # person_id — it was just being silently ignored by this endpoint before.
+    senior_person_id  = body.get("person_id") or body.get("senior_person_id")
+
+    # If the circle only has one senior, resolve it automatically so older
+    # frontend builds (or callers that don't send person_id) still work.
+    if not senior_person_id:
+        roster = repo.fetch_circle_roster(circle_id)
+        seniors = [r for r in roster if r.get("person_role") == "senior"]
+        if len(seniors) == 1:
+            senior_person_id = str(seniors[0]["id"])
 
     # Build a fallback question string in case generate_prep_packet ever needs
     # to fall back to free-text parsing (it won't here, since doctor_name and
@@ -806,6 +818,7 @@ async def app_generate_prep_packet(
             sender_person_id=str(row["person_id"]),
             doctor_name=doctor_name,
             appointment_desc=appointment_desc,
+            senior_person_id=senior_person_id,
         )
 
         # Post to GroupMe if the circle has a bot configured
