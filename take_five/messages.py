@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 from datetime import datetime, date, timezone, timedelta
@@ -614,85 +615,114 @@ _PREP_COLLECTIVE_PHRASES = [
 
 async def parse_prep_request(question: str) -> dict:
     """
-    Extract the doctor name, appointment description, and any patient/senior
-    name mention(s) from a free-text prep-packet request, e.g.
-    "@T5 prep for Gomez's appointment with Dr. Yu on July 13" or
-    "prep pack for mom and dad's visit with Dr. Yu".
+    Extract the doctor name and appointment description from a free-text
+    prep-packet request via Haiku, e.g. "@T5 prep for Gomez's appointment
+    with Dr. Yu on July 13".
 
-    Returns {"doctor_name": str, "appointment_desc": str, "patient_mentions": list[str]}.
-    patient_mentions is a raw list of names/phrases as mentioned in the text
-    (e.g. ["morticia"], ["mom and dad"], []) — resolving them against the
-    circle roster is a separate step (see resolve_prep_seniors).
+    Returns {"doctor_name": str, "appointment_desc": str}.
+
+    Deliberately does NOT try to extract which senior the request is about —
+    see resolve_prep_seniors, which matches directly against the roster
+    instead of routing patient identification through an LLM JSON field.
+    Roster matching is a small, deterministic lookup; an LLM extraction step
+    for it just adds a way for a safety-adjacent decision (whose meds show up
+    in whose packet) to silently break if the model's JSON is malformed.
     """
-    parse_prompt = f"""Extract the doctor name, appointment description, and any
-mentioned patient/senior name(s) from this text.
-Return JSON only, no other text. Format:
-{{"doctor_name": "...", "appointment_desc": "...", "patient_mentions": ["..."]}}
+    parse_prompt = f"""Extract the doctor name and appointment description from this text.
+Return JSON only, no other text. Format: {{"doctor_name": "...", "appointment_desc": "..."}}
 If no doctor name is found, use "the doctor".
 If no appointment date/time is found, use "upcoming appointment".
-patient_mentions should list any name(s) or collective phrase (e.g. "mom and
-dad", "my parents", "both") referring to who the appointment/packet is for.
-Return an empty list if no one is named.
 
 Text: {question}"""
 
     parse_response = ChatAnthropic(model="claude-haiku-4-5-20251001", max_tokens=200).invoke(
         [HumanMessage(content=parse_prompt)]
     )
+    raw = parse_response.content.strip()
+    # Haiku occasionally wraps JSON in markdown code fences despite the
+    # "JSON only" instruction — strip them before parsing (same pattern as
+    # signals.py's _strip_and_parse).
+    raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.IGNORECASE).strip()
+    raw = re.sub(r'\s*```$', '', raw).strip()
+
     try:
-        parsed = json.loads(parse_response.content.strip())
-        return {
-            "doctor_name":       parsed.get("doctor_name") or "the doctor",
-            "appointment_desc":  parsed.get("appointment_desc") or "upcoming appointment",
-            "patient_mentions":  parsed.get("patient_mentions") or [],
-        }
-    except Exception:
-        return {
-            "doctor_name":       "the doctor",
-            "appointment_desc":  "upcoming appointment",
-            "patient_mentions":  [],
-        }
+        parsed = json.loads(raw)
+    except Exception as e:
+        logger.warning(f"[prep_packet] Could not parse doctor/appointment extraction as JSON: {e} — raw: {raw!r}")
+        parsed = {}
+
+    return {
+        "doctor_name":       parsed.get("doctor_name") or "the doctor",
+        "appointment_desc":  parsed.get("appointment_desc") or "upcoming appointment",
+    }
 
 
-def resolve_prep_seniors(patient_mentions: list[str], seniors: list[dict]) -> list[dict]:
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _text_tokens(text: str) -> set:
     """
-    Match free-text patient mentions against a circle's senior roster rows
-    (each with at least 'id', 'member_name', 'person_aliases').
+    Tokenize free text into a set of words, including a crude possessive-'s
+    stripped form (e.g. "morticias" -> also add "morticia") since casual
+    GroupMe messages often drop the apostrophe ("morticias appointment").
+    Apostrophes aren't in the word pattern, so "gomez's" already splits into
+    "gomez" + "s" on its own.
+    """
+    tokens = set()
+    for tok in _WORD_RE.findall(text.lower()):
+        if not tok:
+            continue
+        tokens.add(tok)
+        if tok.endswith("s") and len(tok) > 3:
+            tokens.add(tok[:-1])
+    return tokens
 
-    - A collective phrase ("mom and dad", "both", "my parents", etc.) resolves
-      to every senior in the circle.
-    - Otherwise, each mention is matched (case-insensitive, substring either
-      direction) against each senior's name and aliases.
-    - Returns the matched seniors in roster order, deduplicated. Can return an
-      empty list if nothing matched — caller should treat that as ambiguous
-      when there's more than one senior in the circle.
+
+def resolve_prep_seniors(question: str, seniors: list[dict]) -> list[dict]:
+    """
+    Determine which senior(s) a free-text prep-packet request is about by
+    matching directly against the circle's roster (each senior dict needs at
+    least 'id', 'member_name', 'person_aliases') — no LLM call, so this can't
+    be derailed by a JSON-extraction step failing or coming back malformed.
+
+    - A collective phrase ("mom and dad", "both", "my parents", etc.)
+      anywhere in the text resolves to every senior in the circle.
+    - Otherwise, matches on individual name tokens (first name, last name,
+      each alias) rather than requiring the full name verbatim — "prep for
+      morticia's appointment" should match "Morticia Addams" without anyone
+      typing the surname. Handles the common "morticias appointment" (no
+      apostrophe) case too.
+    - Returns matched seniors in roster order. An empty list means nothing
+      matched — caller should treat that as ambiguous when there's more than
+      one senior in the circle.
     """
     if not seniors:
         return []
 
-    mentions_lower = [m.strip().lower() for m in patient_mentions if m and m.strip()]
+    text = question.lower()
 
-    # Only check phrase-in-mention (the mention text contains a known collective
-    # phrase), not the reverse — a short mention like "dad" is a substring of
-    # "mom and dad" and would otherwise false-positive as a collective phrase.
-    for mention in mentions_lower:
-        if any(phrase in mention for phrase in _PREP_COLLECTIVE_PHRASES):
-            return list(seniors)
+    if any(phrase in text for phrase in _PREP_COLLECTIVE_PHRASES):
+        return list(seniors)
 
+    tokens = _text_tokens(text)
     matched_ids = set()
     matched: list[dict] = []
-    for senior in seniors:
-        names_to_check = [senior.get("member_name") or ""]
-        aliases = senior.get("person_aliases") or []
-        names_to_check.extend(aliases)
-        names_lower = [n.strip().lower() for n in names_to_check if n]
 
-        for mention in mentions_lower:
-            if any(mention in name or name in mention for name in names_lower if name):
-                if senior["id"] not in matched_ids:
-                    matched_ids.add(senior["id"])
-                    matched.append(senior)
-                break
+    for senior in seniors:
+        variants = set()
+        full_name = (senior.get("member_name") or "").strip().lower()
+        if full_name:
+            variants.add(full_name)
+            variants.update(w for w in full_name.split() if len(w) >= 3)
+        for alias in senior.get("person_aliases") or []:
+            alias = (alias or "").strip().lower()
+            if alias:
+                variants.add(alias)
+
+        is_match = any((v in text if " " in v else v in tokens) for v in variants)
+        if is_match and senior["id"] not in matched_ids:
+            matched_ids.add(senior["id"])
+            matched.append(senior)
 
     return matched
 

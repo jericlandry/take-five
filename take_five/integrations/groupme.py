@@ -353,8 +353,11 @@ async def handle_groupme_webhook(data: dict):
                         # Figure out which senior(s) this request is for before
                         # generating anything. Circles with more than one senior
                         # (e.g. a couple sharing a care circle) need this resolved
-                        # explicitly — see parse_prep_request / resolve_prep_seniors
-                        # in take_five/messages.py for why.
+                        # explicitly — see resolve_prep_seniors in
+                        # take_five/messages.py. This matches directly against the
+                        # roster, deliberately without going through the LLM, so a
+                        # malformed model response can't silently misroute a
+                        # medication-adjacent document to the wrong person.
                         roster = repo.fetch_circle_roster(circle_id)
                         seniors = [r for r in roster if r.get("person_role") == "senior"]
 
@@ -362,28 +365,26 @@ async def handle_groupme_webhook(data: dict):
                             # No senior on record at all — let generate_prep_packet's
                             # own "Mom" fallback handle it, same as before this fix.
                             target_seniors = [{"id": None, "member_name": "Mom"}]
-                            parsed = None
                         elif len(seniors) == 1:
                             target_seniors = seniors
-                            parsed = None
                         else:
-                            parsed = await parse_prep_request(question)
-                            target_seniors = resolve_prep_seniors(
-                                parsed["patient_mentions"], seniors
-                            )
+                            target_seniors = resolve_prep_seniors(question, seniors)
+                            if not target_seniors:
+                                names = " or ".join(s["member_name"] for s in seniors)
+                                await groupme_reply(
+                                    bot_id,
+                                    f"Prep pack for {names}? Send @T5 prep for [name]'s "
+                                    f"appointment with the doctor/appointment details and I'll put it together.",
+                                    circle_ext_id,
+                                )
+                                return
 
-                        if len(seniors) > 1 and not target_seniors:
-                            names = " or ".join(s["member_name"] for s in seniors)
-                            await groupme_reply(
-                                bot_id,
-                                f"Prep pack for {names}? Send @T5 prep for [name]'s "
-                                f"appointment with the doctor/appointment details and I'll put it together.",
-                                circle_ext_id,
-                            )
-                            return
-
-                        doctor_name = parsed["doctor_name"] if parsed else None
-                        appointment_desc = parsed["appointment_desc"] if parsed else None
+                        # Parse doctor/appointment once and reuse it across every
+                        # senior's packet (avoids a duplicate Haiku call per senior
+                        # for the "mom and dad, same appointment" case).
+                        parsed = await parse_prep_request(question)
+                        doctor_name = parsed["doctor_name"]
+                        appointment_desc = parsed["appointment_desc"]
 
                         for i, senior in enumerate(target_seniors):
                             packet_text, followup_text = await generate_prep_packet(
