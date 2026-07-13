@@ -826,13 +826,19 @@ class TakeFiveRepository:
         query += " ORDER BY p.name, cr.created_at DESC"
         return self._execute(query, params, fetch='all')
 
-    def get_prep_packets(self, circle_id: str, limit: int = 20) -> List[Dict]:
+    def get_prep_packets(self, circle_id: str, limit: int = 20,
+                         since: Optional[datetime] = None) -> List[Dict]:
         """
         Return prep packets for a circle, newest first.
         These are outbound messages with message_type='prep_packet'.
-        Metadata (doctor, appointment, lookback) lives in the raw JSONB column.
+        Metadata (doctor, appointment_desc, appointment_date, lookback,
+        senior_person_id, followup_status) lives in the raw JSONB column.
+
+        since: only return packets sent at or after this time — used by
+        take_five/engagement/post_visit.py to scan a rolling recent window
+        (e.g. the last 7 days) rather than full history on every cron run.
         """
-        return self._execute("""
+        query = """
             SELECT
                 m.id,
                 m.body,
@@ -841,9 +847,28 @@ class TakeFiveRepository:
             FROM messages m
             WHERE m.circle_id = %(circle_id)s
               AND m.message_type = 'prep_packet'
-            ORDER BY m.sent_at DESC
-            LIMIT %(limit)s;
-        """, {'circle_id': circle_id, 'limit': limit}, fetch='all')
+        """
+        params: Dict = {'circle_id': circle_id, 'limit': limit}
+        if since:
+            query += " AND m.sent_at >= %(since)s"
+            params['since'] = since
+        query += " ORDER BY m.sent_at DESC LIMIT %(limit)s;"
+        return self._execute(query, params, fetch='all')
+
+    def mark_prep_packet_followup(self, message_id: str, status: str) -> Dict:
+        """
+        Flags a prep_packet message's post-visit follow-up state in its own
+        raw JSONB — no new table or column. status is 'asked' (we sent the
+        follow-up ask) or 'covered' (someone already reported back organically
+        before we got to it). Either way, take_five/engagement/post_visit.py
+        never reconsiders this packet again once it's flagged.
+        """
+        return self._execute("""
+            UPDATE messages
+            SET raw = COALESCE(raw, '{}'::jsonb) || %(patch)s::jsonb
+            WHERE id = %(id)s
+            RETURNING *;
+        """, {"id": str(message_id), "patch": Json({"followup_status": status})}, fetch="one")
 
     # --- ENSEMBLES ---
 

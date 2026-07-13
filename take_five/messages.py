@@ -615,11 +615,20 @@ _PREP_COLLECTIVE_PHRASES = [
 
 async def parse_prep_request(question: str) -> dict:
     """
-    Extract the doctor name and appointment description from a free-text
-    prep-packet request via Haiku, e.g. "@T5 prep for Gomez's appointment
-    with Dr. Yu on July 13".
+    Extract the doctor name, appointment description, and a resolved
+    appointment date from a free-text prep-packet request via Haiku, e.g.
+    "@T5 prep for Gomez's appointment with Dr. Yu on July 13".
 
-    Returns {"doctor_name": str, "appointment_desc": str}.
+    Returns {"doctor_name": str, "appointment_desc": str, "appointment_date": str|None}.
+
+    appointment_date is a structured YYYY-MM-DD, resolved from relative
+    phrasing ("tomorrow", "next Monday") or an explicit date in the text —
+    or None when nothing resolvable is present. This is what
+    take_five/engagement/post_visit.py uses to know whether a visit has
+    actually happened yet; appointment_desc stays free text for display.
+    Never guess a date when one can't be resolved — a missing date just means
+    that prep packet is skipped for post-visit follow-up purposes, which is
+    safer than guessing wrong.
 
     Deliberately does NOT try to extract which senior the request is about —
     see resolve_prep_seniors, which matches directly against the roster
@@ -628,10 +637,14 @@ async def parse_prep_request(question: str) -> dict:
     for it just adds a way for a safety-adjacent decision (whose meds show up
     in whose packet) to silently break if the model's JSON is malformed.
     """
-    parse_prompt = f"""Extract the doctor name and appointment description from this text.
-Return JSON only, no other text. Format: {{"doctor_name": "...", "appointment_desc": "..."}}
+    today_str = datetime.now().strftime("%A, %B %d, %Y")
+    parse_prompt = f"""Today is {today_str}.
+
+Extract the doctor name, appointment description, and a resolved appointment date from this text.
+Return JSON only, no other text. Format: {{"doctor_name": "...", "appointment_desc": "...", "appointment_date": "YYYY-MM-DD" or null}}
 If no doctor name is found, use "the doctor".
-If no appointment date/time is found, use "upcoming appointment".
+If no appointment date/time is found in the text, use "upcoming appointment" for appointment_desc and null for appointment_date.
+Resolve relative dates ("tomorrow", "next Monday", "today") to an actual YYYY-MM-DD date using today's date above. If a specific date is given without a year, assume the current year. If no date can be determined at all, set appointment_date to null — never guess.
 
 Text: {question}"""
 
@@ -654,6 +667,7 @@ Text: {question}"""
     return {
         "doctor_name":       parsed.get("doctor_name") or "the doctor",
         "appointment_desc":  parsed.get("appointment_desc") or "upcoming appointment",
+        "appointment_date":  parsed.get("appointment_date") or None,
     }
 
 
@@ -733,16 +747,24 @@ async def generate_prep_packet(
     sender_person_id: str = None,
     doctor_name: str = None,
     appointment_desc: str = None,
+    appointment_date: str = None,
     senior_person_id: str = None,
 ) -> tuple[str, str]:
     """
     Generate a pre-visit appointment prep packet for one senior.
 
-    If doctor_name and/or appointment_desc are provided directly (e.g. from the
-    app's structured form), they are used as-is and Step 1's LLM parse is skipped
-    for those fields. Otherwise both are derived from `question` via Haiku — this
-    is the path used for free-text GroupMe requests like "@T5 prep for Gomez's
-    appointment with Dr. Yu on July 13".
+    If doctor_name, appointment_desc, and/or appointment_date are provided
+    directly (e.g. from the app's structured form), they're used as-is and
+    Step 1's LLM parse is skipped for those fields. Otherwise all three are
+    derived from `question` via Haiku — this is the path used for free-text
+    GroupMe requests like "@T5 prep for Gomez's appointment with Dr. Yu on
+    July 13".
+
+    appointment_date (YYYY-MM-DD, or None if unresolvable) is logged into the
+    prep_packet message's raw JSONB and is what
+    take_five/engagement/post_visit.py uses to know when the visit has
+    actually happened. A packet with no resolvable date is simply never
+    picked up for post-visit follow-up — safer than guessing.
 
     senior_person_id should identify which senior the packet is for. It's
     required whenever a circle has more than one senior (e.g. a couple sharing
@@ -758,14 +780,16 @@ async def generate_prep_packet(
     """
     today = datetime.now().strftime("%B %d, %Y")
 
-    # -- Step 1: Parse doctor name and appointment description from the question --
-    # Skip parsing for any field that was passed in directly.
-    if doctor_name is None or appointment_desc is None:
+    # -- Step 1: Parse doctor name, appointment description, and appointment
+    # date from the question -- Skip parsing for any field passed in directly.
+    if doctor_name is None or appointment_desc is None or appointment_date is None:
         parsed = await parse_prep_request(question)
         if doctor_name is None:
             doctor_name = parsed["doctor_name"]
         if appointment_desc is None:
             appointment_desc = parsed["appointment_desc"]
+        if appointment_date is None:
+            appointment_date = parsed["appointment_date"]
 
     logger.info(f"[prep_packet] Doctor: {doctor_name}, Appointment: {appointment_desc}")
 
@@ -907,6 +931,7 @@ async def generate_prep_packet(
                 raw_data={
                     'doctor_name':      doctor_name,
                     'appointment_desc': appointment_desc,
+                    'appointment_date': appointment_date,
                     'lookback_desc':    lookback_desc,
                     'specialty':        specialty,
                     'senior_person_id': senior_person_id,

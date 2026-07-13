@@ -102,5 +102,8 @@ async def run_circle(circle: Dict, dry_run: bool, force: bool = False,
 
     if hit["check"] == "pending_corroboration":
         repo.mark_corroboration_requested(hit["signal_id"])
+    elif hit["check"] == "post_visit_followup":
+        for prep_packet_id in hit.get("prep_packet_ids", []):
+            repo.mark_prep_packet_followup(prep_packet_id, "asked")
 
     logger.info(f"Sent check-in to {circle_name}: {reply[:120]}")
