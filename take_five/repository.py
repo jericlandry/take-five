@@ -2,7 +2,7 @@ import json
 import os
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
@@ -475,7 +475,8 @@ class TakeFiveRepository:
             "superseded_by_id":       superseded_by_id,
         }, fetch="one")
 
-    def get_pending_corroboration_signals(self, circle_id: str, max_age_days: int = 7) -> List[Dict]:
+    def get_pending_corroboration_signals(self, circle_id: str, max_age_days: int = 7,
+                                            as_of: Optional[datetime] = None) -> List[Dict]:
         """
         Signals flagged as corroboration candidates that have never been asked
         about. Ask-once model: once corroboration_requested_at is stamped, a
@@ -489,7 +490,14 @@ class TakeFiveRepository:
         keeps a one-time historical backlog from dominating the queue once
         this check goes live — aging out unasked is an acceptable outcome
         under the ask-once model, same as never getting a reply.
+
+        as_of: reference time to evaluate against instead of the real current
+        time — lets the engagement cron be tested against a simulated "now"
+        (see main_engagement.py --as-of) without waiting for real time to
+        pass. Also excludes signals detected after as_of, since in a
+        simulated past they wouldn't exist yet. Defaults to real now().
         """
+        reference_time = as_of or datetime.now(timezone.utc)
         query = """
             SELECT cs.*, p.name AS subject_name
             FROM clinical_signals cs
@@ -497,12 +505,13 @@ class TakeFiveRepository:
             WHERE cs.circle_id = %(circle_id)s
               AND cs.request_corroboration = true
               AND cs.corroboration_requested_at IS NULL
-              AND cs.detected_at >= now() - make_interval(days => %(max_age_days)s)
+              AND cs.detected_at >= %(reference_time)s - make_interval(days => %(max_age_days)s)
+              AND cs.detected_at <= %(reference_time)s
             ORDER BY cs.detected_at ASC;
         """
         return self._execute(
             query,
-            {"circle_id": str(circle_id), "max_age_days": max_age_days},
+            {"circle_id": str(circle_id), "max_age_days": max_age_days, "reference_time": reference_time},
             fetch="all",
         )
 
@@ -515,6 +524,38 @@ class TakeFiveRepository:
             RETURNING *;
         """
         return self._execute(query, {"id": str(signal_id)}, fetch="one")
+
+    def get_last_engagement_activity(self, circle_id: str,
+                                       as_of: Optional[datetime] = None) -> Optional[datetime]:
+        """
+        Most recent timestamp counting as "engagement" for the Life Log gap
+        check (take_five/engagement/checks.py, Tier 2): any inbound
+        circle-member message, or any prior T5 check-in
+        (message_type='check_in', covers both the clinical signal
+        corroboration check and Life Log itself).
+
+        Deliberately excludes 'digest' and 'prep_packet' — the weekly digest
+        does not count as an engagement touch per the card's design (a family
+        that never talks but gets a digest is still in a lull).
+
+        as_of: bounds the search to activity at or before this time — lets
+        the engagement cron be tested against a simulated "now" (see
+        main_engagement.py --as-of) without waiting for real time to pass, and
+        without real messages sent after as_of leaking into the gap
+        calculation. Defaults to real now().
+
+        No new table — computed on the fly from existing message timestamps,
+        consistent with current schema philosophy.
+        """
+        reference_time = as_of or datetime.now(timezone.utc)
+        row = self._execute("""
+            SELECT MAX(sent_at) AS last_activity
+            FROM messages
+            WHERE circle_id = %(circle_id)s
+              AND sent_at <= %(reference_time)s
+              AND (direction = 'inbound' OR message_type = 'check_in');
+        """, {"circle_id": str(circle_id), "reference_time": reference_time})
+        return row["last_activity"] if row else None
 
     # --- CLINICAL RECORDS ---
 
