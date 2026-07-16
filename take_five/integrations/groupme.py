@@ -209,6 +209,14 @@ async def handle_groupme_webhook(data: dict):
         # Upsert person and circle membership before logging the message
         # so foreign key lookups in log_message succeed
         circle = repo.get_circle_by_external_id(circle_ext_id)
+
+        # Status guard: archived circles are fully offboarded — no ingestion,
+        # no signal detection, no @T5. Belt-and-suspenders alongside bot
+        # destruction; makes the admin status toggle a true kill switch.
+        if circle and circle.get('status') != 'active':
+            logger.info(f"[groupme] Circle '{circle['name']}' is {circle['status']} — dropping message")
+            return {"status": "ignored"}
+
         is_new_person = False
         if circle:
             person = repo.get_person_by_external_id(person_ext_id)

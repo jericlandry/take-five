@@ -886,6 +886,26 @@ class TakeFiveRepository:
     def get_ensemble_by_name(self, name: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM ensembles WHERE name = %s;", (name,))
 
+    def update_ensemble(self, ensemble_id: str, name: Optional[str] = None,
+                        plan: Optional[str] = None, status: Optional[str] = None) -> Dict:
+        """
+        Patch ensemble fields. COALESCE pattern — only non-None values change.
+        Setting status='archived' disables the family-admin page context for
+        this ensemble's members (auth still resolves, but the ensemble is
+        rendered inactive downstream).
+        """
+        query = """
+            UPDATE ensembles SET
+                name   = COALESCE(%(name)s, name),
+                plan   = COALESCE(%(plan)s, plan),
+                status = COALESCE(%(status)s, status)
+            WHERE id = %(id)s
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'id': ensemble_id, 'name': name, 'plan': plan, 'status': status,
+        })
+
     def list_ensembles(self) -> List[Dict]:
         return self._execute(
             "SELECT * FROM ensembles ORDER BY created_at DESC;", fetch='all'

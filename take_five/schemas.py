@@ -48,6 +48,12 @@ class CreateEnsembleRequest(BaseModel):
     status: str = "trial"
 
 
+class UpdateEnsembleRequest(BaseModel):
+    name: Optional[str] = None
+    plan: Optional[str] = None
+    status: Optional[str] = None  # 'trial' | 'active' | 'archived'
+
+
 class UpdateClinicalRecordRequest(BaseModel):
     data: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None

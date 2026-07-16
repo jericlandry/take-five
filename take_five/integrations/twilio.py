@@ -54,6 +54,15 @@ async def handle_sms(
         response.message("We don't recognize this number. Contact your care circle administrator.")
         return Response(content=str(response), media_type="application/xml")
 
+    # Status guard: archived circles are fully offboarded — no ingestion,
+    # no relay. Unlike GroupMe (silent drop), the SMS sender gets a reply:
+    # a caregiver texting an offboarded circle deserves to know it's closed
+    # rather than wondering why their updates vanish.
+    if circle.get('status') != 'active':
+        logger.info(f"[sms] Circle '{circle['name']}' is {circle['status']} — rejecting inbound SMS")
+        response.message("This care circle is no longer active. Contact your care circle administrator.")
+        return Response(content=str(response), media_type="application/xml")
+
     circle_id     = str(circle['id'])
     circle_ext_id = circle['external_id']  # use the circle's real external_id for logging
 

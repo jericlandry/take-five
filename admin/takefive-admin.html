@@ -436,6 +436,13 @@ tbody tr:last-child td { border-bottom: none; }
 <div class="form-actions"><button class="btn btn-primary" id="btn-create-ensemble" onclick="createEnsemble()">Create Ensemble</button><button class="btn btn-ghost" onclick="closeModal('modal-add-ensemble')">Cancel</button></div>
 </div></div>
 
+<!-- Edit Ensemble -->
+<div class="modal-backdrop" id="modal-edit-ensemble"><div class="modal"><div class="modal-header"><div class="modal-title">Edit Ensemble</div><button class="modal-close" onclick="closeModal('modal-edit-ensemble')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2"><div class="field"><label>Ensemble Name *</label><input type="text" id="edit-ens-name"/></div><div class="field"><label>Plan *</label><select id="edit-ens-plan"><option value="trial">Trial</option><option value="family">Family ($49/mo)</option><option value="family_plus">Family Plus ($79/mo)</option><option value="agency">Agency</option></select></div></div>
+<div class="form-row"><div class="field"><label>Status</label><select id="edit-ens-status"><option value="trial">Trial</option><option value="active">Active</option><option value="archived">Archived</option></select><div class="form-hint">Archived disables the family admin page for this ensemble. Archive its circles too to stop digests and ingestion.</div></div></div>
+<div class="form-actions"><button class="btn btn-primary" id="btn-save-ensemble" onclick="saveEnsemble()">Save Changes</button><button class="btn btn-ghost" onclick="closeModal('modal-edit-ensemble')">Cancel</button></div>
+</div></div>
+
 <!-- Add Person -->
 <div class="modal-backdrop" id="modal-add-person"><div class="modal"><div class="modal-header"><div class="modal-title">Add Person</div><button class="modal-close" onclick="closeModal('modal-add-person')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 <div class="form-row cols-2"><div class="field"><label>Full Name *</label><input type="text" id="person-name" placeholder="e.g. Rosa Martinez"/></div><div class="field"><label>User Role</label><select id="person-user-role"><option value="member">Member</option><option value="admin">Admin</option></select><div class="form-hint">Admin can manage the ensemble.</div></div></div>
@@ -656,7 +663,7 @@ function renderEnsembles() {
   const tbody = document.getElementById('ensemble-tbody');
   document.getElementById('cnt-ensembles').textContent = state.ensembles.length;
   if (!state.ensembles.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">♪</div><div class="empty-title">No ensembles yet</div></div></td></tr>`; return; }
-  tbody.innerHTML = state.ensembles.map(e => `<tr><td><strong>${e.name}</strong></td><td>${e.plan||'—'}</td><td>${statusPill(e.status)}</td><td class="td-mono">${(e.id||'').slice(0,8)}…</td><td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="selectEnsemble('${e.id}','${e.name.replace(/'/g,"\\'")}')">Open →</button></div></td></tr>`).join('');
+  tbody.innerHTML = state.ensembles.map(e => `<tr><td><strong>${e.name}</strong></td><td>${e.plan||'—'}</td><td>${statusPill(e.status)}</td><td class="td-mono">${(e.id||'').slice(0,8)}…</td><td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openEditEnsemble('${e.id}')">Edit</button><button class="btn btn-ghost btn-sm" onclick="selectEnsemble('${e.id}','${e.name.replace(/'/g,"\\'")}')">Open →</button></div></td></tr>`).join('');
 }
 
 function updateSidebar() {
@@ -676,6 +683,33 @@ async function createEnsemble() {
   if (!data) return;
   toast(`Ensemble "${name}" created`); closeModal('modal-add-ensemble');
   document.getElementById('ens-name').value = '';
+  await loadEnsembles();
+}
+
+function openEditEnsemble(ensembleId) {
+  state.editingEnsembleId = ensembleId;
+  const ens = state.ensembles.find(e => e.id === ensembleId);
+  if (!ens) { toast('Ensemble not found', true); return; }
+  document.getElementById('edit-ens-name').value   = ens.name || '';
+  document.getElementById('edit-ens-plan').value   = ens.plan || 'trial';
+  document.getElementById('edit-ens-status').value = ens.status || 'trial';
+  openModal('modal-edit-ensemble');
+}
+
+async function saveEnsemble() {
+  const ensembleId = state.editingEnsembleId; if (!ensembleId) return;
+  const name   = document.getElementById('edit-ens-name').value.trim();
+  const plan   = document.getElementById('edit-ens-plan').value;
+  const status = document.getElementById('edit-ens-status').value;
+  if (!name) { toast('Name is required', true); return; }
+  const prev = state.ensembles.find(e => e.id === ensembleId);
+  if (status === 'archived' && prev?.status !== 'archived'
+      && !confirm(`Archive "${name}"? The family admin page will be disabled for this ensemble. Archive its circles too to stop digests and message ingestion.`)) return;
+  setLoading('btn-save-ensemble', true);
+  const data = await api('PUT', `/ensembles/${ensembleId}`, { name, plan, status });
+  setLoading('btn-save-ensemble', false);
+  if (!data) return;
+  toast(`Ensemble "${name}" updated`); closeModal('modal-edit-ensemble');
   await loadEnsembles();
 }
 
@@ -823,6 +857,9 @@ async function saveCircle() {
   const integration_config = getConfigFromRows();
   const body = { name, status }; if (extId) body.external_id = extId;
   if (Object.keys(integration_config).length) body.integration_config = integration_config;
+  const prevCircle = state.circles.find(c => c.id === circleId);
+  if (status === 'archived' && prevCircle?.status !== 'archived'
+      && !confirm(`Archive "${name}"? Digests, engagement checks, and message ingestion will stop for this circle.`)) return;
   setLoading('btn-save-circle', true);
   const data = await api('PUT', `/circles/${circleId}`, body);
   setLoading('btn-save-circle', false);
@@ -1015,6 +1052,9 @@ async function saveCdCircle() {
   if (extId) body.external_id = extId;
   const cfg = getCdConfig();
   if (Object.keys(cfg).length) body.integration_config = cfg;
+  const prevCd = state.circles.find(c => c.id === circleId);
+  if (status === 'archived' && prevCd?.status !== 'archived'
+      && !confirm(`Archive "${name}"? Digests, engagement checks, and message ingestion will stop for this circle.`)) return;
   setLoading('btn-cd-save-circle', true);
   const data = await api('PUT', `/circles/${circleId}`, body);
   setLoading('btn-cd-save-circle', false);

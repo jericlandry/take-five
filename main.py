@@ -17,7 +17,7 @@ from take_five.schemas import (
     CreatePersonRequest, UpdatePersonRequest,
     CreateCareCircleRequest, UpdateCareCircleRequest,
     CreateCircleMembershipRequest,
-    CreateEnsembleRequest,
+    CreateEnsembleRequest, UpdateEnsembleRequest,
     CreateClinicalRecordRequest, UpdateClinicalRecordRequest,
     UpdateEnsembleMembershipRequest,
     InvitePersonRequest,
@@ -90,6 +90,22 @@ async def get_ensembles():
     logger.info("Get ensembles request received")
     ensembles = repo.list_ensembles()
     return {"ensembles": row_list_to_dict_list(ensembles)}
+
+@secure_router.put("/ensembles/{ensemble_id}")
+async def update_ensemble(ensemble_id: str, body: UpdateEnsembleRequest):
+    """Patch ensemble name/plan/status. Superadmin only — archiving an
+    ensemble is an offboarding action, not a family self-serve option."""
+    if body.status is not None and body.status not in ('trial', 'active', 'archived'):
+        raise HTTPException(status_code=400, detail="status must be 'trial', 'active', or 'archived'")
+    ensemble = repo.update_ensemble(
+        ensemble_id=ensemble_id,
+        name=body.name,
+        plan=body.plan,
+        status=body.status,
+    )
+    if not ensemble:
+        raise HTTPException(status_code=404, detail="Ensemble not found")
+    return {"ensemble": row_to_dict(ensemble)}
 
 @secure_router.get("/ensembles/{ensemble_id}/people")
 async def get_ensemble_people(ensemble_id: str):
@@ -165,6 +181,8 @@ async def get_circle_by_id(circle_id: str):
 
 @secure_router.put("/circles/{circle_id}")
 async def update_care_circle(circle_id: str, body: UpdateCareCircleRequest):
+    if body.status is not None and body.status not in ('active', 'archived'):
+        raise HTTPException(status_code=400, detail="status must be 'active' or 'archived'")
     circle = repo.update_care_circle(circle_id, body.model_dump(exclude_none=True))
     return {"circle": row_to_dict(circle)}
 
