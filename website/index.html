@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Take Five · Care coordination for families</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-M9QJJVBSFV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-M9QJJVBSFV');
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
@@ -746,6 +753,9 @@
 
 <script>
 function leadSwitchTrack(track){
+  if(typeof gtag === 'function'){
+    gtag('event', 'lead_tab_click', { lead_type: track });
+  }
   var famTab=document.getElementById('lead-tab-family');
   var agTab=document.getElementById('lead-tab-agency');
   var famFields=document.getElementById('lead-fields-family');
@@ -823,6 +833,9 @@ async function leadSubmit(e){
       body: JSON.stringify(payload)
     });
     if(!res.ok){ throw new Error('Request failed with status ' + res.status); }
+    if(typeof gtag === 'function'){
+      gtag('event', 'generate_lead', { lead_type: isFamily ? 'family' : 'agency' });
+    }
     document.getElementById('lead-form').style.display='none';
     document.querySelector('.lead-tabs').style.display='none';
     document.getElementById('lead-success').classList.add('show');
@@ -835,6 +848,9 @@ async function leadSubmit(e){
   return false;
 }
 function whatSwitchDemo(name){
+  if(typeof gtag === 'function'){
+    gtag('event', 'demo_tab_click', { demo_tab: name });
+  }
   var tabs = {ask:'demo-tab-ask', digest:'demo-tab-digest', lifelog:'demo-tab-lifelog', appt:'demo-tab-appt'};
   var panels = {ask:'demo-panel-ask', digest:'demo-panel-digest', lifelog:'demo-panel-lifelog', appt:'demo-panel-appt'};
   Object.keys(tabs).forEach(function(key){
