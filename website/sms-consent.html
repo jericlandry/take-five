@@ -134,7 +134,7 @@
         I agree to receive a one-time SMS welcome message and automated check-in confirmation replies from <strong>Take Five Care</strong>. Message frequency is low and based on my own check-ins. Message and data rates may apply. Reply <strong>STOP</strong> to opt out at any time. Reply <strong>HELP</strong> for help.
       </label>
     </div>
-    <p class="consent-hint" id="consent-hint">Please check the box above to opt in to text messages.</p>
+    <p class="consent-hint show">Leave this unchecked if you'd rather not receive texts — you can still continue, and can opt in anytime later by returning to this page.</p>
     <div class="consent-details">
       <p>Mobile opt-in data and consent will not be shared with third parties or affiliates for marketing purposes.</p>
       <p>To opt out at any time, reply <strong>STOP</strong> to any message. To get help, reply <strong>HELP</strong>. For support, visit <a href="https://takefive.care">takefive.care</a>.</p>
@@ -142,10 +142,10 @@
     </div>
   </div>
 
-  <button class="btn-submit" id="submit-btn" disabled onclick="handleSubmit()">Opt in to text messages</button>
+  <button class="btn-submit" id="submit-btn" disabled onclick="handleSubmit()">Continue</button>
 
   <div class="success" id="success-msg">
-    <p>Thank you — your consent has been recorded. You'll receive a welcome message from Take Five Care shortly.</p>
+    <p id="success-text">Thank you — your consent has been recorded. You'll receive a welcome message from Take Five Care shortly.</p>
   </div>
 </div>
 
@@ -176,17 +176,18 @@
 
   nameInput.addEventListener('input', checkReady);
   phoneInput.addEventListener('input', checkReady);
-  checkbox.addEventListener('change', () => {
-    if (checkbox.checked) document.getElementById('consent-hint').classList.remove('show');
-  });
 
   function handleSubmit() {
-    if (!checkbox.checked) {
-      document.getElementById('consent-hint').classList.add('show');
-      return;
-    }
+    // Submitting always succeeds, whether or not SMS consent was given —
+    // the checkbox records consent, it never blocks completing the form.
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Opted in';
+    submitBtn.textContent = 'Done';
+    const successText = document.getElementById('success-text');
+    if (checkbox.checked) {
+      successText.textContent = "Thank you — your consent has been recorded. You'll receive a welcome message from Take Five Care shortly.";
+    } else {
+      successText.textContent = "You're all set — you've been added without SMS notifications. You can opt in anytime by returning to this page.";
+    }
     document.getElementById('success-msg').style.display = 'block';
   }
 </script>
