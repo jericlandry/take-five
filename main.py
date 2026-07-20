@@ -890,9 +890,20 @@ async def _send_sms_invite(person_id: str, circle_id: str) -> dict:
 
     circle_name = circle["name"]
 
-    # Find the senior's name for a personalised message
+    # Find the senior(s)' name(s) for a personalised message — a circle can
+    # have more than one (e.g. a couple), so name all of them, not just the
+    # first.
     seniors = repo.get_seniors_in_circle(circle_id)
-    senior_name = seniors[0]["name"].split()[0] if seniors else "your loved one"
+    if seniors:
+        first_names = [s["name"].split()[0] for s in seniors]
+        if len(first_names) == 1:
+            senior_name = first_names[0]
+        elif len(first_names) == 2:
+            senior_name = f"{first_names[0]} and {first_names[1]}"
+        else:
+            senior_name = f"{', '.join(first_names[:-1])}, and {first_names[-1]}"
+    else:
+        senior_name = "your loved one"
 
     invite_body = (
         f"Hi {person['name'].split()[0]} - this is Take Five for {circle_name}. "
