@@ -1154,8 +1154,10 @@ class TakeFiveRepository:
                     ON em.person_id = p.id
                    AND em.ensemble_id = %(ensemble_id)s
                 LEFT JOIN circle_memberships cm ON cm.person_id = p.id
+                    AND cm.circle_id IN (
+                        SELECT id FROM care_circles WHERE ensemble_id = %(ensemble_id)s
+                    )
                 LEFT JOIN care_circles cc ON cc.id = cm.circle_id
-                                         AND cc.ensemble_id = %(ensemble_id)s
                 WHERE p.ensemble_id = %(ensemble_id)s
                 ORDER BY p.name;
             """, {'ensemble_id': ensemble_id}, fetch='all')
