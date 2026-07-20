@@ -862,60 +862,36 @@ async def app_generate_prep_packet(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@open_router.post("/app/people/{person_id}/sms-invite")
-async def app_sms_invite(
-    person_id: str,
-    email: str = Query(...),
-    circle_id: Optional[str] = Query(None),
-):
+async def _send_sms_invite(person_id: str, circle_id: str) -> dict:
     """
-    Send an SMS invite to a person so they have the Take Five number saved.
-    Logs the outbound message to messages as an agent_note.
-    Admin-only.
+    Send an SMS invite to a person on behalf of a specific circle, so they
+    have the Take Five number saved. Shared by the open (email-gated family
+    admin) and secure (Bearer-token superadmin) sms-invite routes — same
+    send logic, different auth in front of it.
     """
     from twilio.rest import Client as TwilioClient
 
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-
-    # Load person
     person = repo.get_person_by_id(person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
     if not person.get("phone"):
         raise HTTPException(status_code=400, detail="Person has no phone number")
 
-    # Find their circle and get the Twilio number
-    circles = repo.list_circles_for_person(
-        ensemble_id=str(row["ensemble_id"]),
-        person_id=person_id,
-        user_role="admin",  # fetch all circles so we can find the right one
-    )
-    # Use specified circle_id if provided, otherwise pick the first SMS-enabled circle
-    if circle_id:
-        twilio_circle = next(
-            (c for c in (circles or []) if str(c["id"]) == circle_id
-             and (c.get("integration_config") or {}).get("twilio_number")),
-            None,
-        )
-        if not twilio_circle:
-            raise HTTPException(status_code=400, detail="Circle not found or has no SMS number")
-    else:
-        twilio_circle = next(
-            (c for c in (circles or []) if (c.get("integration_config") or {}).get("twilio_number")),
-            None,
-        )
-    if not twilio_circle:
-        raise HTTPException(status_code=400, detail="No SMS-enabled circle found for this ensemble")
+    circle = repo.get_circle_by_id(circle_id)
+    if not circle:
+        raise HTTPException(status_code=404, detail="Circle not found")
 
-    twilio_number = twilio_circle["integration_config"]["twilio_number"]
-    circle_name = twilio_circle["name"]
+    # Take Five uses a single shared Twilio number for the whole platform —
+    # circles don't need their own twilio_number to send or receive SMS.
+    # See TWILIO_FROM_NUMBER in Render env vars.
+    twilio_number = os.getenv("TWILIO_FROM_NUMBER")
+    if not twilio_number:
+        raise HTTPException(status_code=500, detail="TWILIO_FROM_NUMBER not configured")
+
+    circle_name = circle["name"]
 
     # Find the senior's name for a personalised message
-    seniors = repo.get_seniors_in_circle(str(twilio_circle["id"]))
+    seniors = repo.get_seniors_in_circle(circle_id)
     senior_name = seniors[0]["name"].split()[0] if seniors else "your loved one"
 
     invite_body = (
@@ -939,10 +915,9 @@ async def app_sms_invite(
         raise HTTPException(status_code=500, detail=f"Failed to send SMS: {str(e)}")
 
     # Log to messages as agent_note so it appears in activity
-    circle_ext_id = twilio_circle["external_id"]
     log_body = f"SMS invite sent to {person['name']} ({person['phone']})"
     repo.log_message(
-        circle_ext_id=circle_ext_id,
+        circle_ext_id=circle["external_id"],
         person_ext_id=None,
         body=log_body,
         msg_type="agent_note",
@@ -953,6 +928,48 @@ async def app_sms_invite(
 
     logger.info(f"[sms-invite] Sent to {person['name']} ({person['phone']}) for circle {circle_name}")
     return {"sent": True, "to": person["phone"], "person": person["name"]}
+
+
+@secure_router.post("/people/{person_id}/sms-invite")
+async def superadmin_sms_invite(person_id: str, circle_id: str = Query(...)):
+    """
+    Send an SMS invite (superadmin panel, Bearer-token auth). circle_id is
+    required here since the superadmin UI always has an explicit circle
+    selected — no need to infer one.
+    """
+    return await _send_sms_invite(person_id, circle_id)
+
+
+@open_router.post("/app/people/{person_id}/sms-invite")
+async def app_sms_invite(
+    person_id: str,
+    email: str = Query(...),
+    circle_id: Optional[str] = Query(None),
+):
+    """
+    Send an SMS invite to a person so they have the Take Five number saved.
+    Admin-only (email-gated family admin panel).
+    """
+    row = repo.lookup_person_by_email(email)
+    if not row:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if row["user_role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    if not circle_id:
+        # Fallback for callers that don't pass circle_id explicitly —
+        # use the person's (first) circle.
+        circles = repo.list_circles_for_person(
+            ensemble_id=str(row["ensemble_id"]),
+            person_id=person_id,
+            user_role="admin",
+        )
+        first_circle = (circles or [None])[0]
+        if not first_circle:
+            raise HTTPException(status_code=400, detail="Person has no care circle")
+        circle_id = str(first_circle["id"])
+
+    return await _send_sms_invite(person_id, circle_id)
 
 
 @open_router.get("/")

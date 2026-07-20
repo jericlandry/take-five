@@ -744,8 +744,35 @@ function renderPeople() {
     <td class="td-mono">${p.phone||'—'}</td><td class="td-mono">${p.email||'—'}</td>
     <td>${(p.aliases||[]).length ? p.aliases.map(a=>`<span class="pill pill-person" style="margin:1px;">${a}</span>`).join('') : '<span style="color:var(--g400);font-size:12px;">—</span>'}</td>
     <td class="td-mono">${(p.id||'').slice(0,8)}…</td>
-    <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openPersonDetail('${p.id}')">Open →</button></div></td>
+    <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openPersonDetail('${p.id}')">Open →</button>${p.phone ? `<button class="btn btn-ghost btn-sm" onclick="sendSmsInvite('${p.id}', '${p.name}', '${p.phone}')" title="Send SMS invite">SMS invite</button>` : ''}</div></td>
   </tr>`).join('');
+}
+
+async function sendSmsInvite(personId, personName, phone) {
+  // Take Five uses a single shared Twilio number for the whole platform,
+  // so any active circle can send the invite. state.circles is already
+  // scoped to the active ensemble, so it's a safe source of candidates.
+  const circles = state.circles || [];
+  if (!circles.length) { toast('No circles in this ensemble yet', true); return; }
+
+  let circleId;
+  if (circles.length === 1) {
+    if (!confirm(`Send SMS invite to ${personName} at ${phone} from ${circles[0].name}?`)) return;
+    circleId = circles[0].id;
+  } else {
+    const options = circles.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+    const answer = prompt(
+      `Send SMS invite to ${personName} at ${phone}.\n\nChoose a care circle:\n${options}\n\nEnter the number:`
+    );
+    if (!answer) return;
+    const idx = parseInt(answer.trim()) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= circles.length) { toast('Invalid selection', true); return; }
+    circleId = circles[idx].id;
+  }
+
+  const data = await api('POST', `/people/${personId}/sms-invite?circle_id=${circleId}`);
+  if (!data) return; // api() already surfaced the error via toast
+  toast(`SMS invite sent to ${personName}`);
 }
 
 async function createPerson() {

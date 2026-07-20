@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 
 import httpx
 from fastapi import Response
@@ -13,6 +14,80 @@ from take_five.images import extract_sms_image, handle_image_message
 from take_five.integrations.groupme import groupme_reply, upload_image_to_groupme
 
 logger = logging.getLogger(__name__)
+
+# ─── SMS DISAMBIGUATION (single shared Twilio number) ───
+#
+# Take Five uses one Twilio number for the whole platform, so a message is
+# identified by who's texting (From), not which number they texted (To).
+# That's normally unambiguous, but a phone can be sms_active in more than
+# one circle (e.g. a tester playing multiple roles). When that happens we
+# hold the message and ask which circle it's for.
+#
+# This is in-memory, not a DB table: it's a short-lived (15 min), low-volume
+# edge case, and the project already prefers existing context over new state
+# tables where possible. It won't survive a process restart or multiple
+# workers — acceptable for now given how rarely it fires, but worth
+# revisiting if the platform moves to multiple app instances.
+_PENDING_SMS_TTL_SECONDS = 15 * 60
+_pending_sms_disambiguation: dict[str, dict] = {}
+
+
+def _stash_pending_disambiguation(phone: str, candidates: list, payload: dict) -> None:
+    _pending_sms_disambiguation[phone] = {
+        'candidates': candidates,
+        'payload': payload,
+        'expires_at': time.time() + _PENDING_SMS_TTL_SECONDS,
+    }
+
+
+def _get_pending_disambiguation(phone: str) -> Optional[dict]:
+    pending = _pending_sms_disambiguation.get(phone)
+    if not pending:
+        return None
+    if time.time() > pending['expires_at']:
+        del _pending_sms_disambiguation[phone]
+        return None
+    return pending
+
+
+def _match_circle_reply(reply: str, candidates: list) -> Optional[dict]:
+    """Match a disambiguation reply against candidate circles by number,
+    circle name, or ensemble name."""
+    reply_clean = reply.strip().lower()
+    if reply_clean.isdigit():
+        idx = int(reply_clean) - 1
+        if 0 <= idx < len(candidates):
+            return candidates[idx]
+    name_matches = [
+        c for c in candidates
+        if reply_clean in c['circle_name'].lower() or c['circle_name'].lower() in reply_clean
+        or reply_clean in c['ensemble_name'].lower() or c['ensemble_name'].lower() in reply_clean
+    ]
+    if len(name_matches) == 1:
+        return name_matches[0]
+    return None
+
+
+def _disambiguation_prompt(candidates: list) -> str:
+    options = "\n".join(
+        f"{i+1}) {c['circle_name']} ({c['ensemble_name']})" for i, c in enumerate(candidates)
+    )
+    return f"Take Five: you're in more than one care circle. Reply with the number this is for:\n{options}"
+
+
+def _row_to_person_and_circle(row: dict) -> tuple:
+    """Split a find_active_sms_members_by_phone row into (person, circle) dicts
+    matching the shapes the rest of this module expects."""
+    circle = {
+        'id': row['circle_id'],
+        'name': row['circle_name'],
+        'ensemble_name': row['ensemble_name'],
+        'external_id': row['circle_external_id'],
+        'integration_config': row['circle_integration_config'],
+        'status': 'active',  # query already filters to active circles
+    }
+    person = {k: v for k, v in row.items() if not k.startswith('circle_') and k != 'ensemble_name'}
+    return person, circle
 
 
 async def fetch_twilio_media(url: str) -> Optional[tuple[bytes, str]]:
@@ -46,33 +121,59 @@ async def handle_sms(
     MediaContentType0: Optional[str] = None,
 ) -> Response:
     response = MessagingResponse()
+    payload = {
+        "Body": Body, "To": To,
+        "NumMedia": NumMedia, "MediaUrl0": MediaUrl0, "MediaContentType0": MediaContentType0,
+    }
 
-    # 1. Identify care circle by the Twilio number that received the message
-    circle = repo.get_circle_by_twilio_number(To)
-    if not circle:
-        logger.warning(f"SMS received on unrecognized Twilio number: {To}")
+    # 0. Resolve a pending disambiguation for this phone, if any. If it's
+    # there, this message is the sender's answer ("1" / a circle name),
+    # not a new care update — the original held message gets processed
+    # once we know which circle it belongs to.
+    pending = _get_pending_disambiguation(From)
+    if pending:
+        matched = _match_circle_reply(Body, pending['candidates'])
+        if not matched:
+            response.message(_disambiguation_prompt(pending['candidates']))
+            return Response(content=str(response), media_type="application/xml")
+        del _pending_sms_disambiguation[From]
+        person, circle = _row_to_person_and_circle(matched)
+        return await _process_caregiver_sms(person, circle, From, **pending['payload'])
+
+    # 1. Identify sender by phone alone — one shared Twilio number serves
+    # every circle, so circle identity comes from who's texting, not which
+    # number was texted.
+    matches = repo.find_active_sms_members_by_phone(From)
+
+    if not matches:
+        logger.warning(f"SMS from unrecognized number {From}")
         response.message("We don't recognize this number. Contact your care circle administrator.")
         return Response(content=str(response), media_type="application/xml")
 
-    # Status guard: archived circles are fully offboarded — no ingestion,
-    # no relay. Unlike GroupMe (silent drop), the SMS sender gets a reply:
-    # a caregiver texting an offboarded circle deserves to know it's closed
-    # rather than wondering why their updates vanish.
-    if circle.get('status') != 'active':
-        logger.info(f"[sms] Circle '{circle['name']}' is {circle['status']} — rejecting inbound SMS")
-        response.message("This care circle is no longer active. Contact your care circle administrator.")
+    if len(matches) > 1:
+        logger.info(f"[sms] {From} is sms_active in {len(matches)} circles — asking which one")
+        _stash_pending_disambiguation(From, matches, payload)
+        response.message(_disambiguation_prompt(matches))
         return Response(content=str(response), media_type="application/xml")
 
+    person, circle = _row_to_person_and_circle(matches[0])
+    return await _process_caregiver_sms(person, circle, From, **payload)
+
+
+async def _process_caregiver_sms(
+    person: dict,
+    circle: dict,
+    From: str,
+    Body: str,
+    To: str,
+    NumMedia: str = "0",
+    MediaUrl0: Optional[str] = None,
+    MediaContentType0: Optional[str] = None,
+) -> Response:
+    """Log, relay, and reply to a caregiver SMS once sender + circle are resolved."""
+    response = MessagingResponse()
     circle_id     = str(circle['id'])
-    circle_ext_id = circle['external_id']  # use the circle's real external_id for logging
-
-    # 2. Identify sender — must be an sms_active member of this specific circle
-    person = repo.find_caregiver_by_phone_and_circle(From, circle_id)
-
-    if not person:
-        logger.warning(f"SMS from unrecognized number {From} for circle {circle['name']}")
-        response.message("We don't recognize this number. Contact your care circle administrator.")
-        return Response(content=str(response), media_type="application/xml")
+    circle_ext_id = circle['external_id']
 
     logger.info(f"SMS received from {person['name']} ({From}) for circle {circle['name']}")
 

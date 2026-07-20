@@ -197,23 +197,42 @@ class TakeFiveRepository:
             "SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),)
         )
 
-    def get_circle_by_twilio_number(self, twilio_number: str) -> Optional[Dict]:
-        """Look up a care circle by its dedicated Twilio SMS number."""
-        return self._execute(
-            "SELECT * FROM care_circles WHERE integration_config->>'twilio_number' = %s;",
-            (twilio_number,)
-        )
+    def find_active_sms_members_by_phone(self, phone: str) -> List[Dict]:
+        """
+        Find every active care circle a phone number can text into, one row
+        per circle. Deduplicated by circle: the same phone can be sms_active
+        via more than one person row in the same circle (e.g. a tester
+        playing several roles), and that shouldn't produce duplicate options.
 
-    def find_caregiver_by_phone_and_circle(self, phone: str, circle_id: str) -> Optional[Dict]:
-        """Find an sms_active circle member by their phone number, scoped to a specific circle."""
+        Take Five uses a single shared Twilio number for the whole platform,
+        so identity comes from who is texting (From), not which number they
+        texted (To). This normally returns exactly one row. More than one
+        means the phone is active in more than one circle — the caller is
+        responsible for disambiguating before treating the message as a care
+        update. Ordered by ensemble then circle name so a disambiguation
+        prompt's numbering is stable across calls, and includes ensemble_name
+        so circles with similar names across different families can still be
+        told apart.
+        """
         return self._execute("""
-            SELECT p.*, cm.role, cm.sms_active
-            FROM people p
-            JOIN circle_memberships cm ON p.id = cm.person_id
-            WHERE p.phone = %(phone)s
-              AND cm.circle_id = %(circle_id)s
-              AND cm.sms_active = true;
-        """, {'phone': phone, 'circle_id': circle_id})
+            SELECT * FROM (
+                SELECT DISTINCT ON (cc.id)
+                       p.*, cm.role, cm.sms_active,
+                       cc.id AS circle_id, cc.name AS circle_name,
+                       cc.external_id AS circle_external_id,
+                       cc.integration_config AS circle_integration_config,
+                       e.name AS ensemble_name
+                FROM people p
+                JOIN circle_memberships cm ON p.id = cm.person_id
+                JOIN care_circles cc ON cc.id = cm.circle_id
+                JOIN ensembles e ON e.id = cc.ensemble_id
+                WHERE p.phone = %(phone)s
+                  AND cm.sms_active = true
+                  AND cc.status = 'active'
+                ORDER BY cc.id, p.name
+            ) sub
+            ORDER BY ensemble_name, circle_name;
+        """, {'phone': phone}, fetch='all')
 
     def get_circle_by_id(self, circle_id: str) -> Optional[Dict]:
         return self._execute(

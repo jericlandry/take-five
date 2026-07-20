@@ -1495,7 +1495,6 @@ function renderPeople(filter) {
     ? state.allPeople
     : state.allPeople.filter(p => p.care_role === currentFilter);
   const isAdmin = state.userRole === 'admin';
-  const hasSmsCircle = (state.circles || []).some(c => c.integration_config?.twilio_number);
   const tbody = document.getElementById('people-tbody');
   if (!people.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No people found</div><div class="empty-sub">Invite someone to get started</div></div></td></tr>`;
@@ -1513,7 +1512,7 @@ function renderPeople(filter) {
       <td style="font-size:12px;color:var(--g600);">${p.phone || p.email || '—'}</td>
       <td>${isAdmin ? `<div style="display:flex;gap:0.4rem;">
         <button class="btn btn-ghost btn-sm" onclick='openPersonModalById("${p.id}")'>Edit</button>
-        ${p.phone && hasSmsCircle ? `<button class="btn btn-ghost btn-sm" onclick='sendSmsInvite("${p.id}", "${p.name}", "${p.phone}")' title="Send SMS invite">SMS invite</button>` : ''}
+        ${p.phone ? `<button class="btn btn-ghost btn-sm" onclick='sendSmsInvite("${p.id}", "${p.name}", "${p.phone}", "${p.circle_id}")' title="Send SMS invite">SMS invite</button>` : ''}
       </div>` : ''}</td>
     </tr>`;
   }).join('');
@@ -1736,17 +1735,16 @@ function renderSettings() {
   document.getElementById('settings-status').value = ens.status || 'trial';
   document.getElementById('integrations-list').innerHTML = state.circles.map(c => {
     const gm  = c.integration_config?.groupme_bot_id;
-    const sms = c.integration_config?.twilio_number;
     return `<div style="padding:0.6rem 0;border-bottom:1px solid var(--g200);">
       <div style="font-size:13px;font-weight:700;color:var(--t800);margin-bottom:0.4rem;">${c.name}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${sms ? '0.35rem' : '0'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.35rem;">
         <div style="font-size:12px;color:var(--g600);">GroupMe: ${gm ? `<span style="font-family:monospace;">${gm}</span>` : 'not connected'}</div>
         <span class="integration-tag ${gm ? 'connected' : ''}"><span class="integration-dot"></span>${gm ? 'Connected' : 'Not connected'}</span>
       </div>
-      ${sms ? `<div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:12px;color:var(--g600);">SMS: <span style="font-family:monospace;">${sms}</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:12px;color:var(--g600);">SMS: shared platform number</div>
         <span class="integration-tag connected"><span class="integration-dot"></span>Connected</span>
-      </div>` : ''}
+      </div>
     </div>`;
   }).join('') || '<div style="font-size:13px;color:var(--g400);">No circles yet.</div>';
 }
@@ -2609,42 +2607,19 @@ async function updateDoctor() {
 }
 
 // ─── SMS INVITE ───
-async function sendSmsInvite(personId, personName, phone) {
-  // Find SMS-enabled circles (those with a twilio_number)
-  const smsCircles = (state.circles || []).filter(
-    c => c.integration_config?.twilio_number
-  );
-
-  if (!smsCircles.length) {
-    toast('No SMS-enabled circles found. Add a Twilio number in settings.', true);
-    return;
-  }
-
-  let chosenCircleId;
-  if (smsCircles.length === 1) {
-    // Only one option — confirm directly
-    const c = smsCircles[0];
-    if (!confirm(`Send SMS invite to ${personName} at ${phone} from ${c.name}?`)) return;
-    chosenCircleId = c.id;
-  } else {
-    // Multiple SMS circles — ask which one
-    const options = smsCircles.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-    const answer = prompt(
-      `Send SMS invite to ${personName} at ${phone}.\n\nChoose a care circle:\n${options}\n\nEnter the number:`
-    );
-    if (!answer) return;
-    const idx = parseInt(answer.trim()) - 1;
-    if (isNaN(idx) || idx < 0 || idx >= smsCircles.length) {
-      toast('Invalid selection', true);
-      return;
-    }
-    chosenCircleId = smsCircles[idx].id;
-  }
+async function sendSmsInvite(personId, personName, phone, circleId) {
+  // Take Five uses a single shared Twilio number for the whole platform,
+  // so any active circle can send an SMS invite — no need to hunt for one
+  // with its own twilio_number. circleId just supplies the name/context
+  // for the invite message.
+  const circle = (state.circles || []).find(c => c.id === circleId);
+  const circleLabel = circle ? circle.name : 'their care circle';
+  if (!confirm(`Send SMS invite to ${personName} at ${phone} from ${circleLabel}?`)) return;
 
   const email = encodeURIComponent(state.person.email);
   try {
     const res = await fetch(
-      `${BASE}/app/people/${personId}/sms-invite?email=${email}&circle_id=${chosenCircleId}`,
+      `${BASE}/app/people/${personId}/sms-invite?email=${email}&circle_id=${circleId}`,
       { method: 'POST' }
     );
     if (!res.ok) {
@@ -2669,8 +2644,7 @@ function renderCirclesPanel() {
   tbody.innerHTML = state.circles.map(c => {
     const members = state.allPeople.filter(p => p.circle_id === c.id);
     const gm = c.integration_config?.groupme_bot_id;
-    const sms = c.integration_config?.twilio_number;
-    const integrations = [gm ? 'GroupMe' : null, sms ? 'SMS' : null].filter(Boolean).join(', ') || '—';
+    const integrations = [gm ? 'GroupMe' : null, 'SMS'].filter(Boolean).join(', ');
     return `<tr>
       <td><strong style="color:var(--t800);">${c.name}</strong></td>
       <td><span class="pill ${c.status === 'active' ? 'pill-active' : 'pill-inactive'}">${capitalize(c.status)}</span></td>
