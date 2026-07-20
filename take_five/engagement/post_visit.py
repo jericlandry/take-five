@@ -27,6 +27,7 @@ from typing import Dict, List, Optional
 from anthropic import AsyncAnthropic
 
 from take_five.repository import repo
+from take_five.utils import get_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -36,19 +37,7 @@ MAX_DAYS_PAST = 7        # ...and no more than this many days in the past — to
                          # stale beyond this, same reasoning as the other tiers'
                          # bounded lookback windows.
 
-ALREADY_REPORTED_PROMPT = """A family sent this pre-visit prep packet ahead of a medical appointment:
-
-{packet_body}
-
-Below are messages sent in the family group chat AFTER this prep packet was sent. Determine whether anyone has already reported back on how the appointment actually went — what the doctor said, any changes, any of the flagged items being addressed.
-
-Return ONLY valid JSON, no markdown, no commentary, no code fences:
-{{"already_reported": true}}
-or
-{{"already_reported": false}}
-
-MESSAGES SINCE THE PREP PACKET (oldest first):
-{messages}"""
+ALREADY_REPORTED_PROMPT = get_prompt("already_reported_prompt")
 
 
 def _strip_and_parse(raw: str) -> Optional[dict]:

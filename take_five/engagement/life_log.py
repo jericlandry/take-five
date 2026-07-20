@@ -29,35 +29,15 @@ from typing import Dict, Optional
 from anthropic import AsyncAnthropic
 
 from take_five.repository import repo
+from take_five.utils import get_prompt
 
 logger = logging.getLogger(__name__)
 
 RECENT_WINDOW_DAYS = 14
 
-RECENT_THREAD_PROMPT = """You are looking for ONE specific, concrete detail mentioned in a family care circle's recent chat history that was never followed up on afterward — something like a planned activity, an upcoming event, or a stated plan involving {subjects}.
+RECENT_THREAD_PROMPT = get_prompt("recent_thread_prompt")
 
-Examples of what counts: "going to the Thursday art class", "grandkid visiting this weekend", "starting physical therapy Monday".
-Examples of what does NOT count: general mood commentary, medical/safety observations (handled separately elsewhere), vague statements with no concrete anchor, or anything that was already discussed again later in this window (that means it was already followed up on — it doesn't count).
-
-Only return something if you are confident it genuinely never got a follow-up message afterward in this window.
-
-Return ONLY valid JSON, no markdown, no commentary, no code fences:
-{{"found": true, "excerpt": "<the exact detail, in your own brief words, 10-15 words max>", "subject_name": "<name>"}}
-or
-{{"found": false}}
-
-MESSAGES (most recent first):
-{messages}"""
-
-DURABLE_DETAIL_PROMPT = """You are looking for ONE durable, personal detail about {subjects} from this family care circle's chat history — something that does NOT go stale over time: a hobby, a long-running interest, a named grandchild or friend, a routine they enjoy. This must NOT be a one-off event or appointment — it needs to still be true regardless of when it was mentioned.
-
-Return ONLY valid JSON, no markdown, no commentary, no code fences:
-{{"found": true, "excerpt": "<the exact detail, in your own brief words, 10-15 words max>", "subject_name": "<name>"}}
-or
-{{"found": false}}
-
-MESSAGES (most recent first, may span the full history):
-{messages}"""
+DURABLE_DETAIL_PROMPT = get_prompt("durable_detail_prompt")
 
 
 def _format_messages(rows: list, limit: int = 150) -> str:
