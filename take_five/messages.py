@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 
 from take_five.repository import repo
 from take_five.memory import get_embedding
-from take_five.utils import fetch_prompt, RESPONSE_FORMATS, CHANNEL_CONSTRAINTS
+from take_five.utils import get_prompt, RESPONSE_FORMATS, CHANNEL_CONSTRAINTS
 
 logger = logging.getLogger(__name__)
 
@@ -422,7 +422,7 @@ class ContextBuilder:
 # System prompt
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = fetch_prompt("t5-system-prompt").messages[0].prompt.template
+SYSTEM_PROMPT = get_prompt("t5_system_prompt")
 
 def _build_human_message(
     today: str,

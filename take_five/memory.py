@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 from take_five.repository import repo
-from take_five.utils import fetch_prompt
+from take_five.utils import get_prompt
 
 load_dotenv()
 
@@ -21,7 +21,7 @@ SUMMARY_MODEL = os.getenv("SUMMARY_MODEL", "claude-haiku-4-5-20251001")
 CHUNK_THRESHOLD = 300
 MAX_CHUNK_SIZE = 600
 
-SUMMARY_PROMPT = fetch_prompt('chunk-context-summary')
+SUMMARY_PROMPT = get_prompt('chunk_context_summary')
 summary_llm = ChatAnthropic(model=SUMMARY_MODEL, max_tokens=150)
 
 embeddings_model = HuggingFaceEndpointEmbeddings(

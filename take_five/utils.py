@@ -1,13 +1,13 @@
+import os
 from datetime import datetime
 from typing import Dict, List
 from uuid import UUID
 
 from dotenv import load_dotenv
-from langsmith import Client
 
 load_dotenv()
 
-ls_client = Client()
+PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
 
 RESPONSE_FORMATS = {
     "markdown": "Format your response using markdown — headers, bold, bullet points where appropriate.",
@@ -21,13 +21,30 @@ CHANNEL_CONSTRAINTS = {
 }
 
 
-def fetch_prompt(prompt_name: str):
+def get_prompt(name: str) -> str:
     """
-    Pull the named prompt from LangSmith Hub.
-    Used for both digest generation (t5-week-summary) and
-    memory chunking (chunk-context-summary).
+    Returns the raw prompt template string for `name`.
+
+    Currently reads from take_five/prompts/{name}.md. Callers do their own
+    variable substitution via .format(**kwargs) — this function never does
+    any templating itself, just returns the string.
+
+    To switch back to LangSmith Hub, replace this function's body with:
+
+        from langsmith import Client
+        _ls_client = Client()
+
+        def get_prompt(name: str) -> str:
+            hub_name = name.replace("_", "-")
+            pulled = _ls_client.pull_prompt(hub_name)
+            return pulled.messages[0].prompt.template
+
+    No caller anywhere needs to change — they only ever depend on getting
+    a plain string back from get_prompt().
     """
-    return ls_client.pull_prompt(prompt_name)
+    path = os.path.join(PROMPTS_DIR, f"{name}.md")
+    with open(path, "r") as f:
+        return f.read()
 
 
 def row_to_dict(row) -> dict:

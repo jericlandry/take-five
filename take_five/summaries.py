@@ -1,17 +1,16 @@
-import os
 from datetime import date, datetime, timedelta
 import logging
 
 from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import HumanMessage
 
 from take_five.messages import ContextBuilder
-from take_five.utils import fetch_prompt, RESPONSE_FORMATS
-
-SUMMARY_PROMPT_NAME = os.getenv("LANGSMITH_PROMPT_NAME", "t5-week-summary")
+from take_five.utils import get_prompt, RESPONSE_FORMATS
 
 logger = logging.getLogger(__name__)
 
-chain = fetch_prompt(SUMMARY_PROMPT_NAME) | ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
+DIGEST_PROMPT = get_prompt("t5_week_summary")
+digest_llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
 
 
 def generate_weekly_digest(
@@ -34,11 +33,13 @@ def generate_weekly_digest(
     if "No messages found" in messages:
         return "No messages found for this period — nothing to summarise."
 
-    response = chain.invoke({
-        "conversation_text": messages,
-        "roster_context":    ctx.get_roster(),
-        "current_date":      date.today().strftime("%A, %B %d, %Y"),
-        "response_format":   RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"])
-    })
+    prompt_text = DIGEST_PROMPT.format(
+        conversation_text=messages,
+        roster_context=ctx.get_roster(),
+        current_date=date.today().strftime("%A, %B %d, %Y"),
+        response_format=RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"]),
+    )
+
+    response = digest_llm.invoke([HumanMessage(content=prompt_text)])
 
     return response.content if hasattr(response, "content") else str(response)
