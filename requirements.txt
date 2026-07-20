@@ -50,7 +50,6 @@ langchain-core
 langchain-anthropic
 langchain-community
 langchain-huggingface
-langsmith
 
 sentence-transformers
 
