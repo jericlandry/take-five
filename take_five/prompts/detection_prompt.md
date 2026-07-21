@@ -21,6 +21,7 @@ Score 0.0-1.0. Lower for hedged language, third-party reports, ambiguous observa
 
 RULES:
 - Extract ALL signals — a single message may contain many
+- NEVER bundle multiple named conditions, symptoms, or diagnoses into a single signal. When a message lists more than one distinct condition for the same subject — "arthritis, osteoporosis, and high blood pressure", "heart failure, atrial fibrillation, diabetes" — extract ONE signal object per condition, each with its own signal_type and its own raw_excerpt, exactly as you already do for functional observations (mobility, sleep, hearing, cognition each get their own row when several appear in one message). This applies across every category, not just functional. Do NOT split a single description of one condition into multiple rows just because it has several descriptive words ("labored breathing" is one symptom, not two) — only split when the message names genuinely distinct conditions.
 - Only extract signals about the identified subjects, not family members or caregivers
 - Capture signals even when phrased as questions, secondhand reports, or hedged observations — "what did the nurse say about dad's nipples?" is a symptom signal; "she seems a little off" is a mood signal
 - Capture refusals of mobility aids (wheelchair, walker, cane) as functional/mobility signals

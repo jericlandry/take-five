@@ -149,18 +149,26 @@ def strip_and_parse(raw: str) -> list:
         return []
 
 
-def save_signal(conn, message_id: str, circle_id: str, subject_id: Optional[str], signal: dict, channel: str):
+def save_signal(conn, message_id: str, circle_id: str, subject_id: Optional[str], signal: dict, channel: str, sent_at=None):
+    """
+    sent_at: the source message's original timestamp. Backfilled signals set
+    detected_at from this instead of letting it default to now() — otherwise
+    every row from a single backfill run gets stamped with the batch's
+    wall-clock run time instead of when the underlying event actually
+    happened, which breaks any date-based review of the signal history.
+    """
     query = """
         INSERT INTO clinical_signals (
             message_id, circle_id, subject_id,
             signal_category, signal_type,
             raw_excerpt, mention_style, confidence,
-            channel, request_corroboration
+            channel, request_corroboration, detected_at
         ) VALUES (
             %(message_id)s, %(circle_id)s, %(subject_id)s,
             %(signal_category)s, %(signal_type)s,
             %(raw_excerpt)s, %(mention_style)s, %(confidence)s,
-            %(channel)s, %(request_corroboration)s
+            %(channel)s, %(request_corroboration)s,
+            COALESCE(%(sent_at)s, now())
         )
         RETURNING id;
     """
@@ -176,6 +184,7 @@ def save_signal(conn, message_id: str, circle_id: str, subject_id: Optional[str]
             "confidence":             signal.get("confidence"),
             "channel":                channel or "groupme",
             "request_corroboration":  signal.get("corroboration_suggested", False),
+            "sent_at":                sent_at,
         })
         return cur.fetchone()
 
@@ -213,7 +222,7 @@ async def process_message(client: AsyncAnthropic, conn, msg: dict, seniors: list
             if not signal.get("signal_category") or not signal.get("signal_type"):
                 continue
             subject_id = resolve_subject_id(signal.get("subject_name", ""), seniors)
-            save_signal(conn, msg["message_id"], msg["circle_id"], subject_id, signal, msg.get("channel"))
+            save_signal(conn, msg["message_id"], msg["circle_id"], subject_id, signal, msg.get("channel"), msg.get("sent_at"))
             count += 1
 
         conn.commit()
