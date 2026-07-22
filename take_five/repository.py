@@ -1077,34 +1077,122 @@ class TakeFiveRepository:
 
     # --- USER-FACING (ensemble admin / member pages) ---
 
-    def lookup_person_by_email(self, email: str) -> Optional[Dict]:
+    _PERSON_MEMBERSHIP_SELECT = """
+        SELECT
+            p.id            AS person_id,
+            p.name          AS person_name,
+            p.email,
+            p.phone,
+            p.aliases,
+            p.notes,
+            p.date_of_birth,
+            e.id            AS ensemble_id,
+            e.name          AS ensemble_name,
+            e.plan          AS ensemble_plan,
+            e.status        AS ensemble_status,
+            em.user_role
+        FROM people p
+        JOIN ensembles e ON p.ensemble_id = e.id
+        JOIN ensemble_memberships em
+            ON em.person_id = p.id
+           AND em.ensemble_id = e.id
+    """
+
+    def lookup_people_by_phone(self, phone: str) -> List[Dict]:
         """
-        Look up a person by email and return their ensemble membership context.
-        Used by /auth/lookup to authenticate the ensemble admin/member page.
-        Returns person + ensemble + user_role, or None if not found.
+        Look up every person on (already-normalized, E.164) phone and return
+        each one's ensemble membership context. Used by /auth/otp/request and
+        /auth/otp/verify. Usually one row, but the same phone can belong to
+        more than one person record (a shared household phone, a tester
+        playing multiple roles) — same ambiguity find_active_sms_members_by_phone
+        already handles for inbound SMS, mirrored here so OTP login doesn't
+        silently pick an arbitrary match. Ordered by ensemble then name so a
+        disambiguation prompt's numbering is stable across calls.
         """
+        return self._execute(
+            self._PERSON_MEMBERSHIP_SELECT
+            + " WHERE p.phone = %(phone)s ORDER BY e.name, p.name;",
+            {'phone': phone}, fetch='all',
+        )
+
+    def get_person_with_membership(self, person_id: str) -> Optional[Dict]:
+        """
+        Same shape as lookup_person_by_phone, keyed by person_id. Used by
+        get_current_person on every authenticated request to resolve the
+        caller's ensemble/role from their session.
+        """
+        return self._execute(
+            self._PERSON_MEMBERSHIP_SELECT + " WHERE p.id = %(person_id)s LIMIT 1;",
+            {'person_id': person_id},
+        )
+
+    def get_clinical_record_by_id(self, record_id: str) -> Optional[Dict]:
+        return self._execute(
+            "SELECT * FROM clinical_records WHERE id = %(id)s;", {'id': record_id}
+        )
+
+    # --- AUTH: OTP CODES ---
+
+    def create_otp_code(self, phone: str, code_hash: str, expires_at: datetime) -> Dict:
         return self._execute("""
-            SELECT
-                p.id            AS person_id,
-                p.name          AS person_name,
-                p.email,
-                p.phone,
-                p.aliases,
-                p.notes,
-                p.date_of_birth,
-                e.id            AS ensemble_id,
-                e.name          AS ensemble_name,
-                e.plan          AS ensemble_plan,
-                e.status        AS ensemble_status,
-                em.user_role
-            FROM people p
-            JOIN ensembles e ON p.ensemble_id = e.id
-            JOIN ensemble_memberships em
-                ON em.person_id = p.id
-               AND em.ensemble_id = e.id
-            WHERE LOWER(p.email) = LOWER(%(email)s)
-            LIMIT 1;
-        """, {'email': email})
+            INSERT INTO otp_codes (phone, code_hash, expires_at)
+            VALUES (%(phone)s, %(code_hash)s, %(expires_at)s)
+            RETURNING *;
+        """, {'phone': phone, 'code_hash': code_hash, 'expires_at': expires_at})
+
+    def count_recent_otp_requests(self, phone: str, since: datetime) -> int:
+        row = self._execute("""
+            SELECT COUNT(*) AS n FROM otp_codes
+            WHERE phone = %(phone)s AND created_at > %(since)s;
+        """, {'phone': phone, 'since': since})
+        return row['n'] if row else 0
+
+    def get_latest_unconsumed_otp(self, phone: str) -> Optional[Dict]:
+        return self._execute("""
+            SELECT * FROM otp_codes
+            WHERE phone = %(phone)s AND consumed_at IS NULL AND expires_at > now()
+            ORDER BY created_at DESC LIMIT 1;
+        """, {'phone': phone})
+
+    def increment_otp_attempts(self, otp_id: str) -> None:
+        self._execute(
+            "UPDATE otp_codes SET attempts = attempts + 1 WHERE id = %(id)s;",
+            {'id': otp_id}, fetch=None,
+        )
+
+    def consume_otp_code(self, otp_id: str) -> None:
+        self._execute(
+            "UPDATE otp_codes SET consumed_at = now() WHERE id = %(id)s;",
+            {'id': otp_id}, fetch=None,
+        )
+
+    # --- AUTH: SESSIONS ---
+
+    def create_session(self, person_id: str, token_hash: str, expires_at: datetime) -> Dict:
+        return self._execute("""
+            INSERT INTO sessions (person_id, token_hash, expires_at)
+            VALUES (%(person_id)s, %(token_hash)s, %(expires_at)s)
+            RETURNING *;
+        """, {'person_id': person_id, 'token_hash': token_hash, 'expires_at': expires_at})
+
+    def get_session_by_token_hash(self, token_hash: str) -> Optional[Dict]:
+        return self._execute("""
+            SELECT * FROM sessions
+            WHERE token_hash = %(token_hash)s
+              AND revoked_at IS NULL AND expires_at > now();
+        """, {'token_hash': token_hash})
+
+    def touch_session(self, session_id: str, new_expires_at: datetime) -> None:
+        self._execute("""
+            UPDATE sessions SET last_used_at = now(), expires_at = %(expires_at)s
+            WHERE id = %(id)s;
+        """, {'id': session_id, 'expires_at': new_expires_at}, fetch=None)
+
+    def revoke_session(self, token_hash: str) -> None:
+        self._execute(
+            "UPDATE sessions SET revoked_at = now() WHERE token_hash = %(token_hash)s;",
+            {'token_hash': token_hash}, fetch=None,
+        )
 
     def list_circles_for_person(self, ensemble_id: str, person_id: str,
                                  user_role: str) -> List[Dict]:

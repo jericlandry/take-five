@@ -5,6 +5,7 @@ import time
 
 import httpx
 from fastapi import Response
+from twilio.rest import Client as TwilioClient
 from twilio.twiml.messaging_response import MessagingResponse
 from typing import Optional
 
@@ -14,6 +15,32 @@ from take_five.images import extract_sms_image, handle_image_message
 from take_five.integrations.groupme import groupme_reply, upload_image_to_groupme
 
 logger = logging.getLogger(__name__)
+
+_twilio_client: Optional[TwilioClient] = None
+
+
+def _get_twilio_client() -> TwilioClient:
+    global _twilio_client
+    if _twilio_client is None:
+        _twilio_client = TwilioClient(
+            os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"),
+        )
+    return _twilio_client
+
+
+def send_sms(to: str, body: str, from_number: Optional[str] = None) -> None:
+    """
+    Send a single outbound SMS. Defaults to the platform's shared Twilio
+    number (TWILIO_FROM_NUMBER) used for care-update invites/relay — pass
+    from_number to send from a different one, e.g. take_five/auth.py's
+    OTP codes go out on TWILIO_AUTH_FROM_NUMBER instead, kept separate so a
+    reply to a login code can't be misrouted into the inbound care-update
+    webhook on the shared number.
+    """
+    from_number = from_number or os.getenv("TWILIO_FROM_NUMBER")
+    if not from_number:
+        raise RuntimeError("TWILIO_FROM_NUMBER not configured")
+    _get_twilio_client().messages.create(body=body, from_=from_number, to=to)
 
 # ─── SMS DISAMBIGUATION (single shared Twilio number) ───
 #

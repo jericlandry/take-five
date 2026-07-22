@@ -103,3 +103,17 @@ class DigestRequest(BaseModel):
     response_format: str = "markdown"
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+
+
+class RequestOtpRequest(BaseModel):
+    phone: str
+
+
+class VerifyOtpRequest(BaseModel):
+    phone: str
+    code: str
+
+
+class SelectAccountRequest(BaseModel):
+    selection_ticket: str
+    person_id: str

@@ -1,16 +1,18 @@
 import logging
-import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Security, HTTPException, Depends, APIRouter, Request, Form, Query, Body
+from fastapi import FastAPI, HTTPException, Depends, APIRouter, Request, Form, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+from take_five.auth import (
+    auth_router, verify_admin_token, get_current_person, require_admin,
+    require_ensemble_scope, person_payload, ensemble_payload,
+)
 from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply, setup_groupme_circle
 from take_five.integrations.npi import search_npi
-from take_five.integrations.twilio import handle_sms
+from take_five.integrations.twilio import handle_sms, send_sms
 from take_five.messages import ask_with_tools, generate_prep_packet
 from take_five.repository import repo
 from take_five.schemas import (
@@ -31,17 +33,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-
-security = HTTPBearer()
-
-TAKE_FIVE_ADMIN_API_KEY = os.getenv("TAKE_FIVE_ADMIN_API_KEY")
-if not TAKE_FIVE_ADMIN_API_KEY:
-    logger.warning("TAKE_FIVE_ADMIN_API_KEY not set in environment variables. Admin endpoints will be unsecured.")
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
-    if credentials.credentials != TAKE_FIVE_ADMIN_API_KEY:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return credentials.credentials
 
 app = FastAPI()
 
@@ -66,7 +57,7 @@ app.add_middleware(
 )
 
 open_router = APIRouter()
-secure_router = APIRouter(dependencies=[Depends(verify_token)])
+secure_router = APIRouter(dependencies=[Depends(verify_admin_token)])
 
 @secure_router.post("/digest")
 async def summary(body: DigestRequest):
@@ -324,6 +315,7 @@ async def receive_sms(
 
 
 app.include_router(secure_router)
+app.include_router(auth_router)
 
 @open_router.get("/health")
 async def health():
@@ -332,51 +324,26 @@ async def health():
 
 
 # --- User-facing endpoints (ensemble admin / member pages) ---
-# Auth is the email lookup itself — acceptable for pilot scale.
+# Auth is a Bearer session token issued by /auth/otp/verify (see take_five/auth.py).
 
-@open_router.get("/auth/lookup")
-async def auth_lookup(email: str = Query(...)):
-    """
-    Look up a person by email and return their session context.
-    Used by the ensemble admin/member page on load.
-    Returns 404 if the email is not found or has no ensemble_memberships row.
-    """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=404, detail="No account found for that email address")
+@open_router.get("/app/me")
+async def app_me(person: dict = Depends(get_current_person)):
+    """Validate/restore a stored session on page load."""
     return {
-        "person": {
-            "id":             str(row["person_id"]),
-            "name":           row["person_name"],
-            "email":          row["email"],
-            "phone":          row["phone"],
-            "aliases":        row["aliases"] or [],
-            "notes":          row["notes"],
-            "date_of_birth":  str(row["date_of_birth"]) if row["date_of_birth"] else None,
-        },
-        "ensemble": {
-            "id":     str(row["ensemble_id"]),
-            "name":   row["ensemble_name"],
-            "plan":   row["ensemble_plan"],
-            "status": row["ensemble_status"],
-        },
-        "user_role": row["user_role"],
+        "person": person_payload(person),
+        "ensemble": ensemble_payload(person),
+        "user_role": person["user_role"],
     }
 
 
 @open_router.post("/app/circles/{circle_id}/groupme-setup")
 async def app_groupme_setup(
     circle_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
 ):
     """
     Create a GroupMe group and bot for a care circle. Admin-only.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     try:
         result = await setup_groupme_circle(circle_id)
         return {"status": "ok", "result": result}
@@ -387,17 +354,12 @@ async def app_groupme_setup(
 @open_router.post("/app/ensembles/{ensemble_id}/circles")
 async def app_create_circle(
     ensemble_id: str,
-    email: str = Query(...),
-    body: CreateCareCircleRequest = ...,
+    body: CreateCareCircleRequest,
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")], admin_only=True)),
 ):
     """
     Create a care circle in the ensemble. Admin-only.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     circle = repo.create_care_circle(
         ensemble_id=ensemble_id,
         name=body.name,
@@ -410,19 +372,16 @@ async def app_create_circle(
 @open_router.get("/app/ensembles/{ensemble_id}/circles")
 async def app_get_circles(
     ensemble_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")])),
 ):
     """
     Return circles visible to the requester.
     Admins see all circles; members see only their own.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     circles = repo.list_circles_for_person(
         ensemble_id=ensemble_id,
-        person_id=str(row["person_id"]),
-        user_role=row["user_role"],
+        person_id=str(person["person_id"]),
+        user_role=person["user_role"],
     )
     return {"circles": [row_to_dict(c) for c in (circles or [])]}
 
@@ -430,19 +389,16 @@ async def app_get_circles(
 @open_router.get("/app/ensembles/{ensemble_id}/people")
 async def app_get_people(
     ensemble_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")])),
 ):
     """
     Return people visible to the requester.
     Admins see all; members see only people in their circles.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     people = repo.list_people_for_person(
         ensemble_id=ensemble_id,
-        person_id=str(row["person_id"]),
-        user_role=row["user_role"],
+        person_id=str(person["person_id"]),
+        user_role=person["user_role"],
     )
     return {"people": [row_to_dict(p) for p in (people or [])]}
 
@@ -450,18 +406,15 @@ async def app_get_people(
 @open_router.get("/app/ensembles/{ensemble_id}/activity")
 async def app_get_activity(
     ensemble_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")])),
 ):
     """
     Return recent messages and last digest visible to the requester.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     messages = repo.get_ensemble_activity(
         ensemble_id=ensemble_id,
-        person_id=str(row["person_id"]),
-        user_role=row["user_role"],
+        person_id=str(person["person_id"]),
+        user_role=person["user_role"],
     )
     last_digests = repo.get_last_digest(ensemble_id)
     return {
@@ -472,55 +425,44 @@ async def app_get_activity(
 @open_router.get("/app/ensembles/{ensemble_id}/medications")
 async def app_get_medications(
     ensemble_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")])),
 ):
     """
     Return active medications for all seniors in the ensemble.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     meds = repo.get_medications_for_ensemble(ensemble_id)
     return {"medications": [row_to_dict(m) for m in (meds or [])]}
 
 
 @open_router.put("/app/people/me")
 async def app_update_me(
-    email: str = Query(...),
-    body: UpdatePersonRequest = ...,
+    body: UpdatePersonRequest,
+    person: dict = Depends(get_current_person),
 ):
     """
     Allow a person to update their own profile fields.
     Scoped to phone, aliases, notes, date_of_birth only — no name or type changes.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    person = repo.update_person(
-        person_id=str(row["person_id"]),
+    updated = repo.update_person(
+        person_id=str(person["person_id"]),
         phone=body.phone,
         aliases=body.aliases,
         notes=body.notes,
         date_of_birth=body.date_of_birth,
     )
-    return {"person": row_to_dict(person)}
+    return {"person": row_to_dict(updated)}
 
 
 @open_router.put("/app/people/{person_id}")
 async def app_update_person(
     person_id: str,
-    email: str = Query(...),
-    body: UpdatePersonRequest = ...,
+    body: UpdatePersonRequest,
+    person: dict = Depends(require_ensemble_scope([("person", "person_id")], admin_only=True)),
 ):
     """
     Update a person's profile. Admin-only.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    person = repo.update_person(
+    updated = repo.update_person(
         person_id=person_id,
         name=body.name,
         phone=body.phone,
@@ -528,24 +470,21 @@ async def app_update_person(
         aliases=body.aliases,
         notes=body.notes,
     )
-    return {"person": row_to_dict(person)}
+    return {"person": row_to_dict(updated)}
 
 
 @open_router.put("/app/circles/{circle_id}/people/{person_id}/role")
 async def app_update_circle_role(
     circle_id: str,
     person_id: str,
-    email: str = Query(...),
-    body: CreateCircleMembershipRequest = ...,
+    body: CreateCircleMembershipRequest,
+    person: dict = Depends(require_ensemble_scope(
+        [("circle", "circle_id"), ("person", "person_id")], admin_only=True,
+    )),
 ):
     """
     Update a person's role in a specific circle. Admin-only.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     if body.role not in ('senior', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid role")
     membership = repo.add_person_to_circle(
@@ -559,17 +498,14 @@ async def app_update_circle_role(
 @open_router.put("/app/people/{person_id}/membership")
 async def app_update_person_membership(
     person_id: str,
-    email: str = Query(...),
-    body: UpdateEnsembleMembershipRequest = ...,
+    body: UpdateEnsembleMembershipRequest,
+    person: dict = Depends(require_ensemble_scope([("person", "person_id")], admin_only=True)),
 ):
     """
     Update a person's user role in an ensemble. Admin-only.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
+    if body.ensemble_id != str(person["ensemble_id"]):
         raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     if body.user_role not in ('admin', 'member'):
         raise HTTPException(status_code=400, detail="user_role must be 'admin' or 'member'")
     membership = repo.upsert_ensemble_membership(
@@ -583,14 +519,11 @@ async def app_update_person_membership(
 @open_router.get("/app/ensembles/{ensemble_id}/digests")
 async def app_get_digests(
     ensemble_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")])),
 ):
     """
     Return digest history for the ensemble.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     digests = repo.get_digest_history(ensemble_id)
     return {"digests": [row_to_dict(d) for d in (digests or [])]}
 
@@ -598,25 +531,20 @@ async def app_get_digests(
 @open_router.post("/app/ensembles/{ensemble_id}/invite")
 async def app_invite_person(
     ensemble_id: str,
-    email: str = Query(...),
-    body: InvitePersonRequest = ...,
+    body: InvitePersonRequest,
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")], admin_only=True)),
 ):
     """
     Create (or update) a person in the ensemble and add them to a circle.
     Admin-only. Idempotent — safe to call again if the person already exists.
     Returns the person row and the invite URL.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     if body.user_role not in ('admin', 'member'):
         raise HTTPException(status_code=400, detail="user_role must be 'admin' or 'member'")
     if body.care_role not in ('senior', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid care_role")
 
-    person = repo.invite_person_to_ensemble(
+    invited = repo.invite_person_to_ensemble(
         ensemble_id=ensemble_id,
         circle_id=body.circle_id,
         name=body.name,
@@ -625,24 +553,21 @@ async def app_invite_person(
         care_role=body.care_role,
         user_role=body.user_role,
     )
-    invite_url = f"https://app.takefive.care?email={body.email}"
-    return {"person": row_to_dict(person), "invite_url": invite_url}
+    invite_url = "https://app.takefive.care"
+    return {"person": row_to_dict(invited), "invite_url": invite_url}
 
 
 @open_router.get("/app/ensembles/{ensemble_id}/clinical-records")
 async def app_get_clinical_records(
     ensemble_id: str,
-    email: str = Query(...),
     resource_type: Optional[str] = Query(None),
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")])),
 ):
     """
     Return clinical records (medications, care team) for all seniors
     in the ensemble visible to the requester.
     Readable by all members; writes are admin-only.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     records = repo.get_clinical_records_for_ensemble(
         ensemble_id=ensemble_id,
         resource_type=resource_type,
@@ -653,18 +578,13 @@ async def app_get_clinical_records(
 @open_router.post("/app/ensembles/{ensemble_id}/clinical-records")
 async def app_create_clinical_record(
     ensemble_id: str,
-    email: str = Query(...),
-    body: CreateClinicalRecordRequest = ...,
+    body: CreateClinicalRecordRequest,
+    person: dict = Depends(require_ensemble_scope([("ensemble", "ensemble_id")], admin_only=True)),
 ):
     """
     Create a clinical record (medication or care team member) for a senior
     in the ensemble. Admin-only.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row or str(row["ensemble_id"]) != ensemble_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     record = repo.save_clinical_record(
         person_id=body.person_id,
         resource_type=body.resource_type,
@@ -678,18 +598,14 @@ async def app_create_clinical_record(
 @open_router.put("/app/clinical-records/{record_id}")
 async def app_update_clinical_record(
     record_id: str,
-    email: str = Query(...),
-    body: UpdateClinicalRecordRequest = ...,
+    body: UpdateClinicalRecordRequest,
+    person: dict = Depends(require_ensemble_scope([("clinical_record", "record_id")], admin_only=True)),
 ):
     """
-    Update a clinical record. Admin-only. We verify admin via email lookup;
-    we trust that the record belongs to this ensemble since record_ids are UUIDs.
+    Update a clinical record. Admin-only, and scoped to the record's own
+    ensemble (via require_ensemble_scope's clinical_record resolver) rather
+    than trusted on the strength of the UUID alone.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     record = repo.update_clinical_record(
         record_id=record_id,
         data=body.data,
@@ -704,15 +620,12 @@ async def app_update_clinical_record(
 @open_router.get("/app/circles/{circle_id}/roster")
 async def app_get_circle_roster(
     circle_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")])),
 ):
     """
     Return the roster for a specific circle.
     Visible to all members in the circle; admins can see any circle.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
     roster = repo.fetch_circle_roster(circle_id)
     return {"roster": [row_to_dict(r) for r in (roster or [])]}
 
@@ -720,18 +633,13 @@ async def app_get_circle_roster(
 @open_router.post("/app/circles/{circle_id}/members")
 async def app_add_circle_member(
     circle_id: str,
-    email: str = Query(...),
-    body: CreateCircleMembershipRequest = ...,
+    body: CreateCircleMembershipRequest,
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
 ):
     """
     Add an existing ensemble person to a circle with a role. Admin-only.
     person_id must be supplied in the request body.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     if body.role not in ('senior', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid role")
     membership = repo.add_person_to_circle(
@@ -746,36 +654,30 @@ async def app_add_circle_member(
 async def app_remove_circle_member(
     circle_id: str,
     person_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope(
+        [("circle", "circle_id"), ("person", "person_id")], admin_only=True,
+    )),
 ):
     """
     Remove a person from a circle. Admin-only.
     Does not delete the person from the ensemble.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     repo.remove_person_from_circle(circle_id=circle_id, person_id=person_id)
     return {"removed": True}
 
 
 @open_router.get("/app/npi/search")
 async def app_npi_search(
-    email: str = Query(...),
     first_name: str = Query(...),
     last_name: str = Query(...),
     city: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
+    person: dict = Depends(get_current_person),
 ):
     """
     NPI registry search proxy for the ensemble admin page.
-    Requires a valid email (no admin check — members can look up providers).
+    Any authenticated member can look up providers (no admin check).
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
     results = await search_npi(first_name, last_name, city, state, enumeration_type="NPI-1")
     return {"results": results}
 
@@ -783,14 +685,11 @@ async def app_npi_search(
 @open_router.get("/app/circles/{circle_id}/prep-packets")
 async def app_get_prep_packets(
     circle_id: str,
-    email: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")])),
 ):
     """
     Return previously generated prep packets for a circle.
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
     packets = repo.get_prep_packets(circle_id)
     return {"packets": [row_to_dict(p) for p in (packets or [])]}
 
@@ -798,17 +697,13 @@ async def app_get_prep_packets(
 @open_router.post("/app/circles/{circle_id}/prep-packet")
 async def app_generate_prep_packet(
     circle_id: str,
-    email: str = Query(...),
     body: dict = Body(...),
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")])),
 ):
     """
     Generate an appointment prep packet and post it to GroupMe.
     Accessible to all circle members (not admin-only).
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
     doctor_name       = body.get("doctor_name", "the doctor")
     appointment_desc  = body.get("appointment_desc", "upcoming appointment")
     # The admin frontend's prep-packet modal already has a patient selector
@@ -833,7 +728,7 @@ async def app_generate_prep_packet(
         packet_text, followup_text = await generate_prep_packet(
             question=question,
             circle_id=circle_id,
-            sender_person_id=str(row["person_id"]),
+            sender_person_id=str(person["person_id"]),
             doctor_name=doctor_name,
             appointment_desc=appointment_desc,
             senior_person_id=senior_person_id,
@@ -865,12 +760,10 @@ async def app_generate_prep_packet(
 async def _send_sms_invite(person_id: str, circle_id: str) -> dict:
     """
     Send an SMS invite to a person on behalf of a specific circle, so they
-    have the Take Five number saved. Shared by the open (email-gated family
-    admin) and secure (Bearer-token superadmin) sms-invite routes — same
-    send logic, different auth in front of it.
+    have the Take Five number saved. Shared by the open (session-authenticated
+    family admin) and secure (Bearer-token superadmin) sms-invite routes —
+    same send logic, different auth in front of it.
     """
-    from twilio.rest import Client as TwilioClient
-
     person = repo.get_person_by_id(person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -880,13 +773,6 @@ async def _send_sms_invite(person_id: str, circle_id: str) -> dict:
     circle = repo.get_circle_by_id(circle_id)
     if not circle:
         raise HTTPException(status_code=404, detail="Circle not found")
-
-    # Take Five uses a single shared Twilio number for the whole platform —
-    # circles don't need their own twilio_number to send or receive SMS.
-    # See TWILIO_FROM_NUMBER in Render env vars.
-    twilio_number = os.getenv("TWILIO_FROM_NUMBER")
-    if not twilio_number:
-        raise HTTPException(status_code=500, detail="TWILIO_FROM_NUMBER not configured")
 
     circle_name = circle["name"]
 
@@ -910,17 +796,8 @@ async def _send_sms_invite(person_id: str, circle_id: str) -> dict:
         f"Text this number after visits with {senior_name} and we'll keep the family in the loop."
     )
 
-    # Send via Twilio
     try:
-        twilio_client = TwilioClient(
-            os.getenv("TWILIO_ACCOUNT_SID"),
-            os.getenv("TWILIO_AUTH_TOKEN"),
-        )
-        twilio_client.messages.create(
-            body=invite_body,
-            from_=twilio_number,
-            to=person["phone"],
-        )
+        send_sms(person["phone"], invite_body)
     except Exception as e:
         logger.error(f"[sms-invite] Failed to send to {person['name']}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to send SMS: {str(e)}")
@@ -954,24 +831,18 @@ async def superadmin_sms_invite(person_id: str, circle_id: str = Query(...)):
 @open_router.post("/app/people/{person_id}/sms-invite")
 async def app_sms_invite(
     person_id: str,
-    email: str = Query(...),
     circle_id: Optional[str] = Query(None),
+    person: dict = Depends(require_ensemble_scope([("person", "person_id")], admin_only=True)),
 ):
     """
     Send an SMS invite to a person so they have the Take Five number saved.
-    Admin-only (email-gated family admin panel).
+    Admin-only (session-authenticated family admin panel).
     """
-    row = repo.lookup_person_by_email(email)
-    if not row:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if row["user_role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-
     if not circle_id:
         # Fallback for callers that don't pass circle_id explicitly —
         # use the person's (first) circle.
         circles = repo.list_circles_for_person(
-            ensemble_id=str(row["ensemble_id"]),
+            ensemble_id=str(person["ensemble_id"]),
             person_id=person_id,
             user_role="admin",
         )

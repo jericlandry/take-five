@@ -731,6 +731,49 @@ ALTER TABLE ONLY public.people
     ADD CONSTRAINT people_ensemble_id_fkey FOREIGN KEY (ensemble_id) REFERENCES public.ensembles(id) ON DELETE SET NULL;
 
 
+--
+-- Manually appended (not from pg_dump) — migrations/008_auth_otp_and_sessions.sql
+-- Take Five · 2026-07-22
+--
+
+CREATE TABLE public.otp_codes (
+    id          uuid DEFAULT gen_random_uuid() NOT NULL,
+    phone       text NOT NULL,
+    code_hash   text NOT NULL,
+    attempts    integer DEFAULT 0 NOT NULL,
+    expires_at  timestamp with time zone NOT NULL,
+    consumed_at timestamp with time zone,
+    created_at  timestamp with time zone DEFAULT now() NOT NULL
+);
+
+ALTER TABLE ONLY public.otp_codes
+    ADD CONSTRAINT otp_codes_pkey PRIMARY KEY (id);
+
+CREATE INDEX otp_codes_phone_created_idx ON public.otp_codes USING btree (phone, created_at DESC);
+
+CREATE TABLE public.sessions (
+    id           uuid DEFAULT gen_random_uuid() NOT NULL,
+    person_id    uuid NOT NULL,
+    token_hash   text NOT NULL,
+    created_at   timestamp with time zone DEFAULT now() NOT NULL,
+    last_used_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at   timestamp with time zone NOT NULL,
+    revoked_at   timestamp with time zone
+);
+
+ALTER TABLE ONLY public.sessions
+    ADD CONSTRAINT sessions_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.sessions
+    ADD CONSTRAINT sessions_token_hash_key UNIQUE (token_hash);
+
+ALTER TABLE ONLY public.sessions
+    ADD CONSTRAINT sessions_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.people(id) ON DELETE CASCADE;
+
+CREATE INDEX sessions_token_hash_idx ON public.sessions USING btree (token_hash);
+CREATE INDEX sessions_person_id_idx ON public.sessions USING btree (person_id);
+
+
 -- Completed on 2026-07-07 19:38:48 CDT
 
 --

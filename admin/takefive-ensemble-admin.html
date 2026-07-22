@@ -42,6 +42,8 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .topbar-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--t600); border: 1.5px solid var(--t300); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 11px; color: var(--white); }
 .topbar-user-name { font-size: 12px; color: var(--t100); }
 .topbar-role-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; border-radius: 100px; background: rgba(93,202,165,0.2); color: var(--t300); }
+.topbar-logout-btn { background: transparent; color: var(--t100); border: 1px solid var(--t500); padding: 0.3rem 0.65rem; border-radius: var(--radius-sm); font-family: 'Lato', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+.topbar-logout-btn:hover { background: rgba(93,202,165,0.15); }
 
 /* ─── LAYOUT ─── */
 .app { display: flex; flex: 1; overflow: hidden; }
@@ -296,10 +298,21 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
     </svg>
     <div class="auth-title">Take Five</div>
-    <div class="auth-sub">Enter the email address associated with your care circle to continue.</div>
-    <input class="auth-input" id="auth-email" type="email" placeholder="your@email.com" autocomplete="email"/>
-    <button class="auth-btn" onclick="doAuth()">Continue</button>
-    <div class="auth-error" id="auth-error">We couldn't find an account with that email address.</div>
+    <div id="auth-step-phone">
+      <div class="auth-sub">Enter the phone number associated with your care circle to continue.</div>
+      <input class="auth-input" id="auth-phone" type="tel" placeholder="(555) 555-5555" autocomplete="tel"/>
+      <button class="auth-btn" onclick="requestOtp()">Send code</button>
+    </div>
+    <div id="auth-step-code" style="display:none;">
+      <div class="auth-sub">Enter the code we texted you.</div>
+      <input class="auth-input" id="auth-code" type="text" inputmode="numeric" placeholder="123456" autocomplete="one-time-code"/>
+      <button class="auth-btn" onclick="verifyOtp()">Verify</button>
+    </div>
+    <div id="auth-step-select" style="display:none;">
+      <div class="auth-sub">This phone number is linked to more than one account. Which one is this?</div>
+      <div id="auth-select-list"></div>
+    </div>
+    <div class="auth-error" id="auth-error">Something went wrong. Please try again.</div>
   </div>
 </div>
 
@@ -332,6 +345,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <span class="topbar-user-name" id="topbar-user-name">—</span>
     </div>
     <span class="topbar-role-badge" id="topbar-role-badge">—</span>
+    <button class="topbar-logout-btn" onclick="logout()" title="Log out">Log out</button>
   </div>
 </div>
 
@@ -861,12 +875,12 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <textarea class="form-input" id="edit-notes" rows="3" placeholder="Any context about this person…"></textarea>
     </div>
     <div style="margin-top:0.5rem;">
-      <div class="form-label" style="margin-bottom:6px;">Invite link</div>
+      <div class="form-label" style="margin-bottom:6px;">App link</div>
       <div style="display:flex;gap:0.5rem;align-items:center;">
         <input class="form-input" id="edit-invite-link" readonly style="font-size:11px;font-family:monospace;background:var(--cream);"/>
         <button class="btn btn-ghost btn-sm" onclick="copyInviteLink()">Copy</button>
       </div>
-      <div class="form-hint">Share this link with the person to give them access.</div>
+      <div class="form-hint">Share this link — they'll sign in with their own phone number.</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" onclick="toast('Person removed');closeModal('modal-person')">Remove</button>
@@ -1276,41 +1290,167 @@ const BASE = window.location.hostname === 'localhost' || window.location.hostnam
   ? 'http://localhost:10000'
   : 'https://take-five.onrender.com';
 
+const SESSION_STORAGE_KEY = 'takefive_session_token';
+
 const state = {
   person: null, ensemble: null, circles: [],
   allPeople: [], activity: [], lastDigests: [], digestHistory: [], medications: [], userRole: null,
+  sessionToken: null,
 };
 
 // ─── AUTH ───
-async function doAuth() {
-  const email = document.getElementById('auth-email').value.trim().toLowerCase();
-  if (!email) return;
+
+// Shared fetch wrapper: attaches the session token to every /app/... call.
+// Replaces the old ?email=... query param scheme.
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(`${BASE}${path}`, {
+    ...opts,
+    headers: { ...(opts.headers || {}), 'Authorization': `Bearer ${state.sessionToken}` },
+  });
+  if (res.status === 401) {
+    clearSession();
+    showAuthGate();
+  }
+  return res;
+}
+
+function showAuthStep(step) {
+  document.getElementById('auth-step-phone').style.display = step === 'phone' ? '' : 'none';
+  document.getElementById('auth-step-code').style.display = step === 'code' ? '' : 'none';
+  document.getElementById('auth-step-select').style.display = step === 'select' ? '' : 'none';
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function showAuthGate() {
+  document.getElementById('auth-gate').style.display = 'flex';
+  showAuthStep('phone');
+}
+
+function clearSession() {
+  state.sessionToken = null;
+  state.person = null;
+  state.ensemble = null;
+  state.userRole = null;
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+async function logout() {
+  if (state.sessionToken) {
+    try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
+  }
+  clearSession();
+  document.getElementById('auth-phone').value = '';
+  document.getElementById('auth-code').value = '';
+  showAuthGate();
+}
+
+async function requestOtp() {
+  const phone = document.getElementById('auth-phone').value.trim();
+  if (!phone) return;
   const errEl = document.getElementById('auth-error');
   errEl.classList.remove('show');
   try {
-    const res = await fetch(`${BASE}/auth/lookup?email=${encodeURIComponent(email)}`);
+    const res = await fetch(`${BASE}/auth/otp/request`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone}),
+    });
     if (!res.ok) throw new Error();
-    const data = await res.json();
-    state.person = data.person;
-    state.ensemble = data.ensemble;
-    state.userRole = data.user_role;
-    bootApp();
+    showAuthStep('code');
   } catch {
     errEl.classList.add('show');
   }
 }
 
-document.getElementById('auth-email').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+function applySessionResponse(data) {
+  state.person = data.person;
+  state.ensemble = data.ensemble;
+  state.userRole = data.user_role;
+  state.sessionToken = data.session_token;
+  localStorage.setItem(SESSION_STORAGE_KEY, data.session_token);
+  bootApp({freshLogin: true});
+}
+
+function showAccountSelection(data) {
+  const list = document.getElementById('auth-select-list');
+  list.innerHTML = data.candidates.map(c => `
+    <button class="auth-btn" style="margin-top:0.5rem;" onclick="selectAccount('${data.selection_ticket}', '${c.person_id}')">
+      ${c.name} — ${c.ensemble_name}
+    </button>
+  `).join('');
+  showAuthStep('select');
+}
+
+async function verifyOtp() {
+  const phone = document.getElementById('auth-phone').value.trim();
+  const code = document.getElementById('auth-code').value.trim();
+  if (!code) return;
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.remove('show');
+  try {
+    const res = await fetch(`${BASE}/auth/otp/verify`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone, code}),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    if (data.status === 'select_account') {
+      showAccountSelection(data);
+      return;
+    }
+    applySessionResponse(data);
+  } catch {
+    errEl.classList.add('show');
+  }
+}
+
+async function selectAccount(selectionTicket, personId) {
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.remove('show');
+  try {
+    const res = await fetch(`${BASE}/auth/otp/select-account`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({selection_ticket: selectionTicket, person_id: personId}),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    applySessionResponse(data);
+  } catch {
+    showAuthStep('select');
+    errEl.classList.add('show');
+  }
+}
+
+document.getElementById('auth-phone').addEventListener('keydown', e => { if (e.key === 'Enter') requestOtp(); });
+document.getElementById('auth-code').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });
+
+// Restore a stored session on load instead of re-verifying OTP.
+async function restoreSession(token) {
+  state.sessionToken = token;
+  try {
+    const res = await apiFetch('/app/me');
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    state.person = data.person;
+    state.ensemble = data.ensemble;
+    state.userRole = data.user_role;
+    bootApp({freshLogin: false});
+  } catch {
+    clearSession();
+    showAuthGate();
+  }
+}
 
 window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
-  const emailParam = params.get('email');
-  if (emailParam) { document.getElementById('auth-email').value = emailParam; doAuth(); }
+  const storedToken = localStorage.getItem(SESSION_STORAGE_KEY);
+  if (storedToken) {
+    restoreSession(storedToken);
+  }
   if (params.get('demo') === '1') loadDemo();
 });
 
 // ─── BOOT ───
-function bootApp() {
+function bootApp({freshLogin = true} = {}) {
   document.getElementById('auth-gate').style.display = 'none';
   const p = state.person;
   const av = p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -1334,7 +1474,10 @@ function bootApp() {
         ensemble:   state.ensemble?.name || 'unknown',
       },
     });
-    gtag('event', 'auth_success', {
+    // auth_success = an actual OTP/select-account login just happened.
+    // session_restored = came back with an already-valid session (page
+    // reload) — don't conflate the two, or auth_success overcounts logins.
+    gtag('event', freshLogin ? 'auth_success' : 'session_restored', {
       user_role: state.userRole,
       ensemble:  state.ensemble?.name || 'unknown',
     });
@@ -1345,13 +1488,12 @@ function bootApp() {
 
 // ─── DATA ───
 async function loadData() {
-  const email = encodeURIComponent(state.person.email);
   const id = state.ensemble.id;
   const [cr, pr, ar, mr] = await Promise.all([
-    fetch(`${BASE}/app/ensembles/${id}/circles?email=${email}`).then(r => r.ok ? r.json() : {circles:[]}),
-    fetch(`${BASE}/app/ensembles/${id}/people?email=${email}`).then(r => r.ok ? r.json() : {people:[]}),
-    fetch(`${BASE}/app/ensembles/${id}/activity?email=${email}`).then(r => r.ok ? r.json() : {messages:[],last_digests:[]}),
-    fetch(`${BASE}/app/ensembles/${id}/medications?email=${email}`).then(r => r.ok ? r.json() : {medications:[]}),
+    apiFetch(`/app/ensembles/${id}/circles`).then(r => r.ok ? r.json() : {circles:[]}),
+    apiFetch(`/app/ensembles/${id}/people`).then(r => r.ok ? r.json() : {people:[]}),
+    apiFetch(`/app/ensembles/${id}/activity`).then(r => r.ok ? r.json() : {messages:[],last_digests:[]}),
+    apiFetch(`/app/ensembles/${id}/medications`).then(r => r.ok ? r.json() : {medications:[]}),
   ]);
   state.circles = cr.circles || [];
   state.allPeople = pr.people || [];
@@ -1591,10 +1733,9 @@ async function navigateToDigest(digestId) {
 
 // ─── DIGESTS ───
 async function loadDigests() {
-  const email = encodeURIComponent(state.person.email);
   const id = state.ensemble.id;
   try {
-    const res = await fetch(`${BASE}/app/ensembles/${id}/digests?email=${email}`);
+    const res = await apiFetch(`/app/ensembles/${id}/digests`);
     if (!res.ok) throw new Error();
     const data = await res.json();
     state.digestHistory = data.digests || [];
@@ -1791,10 +1932,7 @@ function openPersonModal(p) {
   document.getElementById('edit-phone').value       = p.phone || '';
   document.getElementById('edit-aliases').value     = (p.aliases || []).join(', ');
   document.getElementById('edit-notes').value        = p.notes || '';
-  const link = p.email
-    ? `${window.location.origin}${window.location.pathname}?email=${encodeURIComponent(p.email)}`
-    : '—';
-  document.getElementById('edit-invite-link').value = link;
+  document.getElementById('edit-invite-link').value = `${window.location.origin}${window.location.pathname}`;
   // Store person id for save
   document.getElementById('modal-person').dataset.personId   = p.id;
   document.getElementById('modal-person').dataset.circleId   = p.circle_id;
@@ -1825,10 +1963,8 @@ async function savePersonModal() {
   btn.disabled = true; btn.textContent = 'Saving…';
 
   try {
-    const callerEmail = encodeURIComponent(state.person.email);
-
     // 1. Update person profile
-    const personRes = await fetch(`${BASE}/app/people/${personId}?email=${callerEmail}`, {
+    const personRes = await apiFetch(`/app/people/${personId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, phone, email, aliases, notes }),
@@ -1836,7 +1972,7 @@ async function savePersonModal() {
     if (!personRes.ok) throw new Error(await personRes.text());
 
     // 2. Update ensemble membership (user role)
-    const memberRes = await fetch(`${BASE}/app/people/${personId}/membership?email=${callerEmail}`, {
+    const memberRes = await apiFetch(`/app/people/${personId}/membership`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ensemble_id: ensembleId, user_role }),
@@ -1873,9 +2009,8 @@ async function saveInvite() {
   if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
 
   try {
-    const callerEmail = encodeURIComponent(state.person.email);
-    const res = await fetch(
-      `${BASE}/app/ensembles/${state.ensemble.id}/invite?email=${callerEmail}`,
+    const res = await apiFetch(
+      `/app/ensembles/${state.ensemble.id}/invite`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1964,9 +2099,8 @@ async function saveMyProfile() {
   const dob     = document.getElementById('my-dob').value || null;
   const aliases = document.getElementById('my-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
   const notes   = document.getElementById('my-notes').value.trim() || null;
-  const email   = encodeURIComponent(state.person.email);
   try {
-    const res = await fetch(`${BASE}/app/people/me?email=${email}`, {
+    const res = await apiFetch(`/app/people/me`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, date_of_birth: dob, aliases, notes }),
@@ -2006,14 +2140,13 @@ function switchHealthTab(tab) {
 }
 
 async function loadHealthPanel() {
-  const email = encodeURIComponent(state.person.email);
   const id = state.ensemble.id;
   // Show/hide add buttons based on role
   const isAdmin = state.userRole === 'admin';
   document.getElementById('btn-add-medication').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-add-doctor').style.display    = isAdmin ? '' : 'none';
   try {
-    const res = await fetch(`${BASE}/app/ensembles/${id}/clinical-records?email=${email}`);
+    const res = await apiFetch(`/app/ensembles/${id}/clinical-records`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     healthState.records = data.records || [];
@@ -2372,9 +2505,8 @@ async function saveMedication() {
   const btn = document.getElementById('btn-save-medication');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(
-      `${BASE}/app/ensembles/${state.ensemble.id}/clinical-records?email=${email}`,
+    const res = await apiFetch(
+      `/app/ensembles/${state.ensemble.id}/clinical-records`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2433,9 +2565,8 @@ async function updateMedication() {
   const btn = document.getElementById('btn-update-medication');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(
-      `${BASE}/app/clinical-records/${recordId}?email=${email}`,
+    const res = await apiFetch(
+      `/app/clinical-records/${recordId}`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2477,9 +2608,8 @@ async function runNpiSearch() {
   const area = document.getElementById('npi-results-area');
   area.innerHTML = '<div style="font-size:12px;color:var(--g400);padding:0.5rem 0;">Searching…</div>';
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(
-      `${BASE}/app/npi/search?email=${email}&first_name=${encodeURIComponent(first)}&last_name=${encodeURIComponent(last)}`
+    const res = await apiFetch(
+      `/app/npi/search?first_name=${encodeURIComponent(first)}&last_name=${encodeURIComponent(last)}`
     );
     if (!res.ok) throw new Error();
     const data = await res.json();
@@ -2541,9 +2671,8 @@ async function saveDoctor() {
     phone:      document.getElementById('ct-phone').value.trim()      || null,
   };
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(
-      `${BASE}/app/ensembles/${state.ensemble.id}/clinical-records?email=${email}`,
+    const res = await apiFetch(
+      `/app/ensembles/${state.ensemble.id}/clinical-records`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2583,11 +2712,10 @@ async function updateDoctor() {
   const btn = document.getElementById('btn-update-doctor');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const email = encodeURIComponent(state.person.email);
     // Fetch the current record data so we can pass it back unchanged
     const current = healthState.records.find(r => r.id === recordId);
-    const res = await fetch(
-      `${BASE}/app/clinical-records/${recordId}?email=${email}`,
+    const res = await apiFetch(
+      `/app/clinical-records/${recordId}`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2616,10 +2744,9 @@ async function sendSmsInvite(personId, personName, phone, circleId) {
   const circleLabel = circle ? circle.name : 'their care circle';
   if (!confirm(`Send SMS invite to ${personName} at ${phone} from ${circleLabel}?`)) return;
 
-  const email = encodeURIComponent(state.person.email);
   try {
-    const res = await fetch(
-      `${BASE}/app/people/${personId}/sms-invite?email=${email}&circle_id=${circleId}`,
+    const res = await apiFetch(
+      `/app/people/${personId}/sms-invite?circle_id=${circleId}`,
       { method: 'POST' }
     );
     if (!res.ok) {
@@ -2674,9 +2801,8 @@ async function openCircleDetail(circleId, circleName) {
 
 async function loadCircleRoster() {
   const circleId = circleState.currentCircleId;
-  const email = encodeURIComponent(state.person.email);
   try {
-    const res = await fetch(`${BASE}/app/circles/${circleId}/roster?email=${email}`);
+    const res = await apiFetch(`/app/circles/${circleId}/roster`);
     if (!res.ok) throw new Error();
     const data = await res.json();
     circleState.roster = data.roster || [];
@@ -2731,8 +2857,7 @@ async function saveCircleMember() {
   const btn = document.getElementById('btn-save-circle-member');
   btn.disabled = true; btn.textContent = 'Adding…';
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(`${BASE}/app/circles/${circleState.currentCircleId}/members?email=${email}`, {
+    const res = await apiFetch(`/app/circles/${circleState.currentCircleId}/members`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ person_id: personId, role }),
@@ -2758,8 +2883,7 @@ async function updateCircleMemberRole() {
   const btn = document.getElementById('btn-update-circle-member');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(`${BASE}/app/circles/${circleState.currentCircleId}/people/${personId}/role?email=${email}`, {
+    const res = await apiFetch(`/app/circles/${circleState.currentCircleId}/people/${personId}/role`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role }),
@@ -2778,8 +2902,7 @@ async function removeCircleMember() {
   const btn = document.getElementById('btn-remove-circle-member');
   btn.disabled = true; btn.textContent = 'Removing…';
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(`${BASE}/app/circles/${circleState.currentCircleId}/members/${personId}?email=${email}`, {
+    const res = await apiFetch(`/app/circles/${circleState.currentCircleId}/members/${personId}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error(await res.text());
@@ -2795,11 +2918,10 @@ async function loadPrepPackets() {
   const list = document.getElementById('prep-packets-list');
   list.innerHTML = '<div style="padding:2rem;text-align:center;font-size:13px;color:var(--g400);">Loading…</div>';
   try {
-    const email = encodeURIComponent(state.person.email);
     // Load packets for each circle
     const allPackets = [];
     for (const circle of state.circles) {
-      const res = await fetch(`${BASE}/app/circles/${circle.id}/prep-packets?email=${email}`);
+      const res = await apiFetch(`/app/circles/${circle.id}/prep-packets`);
       if (!res.ok) continue;
       const data = await res.json();
       (data.packets || []).forEach(p => allPackets.push({ ...p, circle_name: circle.name }));
@@ -3058,8 +3180,7 @@ async function generatePrepPacket() {
   btn.textContent = 'Generating…';
 
   try {
-    const email = encodeURIComponent(state.person.email);
-    const res = await fetch(`${BASE}/app/circles/${prepState.circleId}/prep-packet?email=${email}`, {
+    const res = await apiFetch(`/app/circles/${prepState.circleId}/prep-packet`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3126,9 +3247,8 @@ async function setupGroupMe() {
   const btn = document.getElementById('btn-groupme-setup');
   btn.disabled = true;
   btn.textContent = 'Setting up…';
-  const email = encodeURIComponent(state.person.email);
   try {
-    const res = await fetch(`${BASE}/app/circles/${circleId}/groupme-setup?email=${email}`, {
+    const res = await apiFetch(`/app/circles/${circleId}/groupme-setup`, {
       method: 'POST',
     });
     if (!res.ok) throw new Error((await res.json()).detail || await res.text());
@@ -3146,9 +3266,8 @@ async function createCircle() {
   const name = document.getElementById('new-circle-name').value.trim();
   const ensembleId = state.ensemble?.id;
   if (!ensembleId) { toast('No ensemble loaded', true); return; }
-  const email = encodeURIComponent(state.person.email);
   try {
-    const res = await fetch(`${BASE}/app/ensembles/${ensembleId}/circles?email=${email}`, {
+    const res = await apiFetch(`/app/ensembles/${ensembleId}/circles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
