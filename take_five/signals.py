@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 DETECTION_PROMPT = get_prompt("detection_prompt")
 
 
+CONTEXT_WINDOW_SIZE = 20  # ~1 week at typical circle message volume
+
+
 def _build_subjects_string(seniors: list) -> str:
     """Build the subjects string for the detection prompt from seniors list."""
     if not seniors:
@@ -28,8 +31,29 @@ def _build_subjects_string(seniors: list) -> str:
     return ", ".join(parts)
 
 
+def _build_context_string(context_messages: list) -> str:
+    """Format prior messages for the RECENT CONTEXT section — used only for
+    anaphora/subject resolution, never re-extracted for signals."""
+    if not context_messages:
+        return "(none — this is the earliest message in the circle, or no prior inbound messages exist)"
+    lines = []
+    for m in context_messages:
+        sent_at = m["sent_at"]
+        date_str = sent_at.strftime("%Y-%m-%d") if hasattr(sent_at, "strftime") else str(sent_at)
+        lines.append(f"[{date_str}] {m['author_name']}: {m['body']}")
+    return "\n".join(lines)
+
+
 def _resolve_subject_id(subject_name: str, seniors: list) -> Optional[str]:
-    """Match the model's subject_name back to a person_id."""
+    """Match the model's subject_name back to a person_id.
+
+    An empty/blank subject_name means the model explicitly abstained (see
+    the detection prompt's abstention rule) — must return None here rather
+    than falling through, since "" is a substring of every name and would
+    otherwise silently match the first senior in the list.
+    """
+    if not subject_name or not subject_name.strip():
+        return None
     subject_lower = subject_name.lower()
     for senior in seniors:
         if subject_lower in senior["name"].lower():
@@ -84,7 +108,16 @@ async def detect_clinical_signals(
             return
 
         subjects_str = _build_subjects_string(seniors)
-        prompt = DETECTION_PROMPT.replace("{subjects}", subjects_str)
+        context_messages = repo.get_recent_context_messages(
+            circle_id, before_message_id=message_id, limit=CONTEXT_WINDOW_SIZE
+        )
+        context_str = _build_context_string(context_messages)
+
+        prompt = (
+            DETECTION_PROMPT
+            .replace("{subjects}", subjects_str)
+            .replace("{context_messages}", context_str)
+        )
 
         client = AsyncAnthropic()
         response = await client.messages.create(

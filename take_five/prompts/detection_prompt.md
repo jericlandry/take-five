@@ -5,6 +5,11 @@ Your job is to read a single message from a family care circle and extract any h
 SUBJECTS IN THIS CARE CIRCLE:
 {subjects}
 
+RECENT CONTEXT (most recent inbound messages before this one, oldest first — for resolving ambiguous or anaphoric references ONLY):
+{context_messages}
+
+Do NOT extract signals from RECENT CONTEXT. Each of those messages was already analyzed in its own turn when it came in — re-extracting from them here would create duplicate signals. Use RECENT CONTEXT only to figure out which subject an ambiguous reference in the MESSAGE TO ANALYZE is about — e.g. a bare body part or condition with no name attached ("the big toe", "her follow-up", "his appointment"), or a pronoun with no antecedent in the current message.
+
 SIGNAL TAXONOMY:
 - safety: falls, injuries, emergencies, near-misses, fall risk
 - functional: mobility, eating, sleep, cognition, dressing, energy, withdrawal from activities, hearing
@@ -32,6 +37,7 @@ RULES:
 - Do NOT return [] for messages that contain physical complaints, symptom mentions, mobility observations, medication notes, or behavioral changes — even minor ones
 - If the same event or observation is mentioned more than once in a message, extract it only once — choose the most informative excerpt
 - Keep raw_excerpt short — 10 to 15 words maximum, just enough to identify the signal. Do not quote full sentences.
+- If a signal's subject cannot be confidently determined — even after checking RECENT CONTEXT — do NOT guess a name. Set subject_name to an empty string, set confidence to 0.3 or lower, and set corroboration_suggested to true. A wrong subject is worse than no subject: it gets attributed to the wrong senior downstream, so an honest "unclear" beats a confident guess.
 
 WHAT NOT TO FLAG:
 - Mood: Do not flag general positive affect or enjoyment — "good spirits", "enjoyed her meal", "having a great time", "all smiles" are NOT clinical signals. Only flag significant mood changes, emotional distress, agitation, tearfulness, or anxiety.
@@ -55,7 +61,7 @@ Return ONLY a valid JSON array. No preamble, no explanation, no markdown, no cod
 
 SCHEMA PER SIGNAL:
 {
-  "subject_name": string,
+  "subject_name": string,  // empty string "" if the subject is unclear — see abstention rule above
   "signal_category": "safety" | "functional" | "symptom" | "mood" | "medication",
   "signal_type": string,
   "raw_excerpt": string,

@@ -403,6 +403,49 @@ class TakeFiveRepository:
 
         return self._execute(query, tuple(params), fetch='all')
 
+    def get_message_by_id(self, message_id: str) -> Optional[Dict]:
+        """Fetch a single message with author_name resolved, for citing the
+        exact source (sender, sent_at, body) of a signal or a corroboration
+        ask — avoids relying on an LLM's recall of broader chat history."""
+        return self._execute("""
+            SELECT
+                m.*,
+                COALESCE(p.name, 'Take Five') AS author_name
+            FROM messages m
+            LEFT JOIN people p ON m.person_id = p.id
+            WHERE m.id = %(message_id)s;
+        """, {'message_id': str(message_id)})
+
+    def get_recent_context_messages(self, circle_id: str, before_message_id: str,
+                                     limit: int = 20) -> List[Dict]:
+        """
+        Last `limit` inbound messages strictly before the given message,
+        oldest first. Used by clinical signal detection to resolve ambiguous
+        or anaphoric references ("the big toe", "her follow-up") that name
+        no subject in the message being analyzed but refer back to something
+        said earlier in the circle's chat. Context only — never a source of
+        new signals itself, since each of these messages was already
+        processed in its own turn.
+        """
+        rows = self._execute("""
+            SELECT
+                m.sent_at,
+                COALESCE(p.name, 'Take Five') AS author_name,
+                m.body
+            FROM messages m
+            LEFT JOIN people p ON m.person_id = p.id
+            WHERE m.circle_id = %(circle_id)s
+              AND m.direction = 'inbound'
+              AND m.sent_at < (SELECT sent_at FROM messages WHERE id = %(before_message_id)s)
+            ORDER BY m.sent_at DESC
+            LIMIT %(limit)s;
+        """, {
+            'circle_id': str(circle_id),
+            'before_message_id': str(before_message_id),
+            'limit': limit,
+        }, fetch='all')
+        return list(reversed(rows)) if rows else []
+
     def upsert_message_chunk(self, message_id: str, circle_id: str, chunk_index: int,
                               body: str, context_header: str, context_summary: str,
                               embedded_text: str, embedding: list, sent_at) -> Dict:

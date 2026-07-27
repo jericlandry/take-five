@@ -89,19 +89,45 @@ def check_pending_corroboration(circle: Dict, as_of: Optional[datetime] = None) 
         return None
 
     signal = signals[0]
-    subject = signal.get("subject_name") or "them"
+    subject = signal.get("subject_name")
+
+    # Pull the exact source message rather than trusting the agent to recall
+    # sender/date correctly from broader chat history — makes the citation
+    # accurate by construction instead of by luck.
+    source_message = repo.get_message_by_id(signal["message_id"])
+    if source_message:
+        sender = source_message["author_name"]
+        sent_date = source_message["sent_at"].strftime("%Y-%m-%d")
+        source_line = f"This was mentioned by {sender} on {sent_date}: \"{signal['raw_excerpt']}\""
+    else:
+        # Source message not found (shouldn't normally happen) — fall back to
+        # the excerpt alone rather than guessing at sender/date.
+        source_line = f"Someone mentioned this: \"{signal['raw_excerpt']}\""
+
+    if subject:
+        subject_line = f"about {subject} "
+        ask_line = "Ask the circle to confirm whether this is accurate and whether it's new or ongoing."
+    else:
+        # Detection couldn't confidently determine the subject (see the
+        # abstention rule in detection_prompt.md) — ask who it's about
+        # instead of asserting a name that may well be wrong.
+        subject_line = ""
+        ask_line = (
+            "It wasn't clear from the message who this is about — ask the circle to "
+            "confirm which of them it concerns, and whether it's accurate."
+        )
+
     prompt = (
         "You're proactively raising something with the family, not responding to a "
         "question they asked — write it in your own natural voice, don't just repeat "
         "this verbatim.\n\n"
-        f"Someone mentioned this about {subject}: \"{signal['raw_excerpt']}\" "
+        f"{source_line} {subject_line}"
         f"(category: {signal['signal_category']} / {signal['signal_type']}).\n\n"
-        "Ask the circle to confirm whether this is accurate and whether it's new or "
-        "ongoing. Keep it brief and low-pressure — this is a gentle check, not an alarm.\n\n"
-        "Ground this strictly in the excerpt and subject given above. Do not pull in, "
-        "reference, or attribute any other name, day, or quote from the wider "
-        "conversation history — even if something else seems related. If you're not "
-        "certain a detail came from this specific excerpt, leave it out."
+        f"{ask_line} Keep it brief and low-pressure — this is a gentle check, not an alarm.\n\n"
+        "Ground this strictly in the excerpt, sender, date, and subject given above. Do "
+        "not pull in, reference, or attribute any other name, day, or quote from the "
+        "wider conversation history — even if something else seems related. If you're "
+        "not certain a detail came from this specific excerpt, leave it out."
     )
     return {"check": "pending_corroboration", "signal_id": signal["id"], "prompt": prompt}
 
