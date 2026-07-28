@@ -115,6 +115,7 @@ async def create_person(ensemble_id: str, body: CreatePersonRequest):
         external_id=body.external_id,
         notes=body.notes,
         date_of_birth=body.date_of_birth,
+        clinical_access=body.clinical_access,
     )
     return {"person": row_to_dict(person)}
 
@@ -157,12 +158,16 @@ async def get_care_circles(ensemble_id: str):
 
 @secure_router.post("/ensembles/{ensemble_id}/circles")
 async def create_care_circle(ensemble_id: str, body: CreateCareCircleRequest):
-    circle = repo.create_care_circle(
-        ensemble_id=ensemble_id,
-        name=body.name,
-        status=body.status,
-        external_id=body.external_id,
-    )
+    try:
+        circle = repo.create_care_circle(
+            ensemble_id=ensemble_id,
+            name=body.name,
+            status=body.status,
+            external_id=body.external_id,
+            parent_circle_id=body.parent_circle_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"circle": row_to_dict(circle)}
 
 @secure_router.get("/circles/{circle_id}")
@@ -360,12 +365,16 @@ async def app_create_circle(
     """
     Create a care circle in the ensemble. Admin-only.
     """
-    circle = repo.create_care_circle(
-        ensemble_id=ensemble_id,
-        name=body.name,
-        status=body.status or "active",
-        external_id=body.external_id,
-    )
+    try:
+        circle = repo.create_care_circle(
+            ensemble_id=ensemble_id,
+            name=body.name,
+            status=body.status or "active",
+            external_id=body.external_id,
+            parent_circle_id=body.parent_circle_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"circle": row_to_dict(circle)}
 
 
@@ -429,7 +438,15 @@ async def app_get_medications(
 ):
     """
     Return active medications for all seniors in the ensemble.
+
+    Gated on person_has_clinical_access(), independent of ensemble/circle
+    membership — require_ensemble_scope alone only confirms this person
+    belongs to the ensemble, not that they're cleared to see clinical data
+    (an outer-circle-only member should not get this by virtue of ensemble
+    membership). See card #44.
     """
+    if not repo.person_has_clinical_access(str(person["person_id"])):
+        raise HTTPException(status_code=403, detail="Not authorized to view clinical records")
     meds = repo.get_medications_for_ensemble(ensemble_id)
     return {"medications": [row_to_dict(m) for m in (meds or [])]}
 
@@ -552,6 +569,7 @@ async def app_invite_person(
         phone=body.phone,
         care_role=body.care_role,
         user_role=body.user_role,
+        clinical_access=body.clinical_access,
     )
     invite_url = "https://app.takefive.care"
     return {"person": row_to_dict(invited), "invite_url": invite_url}
@@ -565,9 +583,17 @@ async def app_get_clinical_records(
 ):
     """
     Return clinical records (medications, care team) for all seniors
-    in the ensemble visible to the requester.
-    Readable by all members; writes are admin-only.
+    in the ensemble.
+
+    Gated on person_has_clinical_access(), independent of ensemble/circle
+    membership — "readable by all members" (previous docstring) was the bug:
+    require_ensemble_scope alone only confirms ensemble membership, not
+    clinical clearance, so an outer-circle-only member would otherwise see
+    every senior's full medications/care team. Writes remain admin-only
+    (unchanged, separate endpoint below). See card #44.
     """
+    if not repo.person_has_clinical_access(str(person["person_id"])):
+        raise HTTPException(status_code=403, detail="Not authorized to view clinical records")
     records = repo.get_clinical_records_for_ensemble(
         ensemble_id=ensemble_id,
         resource_type=resource_type,

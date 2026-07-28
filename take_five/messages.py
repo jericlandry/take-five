@@ -355,8 +355,16 @@ class ContextBuilder:
         start_date: datetime = None,
         end_date: datetime = None
     ) -> str:
+        # Resolve the readable circle set — for an inner circle this is
+        # itself + its outer circle(s); for an outer circle, just itself.
+        # This is the one surface (along with _build_semantic below) that's
+        # allowed to read across the inner/outer boundary, per the card #44
+        # design. Engagement/proactive features (Life Log, post-visit,
+        # prep packets) deliberately do NOT use this resolver — they stay
+        # single-circle.
+        readable_ids = self.repo.get_readable_circle_ids(self.circle_id)
         recent_msgs = self.repo.get_messages(
-            self.circle_id,
+            readable_ids,
             start_date=start_date,
             end_date=end_date
         )
@@ -388,7 +396,9 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_semantic(self, embedding: list) -> str:
-        chunks = self.repo.fetch_semantic_chunks(self.circle_id, embedding)
+        # Same readable-circle-set resolution as _build_recent_messages above.
+        readable_ids = self.repo.get_readable_circle_ids(self.circle_id)
+        chunks = self.repo.fetch_semantic_chunks(readable_ids, embedding)
         return self._format_semantic_context(chunks)
 
     def _format_semantic_context(self, rows: list) -> str:
@@ -765,7 +775,9 @@ async def generate_prep_packet(
     # Search recent messages for a prior visit with this doctor
     # Look back up to 6 months for a prior visit mention
     six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
-    all_recent = repo.get_messages(circle_id, start_date=six_months_ago)
+    # Prep packets stay single-circle by design — see card #44's Category 2
+    # notes; a prep packet request in one circle doesn't pull in another.
+    all_recent = repo.get_messages([circle_id], start_date=six_months_ago)
 
     prior_visit_date = None
     doctor_search = doctor_name.lower().replace("dr.", "").strip()
@@ -792,7 +804,7 @@ async def generate_prep_packet(
         logger.info(f"[prep_packet] No prior visit found, using 60-day window")
 
     # -- Step 4: Fetch messages for the lookback window --
-    window_messages = repo.get_messages(circle_id, start_date=lookback_start)
+    window_messages = repo.get_messages([circle_id], start_date=lookback_start)
 
     # Resolve which senior this packet is for. senior_person_id should be
     # supplied by the caller (the app form always has one; the GroupMe path

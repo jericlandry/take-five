@@ -12,6 +12,7 @@ class CreatePersonRequest(BaseModel):
     notes: Optional[str] = None
     external_id: Optional[str] = None
     date_of_birth: Optional[str] = None
+    clinical_access: bool = False  # decided at person-creation time, independent of circle role
 
 
 class UpdatePersonRequest(BaseModel):
@@ -28,6 +29,7 @@ class CreateCareCircleRequest(BaseModel):
     name: str
     status: str = 'active'
     external_id: Optional[str] = None
+    parent_circle_id: Optional[str] = None  # None = inner/top-level circle; set = outer circle
 
 
 class CreateCircleMembershipRequest(BaseModel):
@@ -75,6 +77,7 @@ class InvitePersonRequest(BaseModel):
     care_role: str = 'family'   # senior | family | friend | caregiver
     user_role: str = 'member'   # admin | member
     circle_id: str
+    clinical_access: bool = False  # decided at invite time, independent of circle_id/care_role
 
 
 class CreateLeadRequest(BaseModel):

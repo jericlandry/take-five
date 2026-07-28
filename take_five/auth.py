@@ -99,6 +99,7 @@ def person_payload(person: dict) -> dict:
         "aliases": person["aliases"] or [],
         "notes": person["notes"],
         "date_of_birth": str(person["date_of_birth"]) if person["date_of_birth"] else None,
+        "clinical_access": bool(person.get("clinical_access")),
     }
 
 

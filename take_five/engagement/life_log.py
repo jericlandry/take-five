@@ -114,9 +114,11 @@ async def extract_life_log_topic(circle_id: str, as_of: Optional[datetime] = Non
     subjects_str = ", ".join(s["name"] for s in seniors)
 
     # Level 1: recent unresolved thread, bounded window (time-sensitive content).
+    # Single-circle by design — Life Log extraction doesn't cross the
+    # inner/outer boundary (see card #44's Category 2 notes).
     since = reference_time - timedelta(days=RECENT_WINDOW_DAYS)
     recent_messages = [
-        m for m in repo.get_messages(circle_id, start_date=since, end_date=reference_time)
+        m for m in repo.get_messages([circle_id], start_date=since, end_date=reference_time)
         if m.get("direction") == "inbound"
     ]
     result = await _run_extraction(RECENT_THREAD_PROMPT, subjects_str, recent_messages)
@@ -134,7 +136,7 @@ async def extract_life_log_topic(circle_id: str, as_of: Optional[datetime] = Non
     # Level 2: durable personal detail, unbounded start (evergreen content
     # doesn't go stale) but still capped at reference_time on the upper end.
     all_messages = [
-        m for m in repo.get_messages(circle_id, end_date=reference_time)
+        m for m in repo.get_messages([circle_id], end_date=reference_time)
         if m.get("direction") == "inbound"
     ]
     result = await _run_extraction(DURABLE_DETAIL_PROMPT, subjects_str, all_messages)

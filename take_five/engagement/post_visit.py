@@ -73,8 +73,10 @@ async def _already_reported(packet: Dict, circle_id: str, reference_time: dateti
     i.e. "not yet reported") on error — a spurious follow-up ask is a much
     smaller cost than silently dropping a real one.
     """
+    # Single-circle by design — post-visit follow-up doesn't cross the
+    # inner/outer boundary (see card #44's Category 2 notes).
     since_messages = [
-        m for m in repo.get_messages(circle_id, start_date=packet["sent_at"], end_date=reference_time)
+        m for m in repo.get_messages([circle_id], start_date=packet["sent_at"], end_date=reference_time)
         if m.get("direction") == "inbound"
     ]
     if not since_messages:

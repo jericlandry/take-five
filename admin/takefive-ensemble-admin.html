@@ -1463,7 +1463,16 @@ function bootApp({freshLogin = true} = {}) {
   document.getElementById('admin-only-nav').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-add-circle').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-invite-person').style.display = isAdmin ? '' : 'none';
-  document.getElementById('nav-health').style.display = ''; // visible to all
+  // Health tab (medications, care team, prep packets) is gated on
+  // clinical_access, not user_role — an outer-circle member without
+  // clinical_access should not see this regardless of admin status. See
+  // main.py's /app/ensembles/{id}/clinical-records and /medications, which
+  // enforce the same check server-side; this just avoids showing UI that
+  // would 403 if clicked. Mobile tab bar mirrors this below.
+  const hasClinicalAccess = !!state.person.clinical_access;
+  document.getElementById('nav-health').style.display = hasClinicalAccess ? '' : 'none';
+  const mtabHealth = document.getElementById('mtab-health');
+  if (mtabHealth) mtabHealth.style.display = hasClinicalAccess ? '' : 'none';
   // ─── GA4: identify user after auth ───
   if (typeof gtag !== 'undefined') {
     gtag('config', 'G-M9QJJVBSFV', {
@@ -1489,11 +1498,17 @@ function bootApp({freshLogin = true} = {}) {
 // ─── DATA ───
 async function loadData() {
   const id = state.ensemble.id;
+  const hasClinicalAccess = !!state.person.clinical_access;
   const [cr, pr, ar, mr] = await Promise.all([
     apiFetch(`/app/ensembles/${id}/circles`).then(r => r.ok ? r.json() : {circles:[]}),
     apiFetch(`/app/ensembles/${id}/people`).then(r => r.ok ? r.json() : {people:[]}),
     apiFetch(`/app/ensembles/${id}/activity`).then(r => r.ok ? r.json() : {messages:[],last_digests:[]}),
-    apiFetch(`/app/ensembles/${id}/medications`).then(r => r.ok ? r.json() : {medications:[]}),
+    // Skip the request entirely without clinical_access — the endpoint
+    // enforces this server-side too (see main.py), but there's no reason
+    // to fire a request that will always 403.
+    hasClinicalAccess
+      ? apiFetch(`/app/ensembles/${id}/medications`).then(r => r.ok ? r.json() : {medications:[]})
+      : Promise.resolve({medications:[]}),
   ]);
   state.circles = cr.circles || [];
   state.allPeople = pr.people || [];
@@ -2141,6 +2156,17 @@ function switchHealthTab(tab) {
 
 async function loadHealthPanel() {
   const id = state.ensemble.id;
+  // Defense in depth: nav-health/mtab-health are already hidden without
+  // clinical_access (see bootApp), but guard here too in case this panel
+  // is ever reached another way — avoid firing a request that will 403 and
+  // showing a raw error toast for something that's actually just "not for
+  // you," not a failure.
+  if (!state.person.clinical_access) {
+    healthState.records = [];
+    renderHealthMedications();
+    renderHealthCareTeam();
+    return;
+  }
   // Show/hide add buttons based on role
   const isAdmin = state.userRole === 'admin';
   document.getElementById('btn-add-medication').style.display = isAdmin ? '' : 'none';

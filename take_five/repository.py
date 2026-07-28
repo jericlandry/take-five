@@ -99,6 +99,24 @@ class TakeFiveRepository:
     def get_person_by_id(self, person_id: str) -> Optional[Dict]:
         return self._execute("SELECT * FROM people WHERE id = %s;", (person_id,))
 
+    def person_has_clinical_access(self, person_id: str) -> bool:
+        """
+        Whether this person can see clinical records (medications, doctors,
+        etc.) anywhere in the app. Purely person-scoped, independent of
+        which circle(s) they belong to or which circle they're currently
+        viewing — e.g. an outer-circle-only member with real clinical
+        authority (e.g. Power of Attorney) can have this set true, while an
+        inner circle member could in principle have it false, though in
+        practice it'll be set true for all core family members at
+        person-creation time. No circle-membership join at all — this is
+        just people.clinical_access, decided once per person, independent of
+        circle structure.
+        """
+        row = self._execute(
+            "SELECT clinical_access FROM people WHERE id = %s;", (str(person_id),)
+        )
+        return bool(row and row.get('clinical_access'))
+
     def update_person(self, person_id: str, name: Optional[str] = None,
                         phone: Optional[str] = None, email: Optional[str] = None,
                         aliases: Optional[List[str]] = None, notes: Optional[str] = None,
@@ -124,9 +142,14 @@ class TakeFiveRepository:
         })
 
     def add_person_to_ensemble(self, ensemble_id: str, name: str, **kwargs) -> Dict:
+        """
+        clinical_access (kwarg, default False): decided once, here, at
+        person-creation time — independent of whatever circle(s) they're
+        later assigned to. See person_has_clinical_access().
+        """
         query = """
-            INSERT INTO people (ensemble_id, name, phone, email, timezone, aliases, notes, external_id, date_of_birth)
-            VALUES (%(ensemble_id)s, %(name)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s, %(dob)s)
+            INSERT INTO people (ensemble_id, name, phone, email, timezone, aliases, notes, external_id, date_of_birth, clinical_access)
+            VALUES (%(ensemble_id)s, %(name)s, %(phone)s, %(email)s, %(tz)s, %(aliases)s, %(notes)s, %(external_id)s, %(dob)s, %(clinical_access)s)
             RETURNING *;
         """
         return self._execute(query, {
@@ -136,6 +159,7 @@ class TakeFiveRepository:
             'aliases': kwargs.get('aliases', []), 'notes': kwargs.get('notes'),
             'external_id': kwargs.get('external_id'),
             'dob': kwargs.get('date_of_birth'),
+            'clinical_access': kwargs.get('clinical_access', False),
         })
 
     # --- LEADS ---
@@ -156,15 +180,35 @@ class TakeFiveRepository:
     # --- CARE CIRCLES ---
 
     def create_care_circle(self, ensemble_id: str, name: str, status: str = 'active',
-                           external_id: Optional[str] = None) -> Dict:
+                           external_id: Optional[str] = None,
+                           parent_circle_id: Optional[str] = None) -> Dict:
+        """
+        parent_circle_id: NULL (default) creates a top-level/inner circle.
+        Passing a value creates an outer circle pointing at that inner
+        circle. One level of nesting only, enforced here rather than as a
+        DB constraint (no clean way to express a cross-row "can't be a
+        parent if you have a parent" rule as a CHECK) — raises ValueError if
+        parent_circle_id itself already has a parent.
+        """
+        if parent_circle_id is not None:
+            parent = self.get_circle_by_id(parent_circle_id)
+            if parent is None:
+                raise ValueError(f"parent_circle_id {parent_circle_id} does not exist")
+            if parent.get('parent_circle_id') is not None:
+                raise ValueError(
+                    f"Cannot nest under circle {parent_circle_id} — it is itself an "
+                    f"outer circle. Only one level of circle nesting is supported."
+                )
+
         query = """
-            INSERT INTO care_circles (ensemble_id, name, status, external_id)
-            VALUES (%(ensemble_id)s, %(name)s, %(status)s, %(external_id)s)
+            INSERT INTO care_circles (ensemble_id, name, status, external_id, parent_circle_id)
+            VALUES (%(ensemble_id)s, %(name)s, %(status)s, %(external_id)s, %(parent_circle_id)s)
             RETURNING *;
         """
         return self._execute(query, {
             'ensemble_id': ensemble_id, 'name': name,
-            'status': status, 'external_id': external_id
+            'status': status, 'external_id': external_id,
+            'parent_circle_id': parent_circle_id,
         })
 
     def get_active_circles(self) -> List[Dict]:
@@ -196,6 +240,35 @@ class TakeFiveRepository:
         return self._execute(
             "SELECT * FROM care_circles WHERE external_id = %s;", (str(external_id),)
         )
+
+    def get_readable_circle_ids(self, circle_id: str) -> List[str]:
+        """
+        Resolve the readable circle set for a given circle — the set of
+        circle_ids whose messages/digest content this circle is allowed to
+        read. Same query works unmodified for both inner and outer circles,
+        no branching required:
+
+        - Called with an outer circle's id: parent_circle_id points at an
+          inner circle, and nothing has an outer circle as ITS parent (one
+          level of nesting only), so this returns just the outer circle
+          itself.
+        - Called with an inner circle's id (parent_circle_id IS NULL): this
+          returns itself plus every circle whose parent_circle_id points at
+          it — i.e. itself plus all its outer circle(s).
+
+        Used by ask() and digest generation, which are allowed to read
+        across the inner/outer boundary. NOT used by the single-circle
+        engagement/proactive features (Life Log gap detection, post-visit
+        follow-up, prep packets) — those stay scoped to whichever one circle
+        they're running for; see call sites for [circle_id] one-item lists
+        instead of this resolver.
+        """
+        rows = self._execute("""
+            SELECT id FROM care_circles WHERE id = %(circle_id)s
+            UNION
+            SELECT id FROM care_circles WHERE parent_circle_id = %(circle_id)s;
+        """, {"circle_id": str(circle_id)}, fetch="all")
+        return [str(r["id"]) for r in (rows or [])]
 
     def find_active_sms_members_by_phone(self, phone: str) -> List[Dict]:
         """
@@ -372,11 +445,19 @@ class TakeFiveRepository:
             )
         return self._execute(query, params)
 
-    def get_messages(self, circle_id: str, start_date: datetime = None,
+    def get_messages(self, circle_ids: List[str], start_date: datetime = None,
                      end_date: datetime = None, limit: int = None) -> List[Dict]:
         """
-        Fetch messages for a circle. Bot messages (person_id IS NULL) are
-        labelled 'Take Five' so ask() can identify them in context.
+        Fetch messages for one or more circles. Bot messages (person_id IS
+        NULL) are labelled 'Take Five' so ask() can identify them in context.
+
+        circle_ids is always a list — single-circle callers pass a one-item
+        list (e.g. [circle_id]) rather than a bare string. Multi-circle
+        callers (inner circle's ask()/digest, which also read their outer
+        circle's messages) resolve the readable circle set first via
+        get_readable_circle_ids() and pass that list straight in. Keeping
+        the signature always-plural means this function never needs to know
+        or care why the list has one item or several.
         """
         query = """
             SELECT
@@ -384,9 +465,9 @@ class TakeFiveRepository:
                 COALESCE(p.name, 'Take Five') AS author_name
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
-            WHERE m.circle_id = %s
+            WHERE m.circle_id = ANY(%s)
         """
-        params = [str(circle_id)]
+        params = [[str(c) for c in circle_ids]]
 
         if start_date:
             query += " AND m.sent_at >= %s"
@@ -466,8 +547,14 @@ class TakeFiveRepository:
             str(embedding), sent_at
         ))
 
-    def fetch_semantic_chunks(self, circle_id: str, question_embedding: list[float],
+    def fetch_semantic_chunks(self, circle_ids: list[str], question_embedding: list[float],
                                limit: int = 10) -> list:
+        """
+        circle_ids is always a list, same always-plural pattern as
+        get_messages() — single-circle callers pass a one-item list;
+        multi-circle callers (inner circle reading its outer circle too)
+        pass the resolved readable circle set from get_readable_circle_ids().
+        """
         query = """
             SELECT
                 mc.body,
@@ -477,13 +564,14 @@ class TakeFiveRepository:
                 1 - (mc.embedding <=> %(embedding)s::vector) AS similarity
             FROM message_chunks mc
             JOIN care_circles c ON mc.circle_id = c.id
-            WHERE c.id = %(circle_id)s
+            WHERE c.id = ANY(%(circle_ids)s)
             ORDER BY mc.embedding <=> %(embedding)s::vector
             LIMIT %(limit)s
         """
         return self._execute(
             query,
-            {"embedding": str(question_embedding), "circle_id": circle_id, "limit": limit},
+            {"embedding": str(question_embedding),
+             "circle_ids": [str(c) for c in circle_ids], "limit": limit},
             fetch="all",
         )
 
@@ -1129,6 +1217,7 @@ class TakeFiveRepository:
             p.aliases,
             p.notes,
             p.date_of_birth,
+            p.clinical_access,
             e.id            AS ensemble_id,
             e.name          AS ensemble_name,
             e.plan          AS ensemble_plan,
@@ -1428,11 +1517,21 @@ class TakeFiveRepository:
         phone: Optional[str],
         care_role: str,
         user_role: str,
+        clinical_access: bool = False,
     ) -> Dict:
         """
         Idempotent invite: if a person with this email already exists in the
         ensemble, update their memberships rather than creating a duplicate.
         Returns the person row.
+
+        clinical_access: decided here, at invite time, independent of
+        care_role/circle_id — being invited to the inner circle does not by
+        itself grant clinical access, and being invited to an outer circle
+        does not by itself deny it (e.g. an outer-circle-only invitee with
+        real clinical authority). Caller passes the correct value explicitly;
+        default False if omitted. Only applied on first creation — an
+        existing person's clinical_access is left untouched by re-inviting
+        them to a different circle.
         """
         with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
             with conn.cursor() as cur:
@@ -1457,14 +1556,15 @@ class TakeFiveRepository:
                 else:
                     # 2. Create the person
                     cur.execute("""
-                        INSERT INTO people (ensemble_id, name, email, phone)
-                        VALUES (%(ensemble_id)s, %(name)s, %(email)s, %(phone)s)
+                        INSERT INTO people (ensemble_id, name, email, phone, clinical_access)
+                        VALUES (%(ensemble_id)s, %(name)s, %(email)s, %(phone)s, %(clinical_access)s)
                         RETURNING *;
                     """, {
                         'ensemble_id': ensemble_id,
                         'name':        name,
                         'email':       email,
                         'phone':       phone,
+                        'clinical_access': clinical_access,
                     })
                     person_id = cur.fetchone()['id']
 
