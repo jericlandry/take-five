@@ -75,6 +75,18 @@ def save_clinical_record(
     if not repo or not circle_id:
         return json.dumps({"success": False, "error": "Missing tool context — circle_id or repo not set."})
 
+    # Same gate as reads (circle_has_full_clinical_access) — without this,
+    # a circle that can't READ clinical records (e.g. an outer circle with
+    # a non-clinical-access member) could still WRITE them via this tool,
+    # since this call path is otherwise completely separate from
+    # _build_clinical_records()'s gating. Found alongside the misleading
+    # "no records on file" message, 2026-07-30.
+    if not repo.circle_has_full_clinical_access(circle_id):
+        return json.dumps({
+            "success": False,
+            "error": "Clinical records cannot be added from this circle — not all members here have clinical access.",
+        })
+
     data = {
         "medication_name": medication_name,
         "brand_name":      brand_name,
@@ -146,10 +158,18 @@ def patch_clinical_record(
         notes:          Optional free-text note to attach to the event.
     """
     repo         = _tool_context.get('repo')
+    circle_id    = _tool_context.get('circle_id')
     confirmed_by = _tool_context.get('confirmed_by_person_id')
 
     if not repo:
         return json.dumps({"success": False, "error": "Missing tool context — repo not set."})
+
+    # Same gate as save_clinical_record — see that function's comment.
+    if circle_id and not repo.circle_has_full_clinical_access(circle_id):
+        return json.dumps({
+            "success": False,
+            "error": "Clinical records cannot be edited from this circle — not all members here have clinical access.",
+        })
 
     try:
         record = repo.patch_clinical_record(
@@ -266,6 +286,26 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_clinical_records(self, person_id: str = None) -> str:
+        # Distinguish "access restricted" from "genuinely no records exist" —
+        # get_clinical_records_for_circle() already returns [] in both cases
+        # (see circle_has_full_clinical_access()), which previously let T5 tell
+        # users things like "there are no clinical records on file" and offer
+        # to add a medication, when the real situation is that records may
+        # exist but this circle can't see them. Checked here explicitly so the
+        # two cases get genuinely different context/instructions.
+        if not self.repo.circle_has_full_clinical_access(self.circle_id):
+            return (
+                "## Clinical Records\n"
+                "_Clinical records (medications, care team, etc.) are not "
+                "accessible from this circle._\n\n"
+                "If asked about medications, diagnoses, or care team members, do "
+                "NOT say there are no records on file and do NOT offer to add or "
+                "save a medication — both would be misleading, since records may "
+                "exist but simply aren't visible here. Instead, say clinical "
+                "information isn't available in this circle and, if it seems "
+                "relevant, suggest checking with the family's main circle.\n"
+            )
+
         records = self.repo.get_clinical_records_for_circle(self.circle_id, person_id=person_id)
         if not records:
             return "## Clinical Records\n_No clinical records on file._\n"

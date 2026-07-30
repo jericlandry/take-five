@@ -23,6 +23,7 @@ class UpdatePersonRequest(BaseModel):
     notes: Optional[str] = None
     external_id: Optional[str] = None
     date_of_birth: Optional[str] = None
+    clinical_access: Optional[bool] = None  # None = leave unchanged; only admin-only update paths should set this
 
 
 class CreateCareCircleRequest(BaseModel):

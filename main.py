@@ -425,7 +425,11 @@ async def app_get_activity(
         person_id=str(person["person_id"]),
         user_role=person["user_role"],
     )
-    last_digests = repo.get_last_digest(ensemble_id)
+    last_digests = repo.get_last_digest(
+        ensemble_id,
+        person_id=str(person["person_id"]),
+        user_role=person["user_role"],
+    )
     return {
         "messages": [row_to_dict(m) for m in (messages or [])],
         "last_digests": [row_to_dict(d) for d in (last_digests or [])],
@@ -478,6 +482,10 @@ async def app_update_person(
 ):
     """
     Update a person's profile. Admin-only.
+
+    clinical_access is intentionally included here (admin-only path) but not
+    on /app/people/me below — people should not be able to grant themselves
+    clinical access. See card #44.
     """
     updated = repo.update_person(
         person_id=person_id,
@@ -486,6 +494,7 @@ async def app_update_person(
         email=body.email,
         aliases=body.aliases,
         notes=body.notes,
+        clinical_access=body.clinical_access,
     )
     return {"person": row_to_dict(updated)}
 
@@ -540,8 +549,13 @@ async def app_get_digests(
 ):
     """
     Return digest history for the ensemble.
+    Circle-scoped for non-admins — see get_digest_history()'s docstring.
     """
-    digests = repo.get_digest_history(ensemble_id)
+    digests = repo.get_digest_history(
+        ensemble_id,
+        person_id=str(person["person_id"]),
+        user_role=person["user_role"],
+    )
     return {"digests": [row_to_dict(d) for d in (digests or [])]}
 
 

@@ -52,6 +52,7 @@ def row_to_dict(row) -> dict:
     def convert(val):
         if isinstance(val, UUID): return str(val)
         if isinstance(val, datetime): return val.isoformat()
+        if isinstance(val, list): return [convert(v) for v in val]
         return val
     return {key: convert(val) for key, val in row.items()}
 

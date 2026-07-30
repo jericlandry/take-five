@@ -120,7 +120,14 @@ class TakeFiveRepository:
     def update_person(self, person_id: str, name: Optional[str] = None,
                         phone: Optional[str] = None, email: Optional[str] = None,
                         aliases: Optional[List[str]] = None, notes: Optional[str] = None,
-                        external_id: Optional[str] = None, date_of_birth: Optional[str] = None) -> Dict:
+                        external_id: Optional[str] = None, date_of_birth: Optional[str] = None,
+                        clinical_access: Optional[bool] = None) -> Dict:
+        """
+        clinical_access: None leaves the existing value unchanged (same
+        COALESCE pattern as the other fields) — pass True/False explicitly
+        to change it. Callers should restrict this to admin-only update
+        paths; see /app/people/{person_id} in main.py.
+        """
         query = """
             UPDATE people SET
                 name          = COALESCE(%(name)s, name),
@@ -129,7 +136,8 @@ class TakeFiveRepository:
                 aliases       = COALESCE(%(aliases)s, aliases),
                 notes         = COALESCE(%(notes)s, notes),
                 external_id   = COALESCE(%(external_id)s, external_id),
-                date_of_birth = %(date_of_birth)s
+                date_of_birth = %(date_of_birth)s,
+                clinical_access = COALESCE(%(clinical_access)s, clinical_access)
             WHERE id = %(id)s
             RETURNING *;
         """
@@ -139,6 +147,7 @@ class TakeFiveRepository:
             'aliases': aliases, 'notes': notes,
             'external_id': external_id,
             'date_of_birth': date_of_birth,
+            'clinical_access': clinical_access,
         })
 
     def add_person_to_ensemble(self, ensemble_id: str, name: str, **kwargs) -> Dict:
@@ -380,7 +389,7 @@ class TakeFiveRepository:
         self._execute("""
             DELETE FROM circle_memberships
             WHERE circle_id = %(circle_id)s AND person_id = %(person_id)s;
-        """, {'circle_id': circle_id, 'person_id': person_id}, fetch='all')
+        """, {'circle_id': circle_id, 'person_id': person_id}, fetch=None)
 
     # --- MESSAGES ---
 
@@ -465,7 +474,7 @@ class TakeFiveRepository:
                 COALESCE(p.name, 'Take Five') AS author_name
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
-            WHERE m.circle_id = ANY(%s)
+            WHERE m.circle_id = ANY(%s::uuid[])
         """
         params = [[str(c) for c in circle_ids]]
 
@@ -564,7 +573,7 @@ class TakeFiveRepository:
                 1 - (mc.embedding <=> %(embedding)s::vector) AS similarity
             FROM message_chunks mc
             JOIN care_circles c ON mc.circle_id = c.id
-            WHERE c.id = ANY(%(circle_ids)s)
+            WHERE c.id = ANY(%(circle_ids)s::uuid[])
             ORDER BY mc.embedding <=> %(embedding)s::vector
             LIMIT %(limit)s
         """
@@ -938,6 +947,32 @@ class TakeFiveRepository:
         query += " ORDER BY cr.created_at DESC"
         return self._execute(query, params, fetch='all')
 
+    def circle_has_full_clinical_access(self, circle_id: str) -> bool:
+        """
+        True only if every current member of this circle has
+        people.clinical_access = true. Used to gate clinical records in
+        broadcast surfaces (ask()/digest/prep-packet generation) — a chat
+        answer is seen by everyone in the room, so visibility has to be
+        decided by who's actually in the circle, not by a fixed inner/outer
+        label or by the asker's own permission alone. If even one member
+        lacks clinical_access (e.g. Peggy/Tony/Kathy in an outer circle that
+        also includes David, who personally has clinical_access), the whole
+        circle is blocked — David's own access doesn't leak to the others.
+        An empty circle vacuously returns true (NOT EXISTS over zero rows),
+        which is harmless since nothing would be asking in an empty circle
+        anyway. See card #44 and the outer-circle clinical-records exposure
+        found during Landry pilot testing, 2026-07-30.
+        """
+        row = self._execute("""
+            SELECT NOT EXISTS (
+                SELECT 1 FROM circle_memberships cm
+                JOIN people p ON p.id = cm.person_id
+                WHERE cm.circle_id = %(circle_id)s
+                  AND p.clinical_access = false
+            ) AS all_have_access;
+        """, {'circle_id': str(circle_id)})
+        return bool(row and row.get('all_have_access'))
+
     def get_clinical_records_for_circle(
         self,
         circle_id: str,
@@ -950,10 +985,21 @@ class TakeFiveRepository:
         Resolves seniors via circle_memberships — does not filter by circle_id
         on the clinical_records table.
 
+        Gated by circle_has_full_clinical_access(): if any current member of
+        this circle lacks people.clinical_access, this returns nothing at
+        all, regardless of caller or asker. See that function's docstring
+        for why this is a circle-composition check rather than a fixed
+        inner/outer label or a per-asker permission check — this backs
+        ask()/digest/prep-packet generation, all of which post into a chat
+        everyone in the circle can see.
+
         If person_id is provided, scopes to that one senior only (e.g. for a
         prep packet targeted at a single senior in a circle with multiple
         seniors). Otherwise returns records for every senior in the circle.
         """
+        if not self.circle_has_full_clinical_access(circle_id):
+            return []
+
         query = """
             SELECT cr.*, p.name AS person_name
             FROM clinical_records cr
@@ -1067,7 +1113,7 @@ class TakeFiveRepository:
                 p.id, p.ensemble_id, p.name,
                 p.phone, p.email, p.aliases, p.notes,
                 p.external_id, p.timezone, p.created_at,
-                p.date_of_birth,
+                p.date_of_birth, p.clinical_access,
                 COALESCE(em.user_role, 'member') AS user_role
             FROM people p
             LEFT JOIN ensemble_memberships em
@@ -1353,8 +1399,11 @@ class TakeFiveRepository:
         """
         Admins see all people in the ensemble with their care roles and user roles.
         Members see only people in their own circles.
-        Includes care_role (from circle_memberships) and user_role
-        (from ensemble_memberships), plus which circle(s) they belong to.
+        One row per person (not per circle_membership) — circle_ids/circle_names/
+        care_roles are arrays aggregated in SQL, since a person can now belong
+        to more than one circle (inner + outer). Aggregating here means every
+        caller gets one row per person for free, rather than needing to
+        dedupe client-side.
         """
         if user_role == 'admin':
             return self._execute("""
@@ -1365,10 +1414,11 @@ class TakeFiveRepository:
                     p.phone,
                     p.aliases,
                     p.notes,
-                    COALESCE(em.user_role, 'member')    AS user_role,
-                    cm.role                             AS care_role,
-                    cm.circle_id,
-                    cc.name                             AS circle_name
+                    p.clinical_access,
+                    COALESCE(em.user_role, 'member') AS user_role,
+                    array_agg(DISTINCT cm.role)      FILTER (WHERE cm.role IS NOT NULL)      AS care_roles,
+                    array_agg(DISTINCT cm.circle_id) FILTER (WHERE cm.circle_id IS NOT NULL) AS circle_ids,
+                    array_agg(DISTINCT cc.name)      FILTER (WHERE cc.name IS NOT NULL)      AS circle_names
                 FROM people p
                 LEFT JOIN ensemble_memberships em
                     ON em.person_id = p.id
@@ -1379,6 +1429,8 @@ class TakeFiveRepository:
                     )
                 LEFT JOIN care_circles cc ON cc.id = cm.circle_id
                 WHERE p.ensemble_id = %(ensemble_id)s
+                GROUP BY p.id, p.name, p.email, p.phone, p.aliases, p.notes,
+                         p.clinical_access, em.user_role
                 ORDER BY p.name;
             """, {'ensemble_id': ensemble_id}, fetch='all')
         else:
@@ -1390,10 +1442,11 @@ class TakeFiveRepository:
                     p.phone,
                     p.aliases,
                     p.notes,
+                    p.clinical_access,
                     em_target.user_role,
-                    cm.role         AS care_role,
-                    cm.circle_id,
-                    cc.name         AS circle_name
+                    array_agg(DISTINCT cm.role)      FILTER (WHERE cm.role IS NOT NULL)      AS care_roles,
+                    array_agg(DISTINCT cm.circle_id) FILTER (WHERE cm.circle_id IS NOT NULL) AS circle_ids,
+                    array_agg(DISTINCT cc.name)      FILTER (WHERE cc.name IS NOT NULL)      AS circle_names
                 FROM people p
                 JOIN circle_memberships cm ON cm.person_id = p.id
                 JOIN care_circles cc ON cc.id = cm.circle_id
@@ -1405,6 +1458,8 @@ class TakeFiveRepository:
                     SELECT circle_id FROM circle_memberships
                     WHERE person_id = %(person_id)s
                 )
+                GROUP BY p.id, p.name, p.email, p.phone, p.aliases, p.notes,
+                         p.clinical_access, em_target.user_role
                 ORDER BY p.name;
             """, {'ensemble_id': ensemble_id, 'person_id': person_id}, fetch='all')
 
@@ -1455,11 +1510,40 @@ class TakeFiveRepository:
                 LIMIT %(limit)s;
             """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'limit': limit}, fetch='all')
 
-    def get_last_digest(self, ensemble_id: str) -> Optional[Dict]:
+    def get_last_digest(self, ensemble_id: str, person_id: Optional[str] = None,
+                        user_role: Optional[str] = None) -> Optional[Dict]:
         """
         Return the most recent outbound digest per circle in the ensemble.
         Used by the ensemble admin/member page.
+
+        person_id/user_role: when provided, non-admin members only see
+        digests for circles they actually belong to via circle_memberships —
+        same pattern as get_ensemble_activity(). Previously this had no
+        filtering at all, so an outer circle member would see the inner
+        circle's digest too, directly undermining the card #44 boundary.
+        Both params optional (default None/no filtering) only for backward
+        compatibility with any other existing caller; every caller should
+        pass both going forward. Admins always see every circle's digest.
         """
+        if user_role and user_role != 'admin' and person_id:
+            return self._execute("""
+                SELECT DISTINCT ON (cc.id)
+                    m.id,
+                    m.body,
+                    m.sent_at,
+                    cc.id   AS circle_id,
+                    cc.name AS circle_name
+                FROM messages m
+                JOIN care_circles cc ON cc.id = m.circle_id
+                WHERE cc.ensemble_id = %(ensemble_id)s
+                  AND m.direction = 'outbound'
+                  AND m.message_type = 'digest'
+                  AND cc.id IN (
+                      SELECT circle_id FROM circle_memberships
+                      WHERE person_id = %(person_id)s
+                  )
+                ORDER BY cc.id, m.sent_at DESC;
+            """, {'ensemble_id': ensemble_id, 'person_id': person_id}, fetch='all')
         return self._execute("""
             SELECT DISTINCT ON (cc.id)
                 m.id,
@@ -1621,11 +1705,37 @@ class TakeFiveRepository:
             ORDER BY p.name, cr.created_at;
         """, {'ensemble_id': ensemble_id}, fetch='all')
 
-    def get_digest_history(self, ensemble_id: str, limit: int = 20) -> List[Dict]:
+    def get_digest_history(self, ensemble_id: str, limit: int = 20,
+                           person_id: Optional[str] = None,
+                           user_role: Optional[str] = None) -> List[Dict]:
         """
         Return all digests for the ensemble, newest first.
         Used by the digest history panel.
+
+        person_id/user_role: same circle-scoping as get_last_digest() —
+        non-admin members only see digests for circles they belong to.
+        Previously unfiltered entirely; see get_last_digest()'s docstring.
         """
+        if user_role and user_role != 'admin' and person_id:
+            return self._execute("""
+                SELECT
+                    m.id,
+                    m.body,
+                    m.sent_at,
+                    cc.id   AS circle_id,
+                    cc.name AS circle_name
+                FROM messages m
+                JOIN care_circles cc ON cc.id = m.circle_id
+                WHERE cc.ensemble_id = %(ensemble_id)s
+                  AND m.direction = 'outbound'
+                  AND m.message_type = 'digest'
+                  AND cc.id IN (
+                      SELECT circle_id FROM circle_memberships
+                      WHERE person_id = %(person_id)s
+                  )
+                ORDER BY m.sent_at DESC
+                LIMIT %(limit)s;
+            """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'limit': limit}, fetch='all')
         return self._execute("""
             SELECT
                 m.id,

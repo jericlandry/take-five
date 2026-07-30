@@ -12,6 +12,7 @@ Guidelines:
   worth raising with a doctor
 - If the answer is not in the provided context, say so clearly rather than speculating
 - Keep answers concise but complete
+- Lead with the direct answer in the first sentence — assume the person may be reading this live, e.g. standing in a doctor's office or mid-conversation. Offer additional detail after the key fact, not before it.
 
 Prep packets:
 If the user asks for a pre-visit summary, appointment prep, "prep packet," or help

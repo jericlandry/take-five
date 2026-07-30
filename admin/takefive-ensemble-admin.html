@@ -404,7 +404,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
           <div class="page-title">Good to see you, <em id="greeting-name">—</em></div>
           <div class="page-sub" id="ensemble-sub">Loading your care circles…</div>
         </div>
-        <button class="btn btn-primary" id="btn-add-circle" onclick="openModal('modal-add-circle')" style="display:none;">
+        <button class="btn btn-primary" id="btn-add-circle" onclick="openAddCircleModal()" style="display:none;">
           <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
           Add circle
         </button>
@@ -505,11 +505,15 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
           <div class="page-title">Circles</div>
           <div class="page-sub">Care circles and their members.</div>
         </div>
+        <button class="btn btn-primary" id="btn-add-circle-2" onclick="openAddCircleModal()" style="display:none;">
+          <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
+          Add circle
+        </button>
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <table class="people-table" id="circles-table">
-          <thead><tr><th>Circle</th><th>Status</th><th>Members</th><th>Integration</th><th></th></tr></thead>
-          <tbody id="circles-tbody"><tr><td colspan="5"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
+          <thead><tr><th>Circle</th><th>Type</th><th>Status</th><th>Members</th><th>Integration</th><th></th></tr></thead>
+          <tbody id="circles-tbody"><tr><td colspan="6"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -523,6 +527,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         </button>
         <span style="font-size:12px;color:var(--g400);">›</span>
         <span style="font-size:13px;color:var(--text);font-weight:700;" id="circle-detail-name">—</span>
+        <span class="circle-status" id="circle-detail-type-tag" style="display:none;background:var(--t50);color:var(--t600);"></span>
       </div>
       <div class="page-header">
         <div>
@@ -786,6 +791,13 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <input class="form-input" id="new-circle-name" type="text" placeholder="e.g. Mom's Circle"/>
       <div class="form-hint">Typically named after the senior being cared for.</div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Parent circle</label>
+      <select class="form-input" id="new-circle-parent">
+        <option value="">None — top-level (inner) circle</option>
+      </select>
+      <div class="form-hint">Leave as “None” for the main family circle. Choose a parent to create an outer circle (e.g. friends &amp; family) nested under it — outer circle members won't see the parent's conversations, but the parent circle can see this one's.</div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-circle')">Cancel</button>
       <button class="btn btn-primary" onclick="createCircle()">Add circle</button>
@@ -834,6 +846,13 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <label class="form-label">Circle</label>
       <select class="form-input" id="invite-circle"></select>
     </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:0.5rem;font-weight:400;">
+        <input type="checkbox" id="invite-clinical-access"/>
+        Clinical access (medications, doctors, care team)
+      </label>
+      <div class="form-hint">Independent of which circle they're in — decide this per person, not per circle. E.g. someone in an outer/friends-and-family circle can still have this on if they hold Power of Attorney or similar; someone in the main circle can have it off if they shouldn't see medical detail. Off by default.</div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-invite')">Cancel</button>
       <button class="btn btn-primary" onclick="saveInvite()">Add &amp; copy invite link</button>
@@ -873,6 +892,13 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
     <div class="form-group">
       <label class="form-label">Notes</label>
       <textarea class="form-input" id="edit-notes" rows="3" placeholder="Any context about this person…"></textarea>
+    </div>
+    <div class="form-group" id="edit-clinical-access-group">
+      <label style="display:flex;align-items:center;gap:0.5rem;font-weight:400;">
+        <input type="checkbox" id="edit-clinical-access"/>
+        Clinical access (medications, doctors, care team)
+      </label>
+      <div class="form-hint">Independent of which circle they're in — see the Invite modal's hint for why.</div>
     </div>
     <div style="margin-top:0.5rem;">
       <div class="form-label" style="margin-bottom:6px;">App link</div>
@@ -1286,7 +1312,12 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 </div>
 
 <script>
-const BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+// uvicorn prints "Uvicorn running on http://0.0.0.0:10000" on startup —
+// that's the bind address (all interfaces), not a URL meant to be visited,
+// but it's easy to copy-paste straight into a browser. Treat 0.0.0.0 the
+// same as localhost/127.0.0.1 here so that mistake doesn't silently route
+// every request to production instead of the local server.
+const BASE = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname)
   ? 'http://localhost:10000'
   : 'https://take-five.onrender.com';
 
@@ -1462,6 +1493,7 @@ function bootApp({freshLogin = true} = {}) {
   const isAdmin = state.userRole === 'admin';
   document.getElementById('admin-only-nav').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-add-circle').style.display = isAdmin ? '' : 'none';
+  document.getElementById('btn-add-circle-2').style.display = isAdmin ? '' : 'none';
   document.getElementById('btn-invite-person').style.display = isAdmin ? '' : 'none';
   // Health tab (medications, care team, prep packets) is gated on
   // clinical_access, not user_role — an outer-circle member without
@@ -1557,15 +1589,23 @@ function renderCircles() {
     return;
   }
   grid.innerHTML = state.circles.map(c => {
-    const members = state.allPeople.filter(p => p.circle_id === c.id);
-    const seniors = members.filter(p => p.care_role === 'senior');
-    const others  = members.filter(p => p.care_role !== 'senior');
+    const members = state.allPeople.filter(p => p.circle_ids?.includes(c.id));
+    const seniors = members.filter(p => p.care_roles?.includes('senior'));
+    const others  = members.filter(p => !p.care_roles?.includes('senior'));
     const gm = c.integration_config?.groupme_bot_id;
+    // Same Inner/Outer indicator as the Circles panel table — parent_circle_id
+    // null/absent = inner (top-level); otherwise this is an outer circle
+    // nested under the named parent. See card #44.
+    const parent = c.parent_circle_id ? state.circles.find(pc => pc.id === c.parent_circle_id) : null;
+    const circleTypeTag = parent
+      ? `<span class="circle-status" style="background:var(--t50);color:var(--t600);">Outer · of ${parent.name}</span>`
+      : '';
     return `<div class="circle-card ${c.status !== 'active' ? 'inactive' : ''}">
       <div class="circle-card-header">
         <div class="circle-card-name">${c.name}</div>
         <span class="circle-status ${c.status}">${capitalize(c.status)}</span>
       </div>
+      ${circleTypeTag ? `<div style="margin:-8px 0 8px;">${circleTypeTag}</div>` : ''}
       <div class="circle-meta">
         ${seniors.length ? `<div class="circle-meta-row">
           <svg viewBox="0 0 13 13"><circle cx="6.5" cy="4" r="2.5"/><path d="M1 12c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5"/></svg>
@@ -1590,67 +1630,129 @@ function renderCircles() {
   }).join('');
 }
 
+function toggleGroup(headerEl) {
+  // Generic collapsible-group toggle, shared by Activity, Digests, and the
+  // What Needs Attention card — finds the chevron by tag rather than a
+  // dedicated class, so this works without any new CSS.
+  const body = headerEl.nextElementSibling;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  const chevron = headerEl.querySelector('svg');
+  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+function _circleGroupHeader(circleName, count) {
+  return `<div class="circle-group-header" onclick="toggleGroup(this)" style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem;background:var(--t50);cursor:pointer;border-bottom:1px solid var(--g200);user-select:none;">
+    <span style="font-size:12px;font-weight:700;color:var(--t800);">${circleName} <span style="font-weight:400;color:var(--g400);">(${count})</span></span>
+    <svg viewBox="0 0 14 14" style="width:12px;height:12px;stroke:var(--g400);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform 0.2s;flex-shrink:0;transform:rotate(180deg);"><path d="M2 4l5 6 5-6"/></svg>
+  </div>`;
+}
+
+function _extractAttentionItems(digest) {
+  // Pull just the WHAT NEEDS ATTENTION section's items out of one digest's
+  // body. Returns an array of {title, detail} — empty if the section is
+  // missing or empty (most digests won't have anything to flag).
+  const body = digest.body || '';
+  const marker = 'WHAT NEEDS ATTENTION';
+  const start  = body.indexOf(marker);
+  if (start === -1) return [];
+
+  const afterHeader = body.slice(start + marker.length);
+  const end = afterHeader.search(/\n---/);
+  const raw = (end === -1 ? afterHeader : afterHeader.slice(0, end)).trim();
+  if (!raw) return [];
+
+  return raw.split('\n').map(s => s.trim()).filter(Boolean).map(item => {
+    const dashIdx = item.indexOf(' — ');
+    return {
+      title:  dashIdx !== -1 ? item.slice(0, dashIdx).trim() : item,
+      detail: dashIdx !== -1 ? item.slice(dashIdx + 3).trim() : '',
+    };
+  });
+}
+
 function renderAttention() {
   const section = document.getElementById('attention-section');
   const list    = document.getElementById('attention-list');
   const dateEl  = document.getElementById('attention-date');
 
-  // Find the most recent digest across all circles
+  // Pull attention items from EVERY circle's latest digest, not just the
+  // single most recent digest overall — a multi-circle member (e.g. someone
+  // in both an inner and outer circle) would otherwise silently lose
+  // unresolved items from whichever circle's digest happens to be slightly
+  // older. Each item is tagged with its circle name (shown only when the
+  // member has more than one circle, to avoid clutter in the common case)
+  // and links to its own digest, since a single "view full digest" link no
+  // longer makes sense once items can come from more than one digest.
   const digests = state.lastDigests || [];
   if (!digests.length) { section.style.display = 'none'; return; }
-  const latest = digests.reduce((a, b) => a.sent_at > b.sent_at ? a : b);
-  const body = latest.body || '';
 
-  // Extract the WHAT NEEDS ATTENTION section
-  const marker = 'WHAT NEEDS ATTENTION';
-  const start  = body.indexOf(marker);
-  if (start === -1) { section.style.display = 'none'; return; }
+  const multiCircle = digests.length > 1;
+  const allItems = [];
+  // Most recently sent digest's items first.
+  [...digests].sort((a, b) => b.sent_at > a.sent_at ? 1 : -1).forEach(d => {
+    _extractAttentionItems(d).forEach(item => {
+      allItems.push({ ...item, circleName: d.circle_name, digestId: d.id, sentAt: d.sent_at });
+    });
+  });
 
-  // Everything after the header line, up to the next --- or end of string
-  const afterHeader = body.slice(start + marker.length);
-  const end = afterHeader.search(/\n---/);
-  const raw = (end === -1 ? afterHeader : afterHeader.slice(0, end)).trim();
-  if (!raw) { section.style.display = 'none'; return; }
+  if (!allItems.length) { section.style.display = 'none'; return; }
 
-  // Split into individual items — each item is a single line
-  const items = raw.split('\n').map(s => s.trim()).filter(Boolean);
-  if (!items.length) { section.style.display = 'none'; return; }
+  dateEl.textContent = multiCircle
+    ? `across ${digests.length} circles`
+    : (() => {
+        const weekMatch = (digests[0].body || '').match(/Week of ([A-Za-z]+ \d+(?:[\u2013\-]\d+)?(?:,?\s*\d{4})?)/);
+        return weekMatch
+          ? `Week of ${weekMatch[1]}`
+          : `digest · ${new Date(digests[0].sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      })();
 
-  // Render
-  // Try to extract the week date from the body, fall back to sent_at
-  const weekMatch = body.match(/Week of ([A-Za-z]+ \d+(?:[\u2013\-]\d+)?(?:,?\s*\d{4})?)/);
-  const dateLabel = weekMatch
-    ? `Week of ${weekMatch[1]}`
-    : `digest · ${new Date(latest.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-  dateEl.textContent = dateLabel;
-
-  list.innerHTML = items.map((item, i) => {
-    // Items are formatted as "Title — detail detail detail"
-    const dashIdx = item.indexOf(' — ');
-    const title  = dashIdx !== -1 ? item.slice(0, dashIdx).trim() : item;
-    const detail = dashIdx !== -1 ? item.slice(dashIdx + 3).trim() : '';
-    const isLast = i === items.length - 1;
-    return `<li style="padding:0.9rem 1rem;${isLast ? '' : 'border-bottom:1px solid var(--g200);'}display:flex;align-items:flex-start;gap:0.75rem;">
+  const renderAttentionLi = (item, isLast) => `<li style="padding:0.9rem 1rem;${isLast ? '' : 'border-bottom:1px solid var(--g200);'}display:flex;align-items:flex-start;gap:0.75rem;">
       <span style="font-size:14px;margin-top:1px;flex-shrink:0;">⚠️</span>
-      <div>
-        <div style="font-size:13px;font-weight:700;color:var(--amber-dk);">${title}</div>
-        ${detail ? `<div style="font-size:12px;color:var(--g600);margin-top:3px;line-height:1.55;">${detail}</div>` : ''}
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;color:var(--amber-dk);">${item.title}</div>
+        ${item.detail ? `<div style="font-size:12px;color:var(--g600);margin-top:3px;line-height:1.55;">${item.detail}</div>` : ''}
       </div>
+      <a href="#" onclick="event.preventDefault();navigateToDigest('${item.digestId}')" style="font-size:11px;color:var(--t500);font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">View →</a>
     </li>`;
-  }).join('');
+
+  if (!multiCircle) {
+    list.innerHTML = allItems.map((item, i) => renderAttentionLi(item, i === allItems.length - 1)).join('');
+  } else {
+    // Group by circle, one collapsible section per circle, in the same
+    // most-recently-updated-first order the flat list already used.
+    const groups = new Map();
+    allItems.forEach(item => {
+      if (!groups.has(item.circleName)) groups.set(item.circleName, []);
+      groups.get(item.circleName).push(item);
+    });
+    list.innerHTML = `<div style="padding:0;">` + Array.from(groups.entries()).map(([circleName, items]) => `
+      <div class="circle-group">
+        ${_circleGroupHeader(circleName, items.length)}
+        <ul class="circle-group-body" style="list-style:none;padding:0;margin:0;">
+          ${items.map((item, i) => renderAttentionLi(item, i === items.length - 1)).join('')}
+        </ul>
+      </div>
+    `).join('') + `</div>`;
+  }
 
   section.style.display = '';
 
-  // Wire up the "View full digest" link now that we know the digest id
+  // Bottom link now goes to whichever digest is most recent overall, as a
+  // reasonable default — each item above also has its own per-item link.
+  const latest = digests.reduce((a, b) => a.sent_at > b.sent_at ? a : b);
   document.getElementById('attention-digest-link').onclick = () => navigateToDigest(latest.id);
 }
 
 let currentFilter = 'all';
 function renderPeople(filter) {
   if (filter) currentFilter = filter;
+  // One row per person already (circle_ids/circle_names/care_roles are
+  // arrays, aggregated server-side in list_people_for_person()) — no
+  // client-side dedup needed.
   const people = currentFilter === 'all'
     ? state.allPeople
-    : state.allPeople.filter(p => p.care_role === currentFilter);
+    : state.allPeople.filter(p => p.care_roles?.includes(currentFilter));
   const isAdmin = state.userRole === 'admin';
   const tbody = document.getElementById('people-tbody');
   if (!people.length) {
@@ -1658,10 +1760,11 @@ function renderPeople(filter) {
     return;
   }
   tbody.innerHTML = people.map(p => {
-    const circleName = state.circles.find(c => c.id === p.circle_id)?.name || '—';
+    const circleName = (p.circle_names || []).join(', ') || '—';
+    const firstCircleId = (p.circle_ids || [])[0] || '';
     return `<tr>
       <td><div class="person-name-cell">
-        <div class="person-avatar ${p.care_role === 'senior' ? 'senior' : ''}">${initials(p.name)}</div>
+        <div class="person-avatar ${p.care_roles?.includes('senior') ? 'senior' : ''}">${initials(p.name)}</div>
         <div><div class="person-name">${p.name}</div><div class="person-email">${p.email || '—'}</div></div>
       </div></td>
       <td><span class="pill pill-user ${p.user_role || 'member'}">${capitalize(p.user_role || 'member')}</span></td>
@@ -1669,7 +1772,7 @@ function renderPeople(filter) {
       <td style="font-size:12px;color:var(--g600);">${p.phone || p.email || '—'}</td>
       <td>${isAdmin ? `<div style="display:flex;gap:0.4rem;">
         <button class="btn btn-ghost btn-sm" onclick='openPersonModalById("${p.id}")'>Edit</button>
-        ${p.phone ? `<button class="btn btn-ghost btn-sm" onclick='sendSmsInvite("${p.id}", "${p.name}", "${p.phone}", "${p.circle_id}")' title="Send SMS invite">SMS invite</button>` : ''}
+        ${p.phone ? `<button class="btn btn-ghost btn-sm" onclick='sendSmsInvite("${p.id}", "${p.name}", "${p.phone}", "${firstCircleId}")' title="Send SMS invite">SMS invite</button>` : ''}
       </div>` : ''}</td>
     </tr>`;
   }).join('');
@@ -1691,11 +1794,17 @@ function renderActivity() {
     </div>`;
     return;
   }
-  feed.innerHTML = msgs.map((m, i) => {
+
+  // renderItem keeps each message's original index i (its position in the
+  // flat msgs array) for its expand/collapse button ids — needed so those
+  // ids stay unique and stable whether or not items get grouped by circle
+  // below.
+  const renderItem = (m, i, showCircle) => {
     const full = (m.message || '').replace(/\n/g, '<br>');
     const rawShort = (m.message || '').slice(0, 300);
     const short = (m.message || '').length > 300 ? rawShort.replace(/\n/g, '<br>') + '…' : rawShort.replace(/\n/g, '<br>');
     const hasMore = (m.message || '').length > 300;
+    const circleLabel = showCircle ? ` · ${state.circles.find(c => c.id === m.circle_id)?.name || 'Unknown circle'}` : '';
     return `
     <div class="activity-item">
       <div class="activity-dot ${m.author_type === 'bot' ? 'dim' : ''}"></div>
@@ -1720,10 +1829,38 @@ function renderActivity() {
               data-expanded="0"
               style="background:none;border:none;color:var(--t500);font-size:11px;cursor:pointer;padding:0;margin-left:4px;">more</button>` : ''}
         </div>
-        <div class="activity-time">${relativeTime(m.created_at)} · ${state.circles.find(c => c.id === m.circle_id)?.name || 'Unknown circle'}</div>
+        <div class="activity-time">${relativeTime(m.created_at)}${circleLabel}</div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const circleIds = new Set(msgs.map(m => m.circle_id));
+  if (circleIds.size <= 1) {
+    // Single circle in play — flat list, circle name still shown per item
+    // (unchanged from before), no grouping chrome needed.
+    feed.innerHTML = msgs.map((m, i) => renderItem(m, i, true)).join('');
+    return;
+  }
+
+  // Multiple circles — group into collapsible sections. Circle name moves
+  // into the group header (dropped from each item, now redundant), and
+  // groups are ordered by which circle's most recent message appears first
+  // in msgs (already newest-first from the API).
+  const groups = new Map(); // circle_name -> [{m, i}]
+  msgs.forEach((m, i) => {
+    const key = m.circle_name || 'Unknown circle';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ m, i });
+  });
+
+  feed.innerHTML = Array.from(groups.entries()).map(([circleName, items]) => `
+    <div class="circle-group" style="margin-bottom:0.75rem;border:1px solid var(--g200);border-radius:var(--radius-md);overflow:hidden;">
+      ${_circleGroupHeader(circleName, items.length)}
+      <div class="circle-group-body" style="padding:0 0.5rem;">
+        ${items.map(({ m, i }) => renderItem(m, i, false)).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 async function navigateToDigest(digestId) {
@@ -1778,14 +1915,20 @@ function renderDigests() {
     </div>`;
     return;
   }
-  list.innerHTML = digests.map((d, i) => {
+
+  // renderRow keeps each digest's original index i (its position in the
+  // flat state.digestHistory array) for its drow/dbody ids — toggleDigest()
+  // and navigateToDigest() both key off that flat index, so it has to stay
+  // stable and correct regardless of whether items get grouped by circle
+  // below.
+  const renderRow = (d, i, showCircle) => {
     const preview = (d.body || '').split('\n').find(l => l.trim().length > 20) || '';
     const date = new Date(d.sent_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     const bodyHtml = linkify((d.body || '').replace(/[\u200B-\u200D\uFEFF\u202A-\u202E]/g, '').replace(/\n/g, '<br>'));
     return `<div class="digest-history-item">
       <div class="digest-history-row" id="drow-${i}" onclick="toggleDigest(${i})">
         <div class="digest-history-meta">
-          <span class="digest-history-circle">${d.circle_name}</span>
+          ${showCircle ? `<span class="digest-history-circle">${d.circle_name}</span>` : ''}
           <span class="digest-history-preview">${preview}</span>
         </div>
         <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
@@ -1797,7 +1940,36 @@ function renderDigests() {
         <div class="digest-history-text">${bodyHtml}</div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const circleIds = new Set(digests.map(d => d.circle_id));
+  if (circleIds.size <= 1) {
+    // Single circle in play — flat list, circle name still shown per row
+    // (unchanged from before), no grouping chrome needed.
+    list.innerHTML = digests.map((d, i) => renderRow(d, i, true)).join('');
+    return;
+  }
+
+  // Multiple circles — group into collapsible sections, one per circle.
+  // Circle name moves into the group header (dropped from each row, now
+  // redundant). Each row keeps its ORIGINAL flat index (not a per-group
+  // index), since toggleDigest(i)/navigateToDigest() both reference
+  // state.digestHistory[i] directly.
+  const groups = new Map(); // circle_name -> [{d, i}]
+  digests.forEach((d, i) => {
+    const key = d.circle_name || 'Unknown circle';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ d, i });
+  });
+
+  list.innerHTML = Array.from(groups.entries()).map(([circleName, items]) => `
+    <div class="circle-group">
+      ${_circleGroupHeader(circleName, items.length)}
+      <div class="circle-group-body">
+        ${items.map(({ d, i }) => renderRow(d, i, false)).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 function toggleDigest(i) {
@@ -1941,16 +2113,28 @@ function openPersonModalById(id) {
 
 function openPersonModal(p) {
   document.getElementById('modal-person-title').textContent = p.name;
+  // Defensive reset — guards against reopening this modal while a
+  // previous save's loadData() refresh is still in flight, which used to
+  // leave the button stuck showing "Saving…" even though the save itself
+  // had already succeeded.
+  const saveBtn = document.getElementById('btn-save-person-modal');
+  saveBtn.disabled = false; saveBtn.textContent = 'Save changes';
   document.getElementById('edit-name').value        = p.name || '';
   document.getElementById('edit-user-role').value   = p.user_role || 'member';
   document.getElementById('edit-email').value       = p.email || '';
   document.getElementById('edit-phone').value       = p.phone || '';
   document.getElementById('edit-aliases').value     = (p.aliases || []).join(', ');
   document.getElementById('edit-notes').value        = p.notes || '';
+  document.getElementById('edit-clinical-access').checked = !!p.clinical_access;
+  // Only admins can grant/revoke clinical access — backend enforces this
+  // too (admin_only on /app/people/{id}), this just hides the control for
+  // non-admin viewers rather than showing something that would 403 on save.
+  document.getElementById('edit-clinical-access-group').style.display =
+    state.userRole === 'admin' ? '' : 'none';
   document.getElementById('edit-invite-link').value = `${window.location.origin}${window.location.pathname}`;
   // Store person id for save
   document.getElementById('modal-person').dataset.personId   = p.id;
-  document.getElementById('modal-person').dataset.circleId   = p.circle_id;
+  document.getElementById('modal-person').dataset.circleId   = (p.circle_ids || [])[0] || '';
   document.getElementById('modal-person').dataset.ensembleId = state.ensemble.id;
   openModal('modal-person');
 }
@@ -1972,6 +2156,12 @@ async function savePersonModal() {
   const aliases   = document.getElementById('edit-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
   const notes     = document.getElementById('edit-notes').value.trim() || null;
   const user_role = document.getElementById('edit-user-role').value;
+  const isAdmin   = state.userRole === 'admin';
+  // Only send clinical_access when the control was actually shown/editable —
+  // sending it as a non-admin would 403 against the backend's admin_only
+  // check anyway, but this keeps the intent explicit rather than relying on
+  // the server to reject it.
+  const clinical_access = isAdmin ? document.getElementById('edit-clinical-access').checked : undefined;
   if (!name) { toast('Name is required', true); return; }
 
   const btn = document.getElementById('btn-save-person-modal');
@@ -1979,10 +2169,12 @@ async function savePersonModal() {
 
   try {
     // 1. Update person profile
+    const personBody = { name, phone, email, aliases, notes };
+    if (clinical_access !== undefined) personBody.clinical_access = clinical_access;
     const personRes = await apiFetch(`/app/people/${personId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, email, aliases, notes }),
+      body: JSON.stringify(personBody),
     });
     if (!personRes.ok) throw new Error(await personRes.text());
 
@@ -1996,10 +2188,10 @@ async function savePersonModal() {
 
     toast(`${name} updated`);
     closeModal('modal-person');
+    btn.disabled = false; btn.textContent = 'Save changes';
     await loadData();
   } catch (e) {
     toast('Save failed: ' + e.message, true);
-  } finally {
     btn.disabled = false; btn.textContent = 'Save changes';
   }
 }
@@ -2016,6 +2208,7 @@ async function saveInvite() {
   const care_role = document.getElementById('invite-care-role').value;
   const user_role = document.getElementById('invite-user-role').value;
   const circle_id = document.getElementById('invite-circle').value;
+  const clinical_access = document.getElementById('invite-clinical-access').checked;
   if (!name)  { toast('Name is required', true); return; }
   if (!email) { toast('Email is required', true); return; }
   if (!circle_id) { toast('Select a circle', true); return; }
@@ -2029,7 +2222,7 @@ async function saveInvite() {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, care_role, user_role, circle_id }),
+        body: JSON.stringify({ name, email, phone, care_role, user_role, circle_id, clinical_access }),
       }
     );
     if (!res.ok) throw new Error(await res.text());
@@ -2044,6 +2237,7 @@ async function saveInvite() {
     ['invite-name','invite-email','invite-phone'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('invite-care-role').value = 'family';
     document.getElementById('invite-user-role').value = 'member';
+    document.getElementById('invite-clinical-access').checked = false;
 
     // Refresh people list
     await loadData();
@@ -2186,7 +2380,7 @@ async function loadHealthPanel() {
 }
 
 function populateHealthPersonSelects() {
-  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
   const opts = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   ['med-person-id','ct-person-id'].forEach(id => {
     const el = document.getElementById(id);
@@ -2236,7 +2430,7 @@ function renderHealthMedications() {
     if (!byPerson[key]) byPerson[key] = { name: r.person_name, records: [] };
     byPerson[key].records.push(r);
   });
-  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
   const multiSenior = seniors.length > 1;
   let html = '';
 
@@ -2308,7 +2502,7 @@ function renderHealthCareTeam() {
     if (!byPerson[key]) byPerson[key] = { name: r.person_name, records: [] };
     byPerson[key].records.push(r);
   });
-  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
   const multiSenior = seniors.length > 1;
   let html = '';
   Object.values(byPerson).forEach(group => {
@@ -2354,7 +2548,7 @@ function printMedicationsForPerson(group) {
     { accent: '#085041', accentLight: '#E1F5EE', accentMid: '#5DCAA5' }, // teal
     { accent: '#633806', accentLight: '#FAEEDA', accentMid: '#FAC775' }, // amber
   ];
-  const seniors = state.allPeople.filter(p => p.care_role === 'senior').sort((a, b) => a.id.localeCompare(b.id));
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior')).sort((a, b) => a.id.localeCompare(b.id));
   const seniorIdx = seniors.findIndex(s => s.id === group.records[0]?.person_id);
   const { accent, accentLight, accentMid } = PALETTE[seniorIdx >= 0 ? seniorIdx % PALETTE.length : 0];
 
@@ -2791,15 +2985,22 @@ const circleState = { currentCircleId: null, currentCircleName: null, roster: []
 function renderCirclesPanel() {
   const tbody = document.getElementById('circles-tbody');
   if (!state.circles.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No circles yet</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No circles yet</div></div></td></tr>`;
     return;
   }
   tbody.innerHTML = state.circles.map(c => {
-    const members = state.allPeople.filter(p => p.circle_id === c.id);
+    const members = state.allPeople.filter(p => p.circle_ids?.includes(c.id));
     const gm = c.integration_config?.groupme_bot_id;
     const integrations = [gm ? 'GroupMe' : null, 'SMS'].filter(Boolean).join(', ');
+    // parent_circle_id null/absent = inner (top-level) circle; otherwise
+    // this is an outer circle nested under the named parent. See card #44.
+    const parent = c.parent_circle_id ? state.circles.find(pc => pc.id === c.parent_circle_id) : null;
+    const typeLabel = parent
+      ? `Outer <span style="color:var(--g400);">· of ${parent.name}</span>`
+      : `<span style="color:var(--g600);">Inner</span>`;
     return `<tr>
       <td><strong style="color:var(--t800);">${c.name}</strong></td>
+      <td style="font-size:12px;">${typeLabel}</td>
       <td><span class="pill ${c.status === 'active' ? 'pill-active' : 'pill-inactive'}">${capitalize(c.status)}</span></td>
       <td style="font-size:13px;color:var(--g600);">${members.length}</td>
       <td style="font-size:12px;color:var(--g600);">${integrations}</td>
@@ -2813,8 +3014,19 @@ async function openCircleDetail(circleId, circleName) {
   circleState.currentCircleName = circleName;
   document.getElementById('circle-detail-name').textContent = circleName;
   const circle = state.circles.find(c => c.id === circleId);
-  const seniors = (state.allPeople.filter(p => p.circle_id === circleId && p.care_role === 'senior')).map(s => s.name).join(' & ');
+  const seniors = (state.allPeople.filter(p => p.circle_ids?.includes(circleId) && p.care_roles?.includes('senior'))).map(s => s.name).join(' & ');
   document.getElementById('circle-detail-sub').textContent = seniors || 'No seniors assigned';
+  // Inner/outer indicator, same logic as the Circles panel table and
+  // Overview cards — parent_circle_id null/absent = inner (top-level).
+  // See card #44.
+  const typeTag = document.getElementById('circle-detail-type-tag');
+  const parent = circle?.parent_circle_id ? state.circles.find(pc => pc.id === circle.parent_circle_id) : null;
+  if (parent) {
+    typeTag.textContent = `Outer · of ${parent.name}`;
+    typeTag.style.display = '';
+  } else {
+    typeTag.style.display = 'none';
+  }
   document.getElementById('btn-add-circle-member').style.display = state.userRole === 'admin' ? '' : 'none';
   const isAdmin = state.userRole === 'admin';
   const hasGroupMe = !!(circle?.integration_config?.groupme_bot_id);
@@ -3110,7 +3322,7 @@ function openPrepPacketModal(recordId, doctorName) {
   // Determine which circle this senior belongs to
   const seniorId = rec.person_id;
   const circle   = state.circles.find(c =>
-    state.allPeople.some(p => p.id === seniorId && p.circle_id === c.id)
+    state.allPeople.some(p => p.id === seniorId && p.circle_ids?.includes(c.id))
   );
   prepState.circleId = circle?.id || null;
 
@@ -3124,7 +3336,7 @@ function openPrepPacketModal(recordId, doctorName) {
   document.getElementById('prep-specialty-display').textContent = d.specialty || 'Specialty not on file';
 
   // Populate patient selector — only seniors
-  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
   const patientSelect = document.getElementById('prep-patient-id');
   patientSelect.innerHTML = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
@@ -3180,7 +3392,7 @@ function onPrepDoctorChange() {
   // Determine circle from this doctor's senior
   const seniorId = rec.person_id;
   const circle   = state.circles.find(c =>
-    state.allPeople.some(p => p.id === seniorId && p.circle_id === c.id)
+    state.allPeople.some(p => p.id === seniorId && p.circle_ids?.includes(c.id))
   );
   prepState.circleId = circle?.id || null;
 
@@ -3189,7 +3401,7 @@ function onPrepDoctorChange() {
   document.getElementById('prep-specialty-display').textContent = d.specialty || 'Specialty not on file';
 
   // Populate / update patient selector
-  const seniors = state.allPeople.filter(p => p.care_role === 'senior');
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
   const patientSelect = document.getElementById('prep-patient-id');
   patientSelect.innerHTML = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   patientSelect.value = seniorId;
@@ -3288,20 +3500,33 @@ async function setupGroupMe() {
   }
 }
 
+function openAddCircleModal() {
+  // Only top-level (inner) circles are valid parents — one level of
+  // nesting only, enforced server-side in create_care_circle() too. See
+  // card #44.
+  const innerCircles = state.circles.filter(c => !c.parent_circle_id);
+  document.getElementById('new-circle-parent').innerHTML =
+    `<option value="">None — top-level (inner) circle</option>` +
+    innerCircles.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  openModal('modal-add-circle');
+}
+
 async function createCircle() {
   const name = document.getElementById('new-circle-name').value.trim();
+  const parent_circle_id = document.getElementById('new-circle-parent').value || null;
   const ensembleId = state.ensemble?.id;
   if (!ensembleId) { toast('No ensemble loaded', true); return; }
   try {
     const res = await apiFetch(`/app/ensembles/${ensembleId}/circles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, parent_circle_id }),
     });
     if (!res.ok) throw new Error(await res.text());
-    toast('Circle created');
+    toast(parent_circle_id ? 'Outer circle created' : 'Circle created');
     closeModal('modal-add-circle');
     document.getElementById('new-circle-name').value = '';
+    document.getElementById('new-circle-parent').value = '';
     await loadData();
   } catch (e) {
     toast('Failed to create circle: ' + e.message, true);
