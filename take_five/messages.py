@@ -14,7 +14,49 @@ from take_five.utils import get_prompt, RESPONSE_FORMATS, CHANNEL_CONSTRAINTS
 
 logger = logging.getLogger(__name__)
 
-llm_with_tools = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
+# claude-sonnet-5 — upgraded from claude-sonnet-4-6 for better tool-call
+# disambiguation judgment (refill vs. correction vs. new medication) and
+# multi-step synthesis (mobility reports, etc.). Scoped to this one
+# question-answering path deliberately — generate_prep_packet() and the
+# Haiku prep-parsing sidecar are untouched. max_tokens raised from 1024
+# since replies now share the budget with a <reasoning> block, and Sonnet
+# 5's tokenizer runs ~30% more tokens for the same text vs. 4.6.
+llm_with_tools = ChatAnthropic(model="claude-sonnet-5", max_tokens=4096)
+
+_REASONING_TAG_RE = re.compile(r"<reasoning>(.*?)</reasoning>", re.DOTALL | re.IGNORECASE)
+_REPLY_TAG_RE = re.compile(r"<reply>(.*?)</reply>", re.DOTALL | re.IGNORECASE)
+
+
+def _extract_reply(raw: str) -> str:
+    """
+    Pull the family-facing message out of a <reply>...</reply> wrapper per
+    t5_system_prompt.md, discarding anything outside the tags (reasoning
+    preamble, narration of what the model is about to do, etc.) so that
+    kind of text can never reach GroupMe even on turns where the model
+    still produces it.
+
+    Any <reasoning>...</reasoning> block is logged (not stored on the
+    message, not shown to the family) — useful for debugging tool-choice
+    calls like refill vs. correction vs. new medication, or how an
+    ambiguous reply like "yes please" got resolved.
+
+    Falls back to the raw stripped content if the <reply> tags are missing
+    — e.g. an older prompt version, or the model forgetting to wrap the
+    reply — so a malformed response still posts something to the family
+    instead of silently dropping the message. Logs a warning in that case
+    so missing-tag turns are visible without breaking the reply.
+    """
+    raw = raw.strip()
+
+    reasoning_match = _REASONING_TAG_RE.search(raw)
+    if reasoning_match:
+        logger.info(f"[ask_with_tools] Reasoning: {reasoning_match.group(1).strip()}")
+
+    reply_match = _REPLY_TAG_RE.search(raw)
+    if reply_match:
+        return reply_match.group(1).strip()
+    logger.warning(f"[ask_with_tools] No <reply> tags found in model output — falling back to raw content: {raw!r}")
+    return raw
 
 # ---------------------------------------------------------------------------
 # Tool definition
@@ -576,7 +618,7 @@ async def ask_with_tools(
             [user_message, response, *tool_messages],
             config={"system": SYSTEM_PROMPT}
         )
-        reply = followup.content.strip()
+        reply = _extract_reply(followup.content)
 
         # Prepend sentinel for state tracking — stripped before posting to GroupMe
         if saved_record_ids:
@@ -589,7 +631,7 @@ async def ask_with_tools(
 
         return reply
 
-    return response.content.strip()
+    return _extract_reply(response.content)
 
 
 # ---------------------------------------------------------------------------
