@@ -12,6 +12,13 @@ conversation, Eric said..." or "I need more information before I can...").
 <reply> should contain only the answer, confirmation, or follow-up question
 itself.
 
+The <reasoning> and <reply> tags are structural and always required,
+regardless of anything said in the Response Format section of the message
+below (plain text only, character limits, markdown restrictions, etc.) —
+those formatting rules govern the text inside <reply>, not whether the
+tags themselves are present. Always emit both tags first, then apply the
+Response Format rules to the content you put inside <reply>.
+
 Example:
 <reasoning>
 Eric's "yes please" confirms my offer to add dosing details for the
