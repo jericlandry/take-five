@@ -21,7 +21,15 @@ logger = logging.getLogger(__name__)
 # Haiku prep-parsing sidecar are untouched. max_tokens raised from 1024
 # since replies now share the budget with a <reasoning> block, and Sonnet
 # 5's tokenizer runs ~30% more tokens for the same text vs. 4.6.
-llm_with_tools = ChatAnthropic(model="claude-sonnet-5", max_tokens=4096)
+#
+# thinking is explicitly disabled — Sonnet 5 runs adaptive thinking by
+# default (unlike 4.6, where omitting `thinking` meant no thinking), which
+# would otherwise compete with our manual <reasoning> tag for the same
+# max_tokens budget and turn response.content into typed content blocks
+# instead of a plain string. Disabling it keeps this a scoped model swap:
+# same plain-string output, same _extract_reply() parsing, no round-trip
+# handling of thinking blocks through the tool-call followup call.
+llm_with_tools = ChatAnthropic(model="claude-sonnet-5", max_tokens=4096, thinking={"type": "disabled"})
 
 _REASONING_TAG_RE = re.compile(r"<reasoning>(.*?)</reasoning>", re.DOTALL | re.IGNORECASE)
 _REPLY_TAG_RE = re.compile(r"<reply>(.*?)</reply>", re.DOTALL | re.IGNORECASE)
