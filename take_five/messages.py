@@ -6,7 +6,7 @@ from datetime import datetime, date, timezone, timedelta
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
 from take_five.repository import repo
 from take_five.memory import get_embedding
@@ -600,7 +600,16 @@ async def ask_with_tools(
 
     user_message = HumanMessage(content=human_content)
     llm          = llm_with_tools.bind_tools(TOOLS)
-    response     = llm.invoke([user_message], config={"system": SYSTEM_PROMPT})
+
+    # System prompt must go in the messages list as a SystemMessage, not
+    # via config={"system": ...} — RunnableConfig only recognizes keys like
+    # tags/metadata/callbacks/configurable/run_id, so "system" was being
+    # silently dropped and SYSTEM_PROMPT was never reaching the model. This
+    # was the actual root cause of the missing <reasoning>/<reply> tags
+    # across three prompt-wording attempts — the model was never seeing
+    # the tag instructions at all. See git history around 2026-07-31 for
+    # the investigation.
+    response = llm.invoke([SystemMessage(content=SYSTEM_PROMPT), user_message])
 
     if response.tool_calls:
         tool_messages      = []
@@ -623,9 +632,9 @@ async def ask_with_tools(
                 tool_messages.append(ToolMessage(content=result, tool_call_id=tc['id']))
 
         followup = llm.invoke(
-            [user_message, response, *tool_messages],
-            config={"system": SYSTEM_PROMPT}
+            [SystemMessage(content=SYSTEM_PROMPT), user_message, response, *tool_messages]
         )
+
         reply = _extract_reply(followup.content)
 
         # Prepend sentinel for state tracking — stripped before posting to GroupMe
@@ -957,10 +966,7 @@ async def generate_prep_packet(
     )
 
     llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=2000)
-    response = llm.invoke(
-        [HumanMessage(content=human_content)],
-        config={"system": PREP_PACKET_SYSTEM},
-    )
+    response = llm.invoke([SystemMessage(content=PREP_PACKET_SYSTEM), HumanMessage(content=human_content)])
     packet_text = response.content.strip()
 
     # -- Step 7: Log the packet to message history with its own type --
