@@ -1043,10 +1043,15 @@ async def generate_prep_packet(
         logger.warning(f'[prep_packet] Failed to log to messages: {e}')
 
     # -- Step 8: Build the follow-up prompt --
+    # No longer asks "who's taking {senior_name}" here — that's now a
+    # WHO'S GOING line inside packet_text itself (see prep_packet_prompt.md),
+    # populated by scanning the same message window as everything else in
+    # the packet. Asking it again here would just be a duplicate question
+    # once someone's already confirmed, so this follow-up sticks to the one
+    # thing it's actually for: inviting additions.
     followup_text = (
         f"\U0001f4cb Anything to add before the appointment? "
-        f"Reply @T5 add to prep [your question] and I'll include it.\n\n"
-        f"\U0001f464 Who's taking {senior_name} to {doctor_name}?"
+        f"Reply @T5 add to prep [your question] and I'll include it."
     )
 
     logger.info(f"[prep_packet] Packet generated ({len(packet_text)} chars)")

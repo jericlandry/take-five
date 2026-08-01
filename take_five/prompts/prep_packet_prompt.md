@@ -26,6 +26,11 @@ Generate a prep packet in EXACTLY this format. No extra sections, no narrative p
 {senior_name} · {doctor_name}{specialty_short} · {appointment_desc}
 Lookback: {lookback_desc}
 
+👤 WHO'S GOING
+[Scan Messages for an explicit confirmation that someone is taking/accompanying {senior_name} to THIS appointment — phrases like "I'll take him", "I've got this one", "I can take her Wednesday". Only count clear, first-person confirmations tied to this appointment, never a guess or an offer to help in general.
+If found: "[Name] is taking {senior_name} *([when confirmed])*"
+If nothing found: "Not yet confirmed — reply @T5 I'll take {senior_name} to confirm."]
+
 📝 RAISE WITH {doctor_name_upper}
 - [ ] [concern or question] *([who mentioned it], [when])*
 ... (list all relevant concerns and questions, filtered by specialty)
