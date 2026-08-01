@@ -252,6 +252,24 @@ TOOLS = [save_clinical_record, patch_clinical_record]
 # Context builder
 # ---------------------------------------------------------------------------
 
+# Recent Messages window for ask_with_tools() questions. Previously
+# unbounded (_build_recent_messages() called with no start_date), which
+# meant every question re-sent a circle's ENTIRE message history as input
+# tokens — measured at 73K+ input tokens on a single day of test traffic,
+# a cost that only grows as a circle ages, with no ceiling. Recent Messages
+# and semantic search (_build_semantic) were clearly designed as a two-tier
+# retrieval: a bounded recency window plus vector search over full history
+# for anything older. Recent Messages losing its bound collapsed that into
+# duplication — every semantic chunk was guaranteed to already be sitting
+# in the (unbounded) Recent Messages section too. This restores the bound;
+# semantic search over the full history is unchanged. 14 days chosen to
+# comfortably span "when did this start" symptom-pattern questions and two
+# weekly digest cycles, while still capping growth regardless of circle
+# chattiness. Does not affect create_for_digest(), which always passes its
+# own explicit start_date/end_date.
+RECENT_MESSAGES_WINDOW_DAYS = 14
+
+
 class ContextBuilder:
     def __init__(self, circle_id: str, question: str):
         self.repo = repo
@@ -262,11 +280,19 @@ class ContextBuilder:
     async def create(cls, circle_id: str, question: str) -> "ContextBuilder":
         instance = cls(circle_id, question)
         embedding = await get_embedding(question, is_query=True)
+        # Resolved once here and passed into both _build_recent_messages()
+        # and _build_semantic() below — they previously each independently
+        # called get_readable_circle_ids() for the same circle_id, a
+        # redundant DB round-trip on every question.
+        readable_ids = instance.repo.get_readable_circle_ids(circle_id)
         instance._roster          = instance._build_roster()
         instance._circle_context  = instance._load_circle_context()
         instance._clinical        = instance._build_clinical_records()
-        instance._recent          = instance._build_recent_messages()
-        instance._semantic        = instance._build_semantic(embedding)
+        instance._recent          = instance._build_recent_messages(
+            start_date=datetime.now(timezone.utc) - timedelta(days=RECENT_MESSAGES_WINDOW_DAYS),
+            readable_ids=readable_ids,
+        )
+        instance._semantic        = instance._build_semantic(embedding, readable_ids=readable_ids)
         return instance
 
     @classmethod
@@ -443,7 +469,8 @@ class ContextBuilder:
     def _build_recent_messages(
         self,
         start_date: datetime = None,
-        end_date: datetime = None
+        end_date: datetime = None,
+        readable_ids: list = None
     ) -> str:
         # Resolve the readable circle set — for an inner circle this is
         # itself + its outer circle(s); for an outer circle, just itself.
@@ -452,7 +479,14 @@ class ContextBuilder:
         # design. Engagement/proactive features (Life Log, post-visit,
         # prep packets) deliberately do NOT use this resolver — they stay
         # single-circle.
-        readable_ids = self.repo.get_readable_circle_ids(self.circle_id)
+        #
+        # readable_ids: pass the already-resolved list to skip this lookup
+        # (create() does this since _build_semantic() needs the same set —
+        # resolving it twice per question was a redundant DB round-trip).
+        # None (default) resolves it here, for callers like
+        # create_for_digest() that only need one of the two sections.
+        if readable_ids is None:
+            readable_ids = self.repo.get_readable_circle_ids(self.circle_id)
         recent_msgs = self.repo.get_messages(
             readable_ids,
             start_date=start_date,
@@ -485,9 +519,12 @@ class ContextBuilder:
 
         return "\n".join(lines)
 
-    def _build_semantic(self, embedding: list) -> str:
-        # Same readable-circle-set resolution as _build_recent_messages above.
-        readable_ids = self.repo.get_readable_circle_ids(self.circle_id)
+    def _build_semantic(self, embedding: list, readable_ids: list = None) -> str:
+        # Same readable-circle-set resolution as _build_recent_messages above
+        # — pass the already-resolved list from create() to avoid a second
+        # redundant get_readable_circle_ids() call for the same circle_id.
+        if readable_ids is None:
+            readable_ids = self.repo.get_readable_circle_ids(self.circle_id)
         chunks = self.repo.fetch_semantic_chunks(readable_ids, embedding)
         return self._format_semantic_context(chunks)
 

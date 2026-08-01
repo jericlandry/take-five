@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor, Json
+from psycopg2.pool import ThreadedConnectionPool
 
 load_dotenv()
 
@@ -81,15 +82,44 @@ class TakeFiveRepository:
             'host':     'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
             'port':     5432
         }
+        # Connection pool — previously every _execute() call (and every
+        # save_clinical_record/patch_clinical_record/invite_person_to_ensemble
+        # transaction) opened a brand-new psycopg2.connect() from scratch,
+        # paying a full TCP+SSL+auth handshake every single time. Measured at
+        # ~0.6s/query on Render's hosted Postgres from a warm process — a
+        # single ask_with_tools() question makes 6 of these back to back, all
+        # paying that cost with nothing to show for it since none of it is
+        # query execution time.
+        #
+        # ThreadedConnectionPool (not SimpleConnectionPool): blocking DB
+        # calls are the planned next asyncio.to_thread() candidate, which
+        # would put concurrent calls on real OS threads — SimpleConnectionPool
+        # is not safe for that, ThreadedConnectionPool is, so this is the
+        # right choice now even though nothing is threaded yet.
+        #
+        # minconn/maxconn are a starting guess sized for a small app on a
+        # modest Render Postgres plan — revisit against Postgres's own
+        # max_connections if concurrent load grows.
+        self._pool = ThreadedConnectionPool(
+            minconn=2, maxconn=10, cursor_factory=RealDictCursor, **self.db_config
+        )
 
     def _execute(self, query: str, params: tuple = (), fetch: str = 'one'):
-        with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params)
-                conn.commit()
-                if fetch == 'one': return cur.fetchone()
-                if fetch == 'all': return cur.fetchall()
-                return None
+        # Borrow a connection from the pool instead of opening a fresh one.
+        # `with conn:` still handles the transaction (commits on clean exit,
+        # rolls back on exception) exactly as before — it just no longer
+        # closes the connection, since putconn() in the finally block returns
+        # it to the pool for reuse instead.
+        conn = self._pool.getconn()
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+                    if fetch == 'one': return cur.fetchone()
+                    if fetch == 'all': return cur.fetchall()
+                    return None
+        finally:
+            self._pool.putconn(conn)
 
     # --- PEOPLE ---
 
@@ -739,51 +769,54 @@ class TakeFiveRepository:
         """
         confirmed_at = datetime.utcnow() if confirmed_by else None
 
-        with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
-            with conn.cursor() as cur:
-                # 1. Insert the clinical record
-                cur.execute("""
-                    INSERT INTO clinical_records (
-                        person_id, resource_type, status,
-                        data, notes, confirmed_by, confirmed_at,
-                        source_message_id, circle_id
-                    ) VALUES (
-                        %(person_id)s, %(resource_type)s, %(status)s,
-                        %(data)s, %(notes)s, %(confirmed_by)s,
-                        %(confirmed_at)s, %(source_message_id)s, %(circle_id)s
-                    ) RETURNING *;
-                """, {
-                    'person_id':         person_id,
-                    'resource_type':     resource_type,
-                    'status':            status,
-                    'data':              Json(data),
-                    'notes':             notes,
-                    'confirmed_by':      confirmed_by,
-                    'confirmed_at':      confirmed_at,
-                    'source_message_id': source_message_id,
-                    'circle_id':         circle_id,
-                })
-                record = cur.fetchone()
+        conn = self._pool.getconn()
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    # 1. Insert the clinical record
+                    cur.execute("""
+                        INSERT INTO clinical_records (
+                            person_id, resource_type, status,
+                            data, notes, confirmed_by, confirmed_at,
+                            source_message_id, circle_id
+                        ) VALUES (
+                            %(person_id)s, %(resource_type)s, %(status)s,
+                            %(data)s, %(notes)s, %(confirmed_by)s,
+                            %(confirmed_at)s, %(source_message_id)s, %(circle_id)s
+                        ) RETURNING *;
+                    """, {
+                        'person_id':         person_id,
+                        'resource_type':     resource_type,
+                        'status':            status,
+                        'data':              Json(data),
+                        'notes':             notes,
+                        'confirmed_by':      confirmed_by,
+                        'confirmed_at':      confirmed_at,
+                        'source_message_id': source_message_id,
+                        'circle_id':         circle_id,
+                    })
+                    record = cur.fetchone()
 
-                # 2. Write the 'added' event in the same transaction
-                cur.execute("""
-                    INSERT INTO clinical_events (
-                        record_id, event_type, notes,
-                        confirmed_by, confirmed_at, source_message_id
-                    ) VALUES (
-                        %(record_id)s, 'added', %(notes)s,
-                        %(confirmed_by)s, %(confirmed_at)s, %(source_message_id)s
-                    );
-                """, {
-                    'record_id':         record['id'],
-                    'notes':             notes,
-                    'confirmed_by':      confirmed_by,
-                    'confirmed_at':      confirmed_at,
-                    'source_message_id': source_message_id,
-                })
+                    # 2. Write the 'added' event in the same transaction
+                    cur.execute("""
+                        INSERT INTO clinical_events (
+                            record_id, event_type, notes,
+                            confirmed_by, confirmed_at, source_message_id
+                        ) VALUES (
+                            %(record_id)s, 'added', %(notes)s,
+                            %(confirmed_by)s, %(confirmed_at)s, %(source_message_id)s
+                        );
+                    """, {
+                        'record_id':         record['id'],
+                        'notes':             notes,
+                        'confirmed_by':      confirmed_by,
+                        'confirmed_at':      confirmed_at,
+                        'source_message_id': source_message_id,
+                    })
 
-                conn.commit()
-                return record
+                    return record
+        finally:
+            self._pool.putconn(conn)
 
     def update_clinical_record(
         self,
@@ -834,83 +867,86 @@ class TakeFiveRepository:
         """
         confirmed_at = datetime.utcnow() if confirmed_by else None
 
-        with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
-            with conn.cursor() as cur:
+        conn = self._pool.getconn()
+        try:
+            with conn:
+                with conn.cursor() as cur:
 
-                # 1. Fetch current record for diff
-                cur.execute(
-                    "SELECT * FROM clinical_records WHERE id = %s FOR UPDATE;",
-                    (record_id,)
-                )
-                current = cur.fetchone()
-                if not current:
-                    raise ValueError(f"Clinical record {record_id} not found")
+                    # 1. Fetch current record for diff
+                    cur.execute(
+                        "SELECT * FROM clinical_records WHERE id = %s FOR UPDATE;",
+                        (record_id,)
+                    )
+                    current = cur.fetchone()
+                    if not current:
+                        raise ValueError(f"Clinical record {record_id} not found")
 
-                current_data = (
-                    current['data']
-                    if isinstance(current['data'], dict)
-                    else json.loads(current['data'])
-                )
+                    current_data = (
+                        current['data']
+                        if isinstance(current['data'], dict)
+                        else json.loads(current['data'])
+                    )
 
-                # 2. Apply updates to the record
-                if event_type == 'updated' and updated_fields:
-                    previous_values = {
-                        k: current_data.get(k)
-                        for k in updated_fields
-                    }
-                    new_data = {**current_data, **updated_fields}
+                    # 2. Apply updates to the record
+                    if event_type == 'updated' and updated_fields:
+                        previous_values = {
+                            k: current_data.get(k)
+                            for k in updated_fields
+                        }
+                        new_data = {**current_data, **updated_fields}
+                        cur.execute("""
+                            UPDATE clinical_records
+                            SET data = %(data)s
+                            WHERE id = %(id)s
+                            RETURNING *;
+                        """, {
+                            'id':   record_id,
+                            'data': Json(new_data),
+                        })
+                        record = cur.fetchone()
+
+                    elif event_type == 'discontinued':
+                        previous_values = None
+                        cur.execute("""
+                            UPDATE clinical_records
+                            SET status = 'discontinued'
+                            WHERE id = %(id)s
+                            RETURNING *;
+                        """, {'id': record_id})
+                        record = cur.fetchone()
+
+                    else:
+                        # refilled — record data unchanged
+                        previous_values = None
+                        record = current
+
+                    # 3. Write the event
                     cur.execute("""
-                        UPDATE clinical_records
-                        SET data = %(data)s
-                        WHERE id = %(id)s
-                        RETURNING *;
+                        INSERT INTO clinical_events (
+                            record_id, event_type,
+                            changed_fields, previous_values,
+                            notes, confirmed_by, confirmed_at,
+                            source_message_id
+                        ) VALUES (
+                            %(record_id)s, %(event_type)s,
+                            %(changed_fields)s, %(previous_values)s,
+                            %(notes)s, %(confirmed_by)s, %(confirmed_at)s,
+                            %(source_message_id)s
+                        );
                     """, {
-                        'id':   record_id,
-                        'data': Json(new_data),
+                        'record_id':       record_id,
+                        'event_type':      event_type,
+                        'changed_fields':  Json(updated_fields) if updated_fields else None,
+                        'previous_values': Json(previous_values) if previous_values else None,
+                        'notes':           notes,
+                        'confirmed_by':    confirmed_by,
+                        'confirmed_at':    confirmed_at,
+                        'source_message_id': source_message_id,
                     })
-                    record = cur.fetchone()
 
-                elif event_type == 'discontinued':
-                    previous_values = None
-                    cur.execute("""
-                        UPDATE clinical_records
-                        SET status = 'discontinued'
-                        WHERE id = %(id)s
-                        RETURNING *;
-                    """, {'id': record_id})
-                    record = cur.fetchone()
-
-                else:
-                    # refilled — record data unchanged
-                    previous_values = None
-                    record = current
-
-                # 3. Write the event
-                cur.execute("""
-                    INSERT INTO clinical_events (
-                        record_id, event_type,
-                        changed_fields, previous_values,
-                        notes, confirmed_by, confirmed_at,
-                        source_message_id
-                    ) VALUES (
-                        %(record_id)s, %(event_type)s,
-                        %(changed_fields)s, %(previous_values)s,
-                        %(notes)s, %(confirmed_by)s, %(confirmed_at)s,
-                        %(source_message_id)s
-                    );
-                """, {
-                    'record_id':       record_id,
-                    'event_type':      event_type,
-                    'changed_fields':  Json(updated_fields) if updated_fields else None,
-                    'previous_values': Json(previous_values) if previous_values else None,
-                    'notes':           notes,
-                    'confirmed_by':    confirmed_by,
-                    'confirmed_at':    confirmed_at,
-                    'source_message_id': source_message_id,
-                })
-
-                conn.commit()
-                return record
+                    return record
+        finally:
+            self._pool.putconn(conn)
 
     def get_clinical_events(self, record_id: str) -> List[Dict]:
         """Fetch the full event history for a clinical record, oldest first."""
@@ -1617,63 +1653,66 @@ class TakeFiveRepository:
         existing person's clinical_access is left untouched by re-inviting
         them to a different circle.
         """
-        with psycopg2.connect(**self.db_config, cursor_factory=RealDictCursor) as conn:
-            with conn.cursor() as cur:
+        conn = self._pool.getconn()
+        try:
+            with conn:
+                with conn.cursor() as cur:
 
-                # 1. Check for existing person with this email in the ensemble
-                cur.execute("""
-                    SELECT id FROM people
-                    WHERE ensemble_id = %(ensemble_id)s
-                      AND LOWER(email) = LOWER(%(email)s)
-                    LIMIT 1;
-                """, {'ensemble_id': ensemble_id, 'email': email})
-                existing = cur.fetchone()
-
-                if existing:
-                    person_id = existing['id']
-                    # Update phone if provided
-                    if phone:
-                        cur.execute("""
-                            UPDATE people SET phone = %(phone)s
-                            WHERE id = %(id)s;
-                        """, {'phone': phone, 'id': person_id})
-                else:
-                    # 2. Create the person
+                    # 1. Check for existing person with this email in the ensemble
                     cur.execute("""
-                        INSERT INTO people (ensemble_id, name, email, phone, clinical_access)
-                        VALUES (%(ensemble_id)s, %(name)s, %(email)s, %(phone)s, %(clinical_access)s)
-                        RETURNING *;
-                    """, {
-                        'ensemble_id': ensemble_id,
-                        'name':        name,
-                        'email':       email,
-                        'phone':       phone,
-                        'clinical_access': clinical_access,
-                    })
-                    person_id = cur.fetchone()['id']
+                        SELECT id FROM people
+                        WHERE ensemble_id = %(ensemble_id)s
+                          AND LOWER(email) = LOWER(%(email)s)
+                        LIMIT 1;
+                    """, {'ensemble_id': ensemble_id, 'email': email})
+                    existing = cur.fetchone()
 
-                # 3. Upsert ensemble membership (user role)
-                cur.execute("""
-                    INSERT INTO ensemble_memberships (ensemble_id, person_id, user_role)
-                    VALUES (%(ensemble_id)s, %(person_id)s, %(user_role)s)
-                    ON CONFLICT (ensemble_id, person_id) DO UPDATE
-                        SET user_role = EXCLUDED.user_role;
-                """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'user_role': user_role})
+                    if existing:
+                        person_id = existing['id']
+                        # Update phone if provided
+                        if phone:
+                            cur.execute("""
+                                UPDATE people SET phone = %(phone)s
+                                WHERE id = %(id)s;
+                            """, {'phone': phone, 'id': person_id})
+                    else:
+                        # 2. Create the person
+                        cur.execute("""
+                            INSERT INTO people (ensemble_id, name, email, phone, clinical_access)
+                            VALUES (%(ensemble_id)s, %(name)s, %(email)s, %(phone)s, %(clinical_access)s)
+                            RETURNING *;
+                        """, {
+                            'ensemble_id': ensemble_id,
+                            'name':        name,
+                            'email':       email,
+                            'phone':       phone,
+                            'clinical_access': clinical_access,
+                        })
+                        person_id = cur.fetchone()['id']
 
-                # 4. Upsert circle membership (care role)
-                cur.execute("""
-                    INSERT INTO circle_memberships (circle_id, person_id, role)
-                    VALUES (%(circle_id)s, %(person_id)s, %(role)s)
-                    ON CONFLICT (circle_id, person_id) DO UPDATE
-                        SET role = EXCLUDED.role;
-                """, {'circle_id': circle_id, 'person_id': person_id, 'role': care_role})
+                    # 3. Upsert ensemble membership (user role)
+                    cur.execute("""
+                        INSERT INTO ensemble_memberships (ensemble_id, person_id, user_role)
+                        VALUES (%(ensemble_id)s, %(person_id)s, %(user_role)s)
+                        ON CONFLICT (ensemble_id, person_id) DO UPDATE
+                            SET user_role = EXCLUDED.user_role;
+                    """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'user_role': user_role})
 
-                # 5. Return full person row
-                cur.execute("SELECT * FROM people WHERE id = %(id)s;", {'id': person_id})
-                person = cur.fetchone()
+                    # 4. Upsert circle membership (care role)
+                    cur.execute("""
+                        INSERT INTO circle_memberships (circle_id, person_id, role)
+                        VALUES (%(circle_id)s, %(person_id)s, %(role)s)
+                        ON CONFLICT (circle_id, person_id) DO UPDATE
+                            SET role = EXCLUDED.role;
+                    """, {'circle_id': circle_id, 'person_id': person_id, 'role': care_role})
 
-                conn.commit()
-                return person
+                    # 5. Return full person row
+                    cur.execute("SELECT * FROM people WHERE id = %(id)s;", {'id': person_id})
+                    person = cur.fetchone()
+
+                    return person
+        finally:
+            self._pool.putconn(conn)
 
     def upsert_ensemble_membership(self, ensemble_id: str, person_id: str, user_role: str) -> Dict:
         """Set or update a person's user role in an ensemble."""
