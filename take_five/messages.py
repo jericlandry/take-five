@@ -646,7 +646,17 @@ async def ask_with_tools(
     # across three prompt-wording attempts — the model was never seeing
     # the tag instructions at all. See git history around 2026-07-31 for
     # the investigation.
-    response = llm.invoke([SystemMessage(content=SYSTEM_PROMPT), user_message])
+    #
+    # .ainvoke() rather than .invoke() — the sync call blocks the single
+    # event loop thread for the full LLM round-trip (measured 3.5-8+s per
+    # call), so "concurrent" ask_with_tools() calls via asyncio.gather()
+    # were fully serializing despite nothing being wrong with the gather()
+    # usage itself (confirmed empirically: 1.03x speedup on 5 concurrent
+    # calls, 2026-07-31). langchain-anthropic's .ainvoke() uses a genuine
+    # async client under the hood and actually yields during the network
+    # wait, unlike the DB layer (psycopg2 has no async mode — that's a
+    # separate, still-open piece of work).
+    response = await llm.ainvoke([SystemMessage(content=SYSTEM_PROMPT), user_message])
 
     if response.tool_calls:
         tool_messages      = []
@@ -668,7 +678,7 @@ async def ask_with_tools(
                     patched_record_ids.append((parsed['record_id'], parsed.get('event_type', '')))
                 tool_messages.append(ToolMessage(content=result, tool_call_id=tc['id']))
 
-        followup = llm.invoke(
+        followup = await llm.ainvoke(
             [SystemMessage(content=SYSTEM_PROMPT), user_message, response, *tool_messages]
         )
 
