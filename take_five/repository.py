@@ -361,10 +361,12 @@ class TakeFiveRepository:
                 p.aliases       AS person_aliases,
                 p.notes         AS person_notes,
                 p.external_id,
-                cm.role         AS person_role,
-                c.name          AS circle_name,
-                COUNT(m.id)     AS msg_count,
-                MAX(m.sent_at)  AS last_active
+                cm.role                AS person_role,
+                cm.chat_membership_id,
+                cm.chat_added_at,
+                c.name                 AS circle_name,
+                COUNT(m.id)            AS msg_count,
+                MAX(m.sent_at)         AS last_active
             FROM care_circles c
             JOIN circle_memberships cm ON c.id = cm.circle_id
             JOIN people p ON cm.person_id = p.id
@@ -375,7 +377,7 @@ class TakeFiveRepository:
             WHERE c.id = %(circle_id)s
             GROUP BY p.id, p.name, p.phone, p.email,
                      p.aliases, p.notes, p.external_id,
-                     cm.role, c.name
+                     cm.role, cm.chat_membership_id, cm.chat_added_at, c.name
             ORDER BY cm.role, msg_count DESC
         """
         return self._execute(query, {"circle_id": circle_id}, fetch="all")
@@ -413,6 +415,34 @@ class TakeFiveRepository:
         """
         return self._execute(query, {
             'circle_id': circle_id, 'person_id': person_id, 'role': role
+        })
+
+    def get_circle_membership(self, circle_id: str, person_id: str) -> Optional[Dict]:
+        return self._execute("""
+            SELECT * FROM circle_memberships
+            WHERE circle_id = %(circle_id)s AND person_id = %(person_id)s;
+        """, {'circle_id': circle_id, 'person_id': person_id})
+
+    def record_chat_membership(self, circle_id: str, person_id: str,
+                                chat_membership_id: Optional[str]) -> Optional[Dict]:
+        """
+        Marks a circle_membership as added to the circle's chat platform
+        (GroupMe today, others later — see take_five/integrations/chat.py).
+        chat_added_at is set to now() regardless of whether chat_membership_id
+        was resolved (see add_person_to_groupme's polling note — the add can
+        succeed even when the platform doesn't hand back a confirmed id in
+        time). Explicit, per-person action — never called automatically from
+        add_person_to_circle(). See migration 009_chat_membership.sql.
+        """
+        return self._execute("""
+            UPDATE circle_memberships SET
+                chat_membership_id = %(chat_membership_id)s,
+                chat_added_at = now()
+            WHERE circle_id = %(circle_id)s AND person_id = %(person_id)s
+            RETURNING *;
+        """, {
+            'circle_id': circle_id, 'person_id': person_id,
+            'chat_membership_id': chat_membership_id,
         })
 
     def remove_person_from_circle(self, circle_id: str, person_id: str) -> None:

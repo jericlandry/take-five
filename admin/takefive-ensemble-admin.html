@@ -548,8 +548,8 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       </div>
       <div class="card" style="padding:0;overflow:hidden;">
         <table class="people-table">
-          <thead><tr><th>Person</th><th>Role</th><th>Contact</th><th>Last active</th><th></th></tr></thead>
-          <tbody id="circle-roster-tbody"><tr><td colspan="5"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
+          <thead><tr><th>Person</th><th>Role</th><th>Contact</th><th>Last active</th><th>Chat</th><th></th></tr></thead>
+          <tbody id="circle-roster-tbody"><tr><td colspan="6"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -3029,7 +3029,7 @@ async function openCircleDetail(circleId, circleName) {
   }
   document.getElementById('btn-add-circle-member').style.display = state.userRole === 'admin' ? '' : 'none';
   const isAdmin = state.userRole === 'admin';
-  const hasGroupMe = !!(circle?.integration_config?.groupme_bot_id);
+  const hasGroupMe = !!(circle?.integration_config?.groupme_group_id);
   document.getElementById('btn-groupme-setup').style.display = isAdmin && !hasGroupMe ? '' : 'none';
   document.getElementById('groupme-connected-tag').style.display = hasGroupMe ? '' : 'none';
   showPanel('circle-detail');
@@ -3053,14 +3053,35 @@ async function loadCircleRoster() {
 function renderCircleRoster() {
   const tbody = document.getElementById('circle-roster-tbody');
   const isAdmin = state.userRole === 'admin';
+  // Whether this circle has a GroupMe group at all — same check
+  // openCircleDetail() uses, so the per-person "Add to GroupMe" button only
+  // ever shows once the circle itself is connected.
+  const circle = state.circles.find(c => c.id === circleState.currentCircleId);
+  const circleHasGroupMe = !!(circle?.integration_config?.groupme_group_id);
   if (!circleState.roster.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-title">No members yet</div><div class="empty-sub">Add someone to get started</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No members yet</div><div class="empty-sub">Add someone to get started</div></div></td></tr>`;
     return;
   }
   tbody.innerHTML = circleState.roster.map(m => {
     const lastActive = m.last_active
       ? new Date(m.last_active).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : '—';
+    // Chat status cell. Circle membership and chat membership are tracked
+    // separately on purpose — some circle members (e.g. the senior, or a
+    // caregiver who'd rather just text a number) may never be added to the
+    // group chat itself. See migration 009_chat_membership.sql / Trello #59.
+    let chatCell = '';
+    if (circleHasGroupMe) {
+      if (m.chat_added_at) {
+        const addedDate = new Date(m.chat_added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        chatCell = `<span class="integration-tag connected" title="Added ${addedDate}"><span class="integration-dot"></span>In GroupMe</span>`;
+      } else if (isAdmin) {
+        const safeName = (m.member_name || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        chatCell = `<button class="btn btn-ghost btn-sm" id="gm-add-${m.id}" onclick='addPersonToGroupMe("${m.id}", "${safeName}")'>Add to GroupMe</button>`;
+      } else {
+        chatCell = `<span class="integration-tag">Not added</span>`;
+      }
+    }
     return `<tr>
       <td><div class="person-name-cell">
         <div class="person-avatar ${m.person_role === 'senior' ? 'senior' : ''}">${initials(m.member_name || '?')}</div>
@@ -3069,6 +3090,7 @@ function renderCircleRoster() {
       <td><span class="pill pill-care ${m.person_role}"><span class="pill-dot"></span>${capitalize(m.person_role)}</span></td>
       <td style="font-size:12px;color:var(--g600);">${m.phone || '—'}</td>
       <td style="font-size:12px;color:var(--g600);">${lastActive}</td>
+      <td>${chatCell}</td>
       <td>${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick='openEditCircleMember("${m.id}", "${m.member_name?.replace(/"/g, '&quot;')}", "${m.person_role}")'>Edit role</button>` : ''}</td>
     </tr>`;
   }).join('');
@@ -3149,6 +3171,29 @@ async function removeCircleMember() {
     await loadCircleRoster();
   } catch (e) { toast('Failed: ' + e.message, true); }
   finally { btn.disabled = false; btn.textContent = 'Remove from circle'; }
+}
+
+// Adds one circle member to the circle's GroupMe group. Explicit,
+// per-person action — distinct from circle membership itself. Calls
+// POST /app/circles/{circle_id}/people/{person_id}/chat, which prefers the
+// person's known GroupMe user_id (people.external_id) when one already
+// exists, and only falls back to a fresh phone invite otherwise. See
+// migration 009_chat_membership.sql and Trello #59, 2026-08-01.
+async function addPersonToGroupMe(personId, personName) {
+  const circleId = circleState.currentCircleId;
+  const btn = document.getElementById(`gm-add-${personId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+  try {
+    const res = await apiFetch(`/app/circles/${circleId}/people/${personId}/chat`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || await res.text());
+    toast(`${personName} added to GroupMe`);
+    await loadCircleRoster();
+  } catch (e) {
+    toast('Failed: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = 'Add to GroupMe'; }
+  }
 }
 
 // ─── PREP PACKETS LIST ───

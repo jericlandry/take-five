@@ -10,7 +10,8 @@ from take_five.auth import (
     auth_router, verify_admin_token, get_current_person, require_admin,
     require_ensemble_scope, person_payload, ensemble_payload,
 )
-from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply, setup_groupme_circle
+from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply
+from take_five.integrations.chat import setup_chat_circle, add_person_to_chat
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms, send_sms
 from take_five.messages import ask_with_tools, generate_prep_packet
@@ -189,9 +190,25 @@ async def get_circle_people(circle_id: str):
 
 @secure_router.post("/circles/{circle_id}/groupme-setup")
 async def groupme_setup(circle_id: str):
-    """Create a GroupMe group and bot for a care circle, add the ensemble admin."""
+    """Create a chat group and bot for a care circle, add the ensemble admin.
+    Routed through the chat.py dispatcher (GroupMe today; see take_five/integrations/chat.py)."""
     try:
-        result = await setup_groupme_circle(circle_id)
+        result = await setup_chat_circle(circle_id)
+        return {"status": "ok", "result": result}
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@secure_router.post("/circles/{circle_id}/people/{person_id}/chat")
+async def superadmin_add_person_to_chat(circle_id: str, person_id: str):
+    """
+    Add a circle member to the circle's chat platform (GroupMe today).
+    Explicit, per-person action — distinct from circle membership itself;
+    not every circle member should necessarily be in the chat (e.g. the
+    senior, or a caregiver who'd rather just text a number). See Trello #59.
+    """
+    try:
+        result = await add_person_to_chat(circle_id, person_id)
         return {"status": "ok", "result": result}
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -347,10 +364,33 @@ async def app_groupme_setup(
     person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
 ):
     """
-    Create a GroupMe group and bot for a care circle. Admin-only.
+    Create a chat group and bot for a care circle. Admin-only.
+    Routed through the chat.py dispatcher (GroupMe today; see take_five/integrations/chat.py).
     """
     try:
-        result = await setup_groupme_circle(circle_id)
+        result = await setup_chat_circle(circle_id)
+        return {"status": "ok", "result": result}
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@open_router.post("/app/circles/{circle_id}/people/{person_id}/chat")
+async def app_add_person_to_chat(
+    circle_id: str,
+    person_id: str,
+    person: dict = Depends(require_ensemble_scope(
+        [("circle", "circle_id"), ("person", "person_id")], admin_only=True,
+    )),
+):
+    """
+    Add a circle member to the circle's chat platform (GroupMe today).
+    Admin-only. Explicit, per-person action — distinct from circle
+    membership itself; not every circle member should necessarily be in the
+    chat (e.g. the senior, or a caregiver who'd rather just text a number).
+    See Trello #59.
+    """
+    try:
+        result = await add_person_to_chat(circle_id, person_id)
         return {"status": "ok", "result": result}
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))

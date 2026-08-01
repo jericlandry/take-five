@@ -523,15 +523,232 @@ async def handle_groupme_webhook(data: dict):
     return {"status": "ok"}
 
 
+async def lock_group_member_management(group_id: str) -> bool:
+    """
+    Sets a GroupMe group's group_type to 'closed', which restricts member-
+    roster and settings management to the group admin/owner (Take Five's
+    account, since it created the group) while leaving messaging open to
+    everyone. This makes the Take Five admin app the sole path for adding
+    new chat members going forward — a plain GroupMe-native "add to group"
+    from any other member is blocked.
+
+    Deliberately 'closed', not 'announcement': 'announcement' also restricts
+    who can *send messages*, which would break normal family/caregiver
+    check-ins. 'closed' only restricts roster/settings management.
+
+    Per GroupMe's community API docs (the official dev API reference doesn't
+    document this endpoint at all — POST /groups/:id/update is undocumented
+    on the official page but confirmed working via community docs, checked
+    2026-08-01).
+
+    Returns True on success. Failure is logged but non-fatal — a family's
+    circle is still usable without the lock, just without the member-add
+    protection (see Trello #59/#39). Caller (setup_groupme_circle) does not
+    fail circle creation over this.
+    """
+    GROUPME_API_BASE = "https://api.groupme.com/v3"
+    GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_USER_ACCESS_TOKEN")
+    if not GROUPME_ACCESS_TOKEN:
+        logger.error("[groupme-setup] Cannot lock group — GROUPME_USER_ACCESS_TOKEN not set")
+        return False
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{GROUPME_API_BASE}/groups/{group_id}/update",
+            params={"token": GROUPME_ACCESS_TOKEN},
+            json={"group_type": "closed"},
+        )
+    if resp.status_code != 200:
+        logger.warning(
+            f"[groupme-setup] Failed to lock member management for group {group_id}: "
+            f"{resp.status_code} {resp.text}"
+        )
+        return False
+    logger.info(f"[groupme-setup] Locked member management (group_type=closed) for group {group_id}")
+    return True
+
+
+async def add_person_to_groupme(circle_id: str, person_id: str) -> dict:
+    """
+    Add a single existing person (already a circle_membership) to the
+    circle's GroupMe group, and record the result on circle_memberships
+    (chat_membership_id, chat_added_at).
+
+    Prefers adding by GroupMe user_id when the person already has one on
+    record (people.external_id, format 'groupme:{user_id}' — set either by
+    the webhook's first-message name-match fallback, or by this same
+    function's own backfill below on a previous add elsewhere). This is the
+    "easy" case: no phone number needed, no re-invite flow, and it adds the
+    exact known account directly rather than going through a phone-based
+    invite that could in principle land on a different/new GroupMe account
+    if the phone number changed or was reassigned. Falls back to phone_number
+    (the original behavior) only when no known user_id exists yet — i.e. the
+    person has never been resolved to a GroupMe identity in any circle.
+
+    Explicit, per-person action — not automatic on circle_membership
+    creation. See migration 009_chat_membership.sql and Trello #59.
+
+    Raises ValueError for caller-fixable problems (no bot/group configured,
+    no known user_id AND no phone number, person not a circle member).
+    Raises RuntimeError for unexpected GroupMe API failures.
+    """
+    GROUPME_API_BASE = "https://api.groupme.com/v3"
+    GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_USER_ACCESS_TOKEN")
+    if not GROUPME_ACCESS_TOKEN:
+        raise ValueError("GROUPME_USER_ACCESS_TOKEN not set in environment")
+
+    circle = repo.get_circle_by_id(circle_id)
+    if not circle:
+        raise ValueError(f"Circle {circle_id} not found")
+    group_id = (circle.get('integration_config') or {}).get('groupme_group_id')
+    if not group_id:
+        raise ValueError(f"Circle {circle_id} has no GroupMe group configured — run setup first")
+
+    person = repo.get_person_by_id(person_id)
+    if not person:
+        raise ValueError(f"Person {person_id} not found")
+
+    membership = repo.get_circle_membership(circle_id, person_id)
+    if not membership:
+        raise ValueError(f"'{person['name']}' is not a member of this circle — add them to the circle first")
+
+    # Prefer a known GroupMe user_id over phone-based invite — see docstring.
+    known_external_id = person.get('external_id') or ''
+    known_user_id = known_external_id.split(':', 1)[1] if known_external_id.startswith('groupme:') else None
+
+    if known_user_id:
+        member_payload = {"nickname": person['name'], "user_id": known_user_id}
+        logger.info(f"[groupme] Adding {person['name']} to group {group_id} by known user_id")
+    else:
+        if not person.get('phone'):
+            raise ValueError(
+                f"'{person['name']}' has no known GroupMe identity and no phone number on "
+                f"record — need one or the other to add them to chat"
+            )
+        # Normalize E.164 (+15127404620) to GroupMe's expected format (+1 5127404620)
+        phone = person['phone']
+        if phone.startswith('+1') and len(phone) == 12:
+            phone = f"+1 {phone[2:]}"
+        member_payload = {"nickname": person['name'], "phone_number": phone}
+        logger.info(f"[groupme] Adding {person['name']} to group {group_id} by phone (no known user_id yet)")
+
+    async with httpx.AsyncClient() as client:
+        add_resp = await client.post(
+            f"{GROUPME_API_BASE}/groups/{group_id}/members/add",
+            params={"token": GROUPME_ACCESS_TOKEN},
+            json={"members": [member_payload]},
+        )
+        if add_resp.status_code != 202:
+            raise RuntimeError(f"GroupMe member add failed: {add_resp.status_code} {add_resp.text}")
+        results_id = add_resp.json()['response']['results_id']
+
+        # members/add is async — poll members/results for the real
+        # membership id. Results are only available for 1 hour and can
+        # 503 briefly while GroupMe processes the add, so retry a few times
+        # rather than failing on the first miss.
+        membership_id = None
+        user_id = None
+        for attempt in range(5):
+            await asyncio.sleep(1.5)
+            results_resp = await client.get(
+                f"{GROUPME_API_BASE}/groups/{group_id}/members/results/{results_id}",
+                params={"token": GROUPME_ACCESS_TOKEN},
+            )
+            if results_resp.status_code == 200:
+                members = results_resp.json().get('response', {}).get('members', [])
+                if members:
+                    membership_id = members[0].get('id')
+                    user_id = members[0].get('user_id')
+                break
+            elif results_resp.status_code == 503:
+                continue
+            else:
+                logger.warning(
+                    f"[groupme] members/results returned {results_resp.status_code} "
+                    f"for {person['name']}, giving up polling"
+                )
+                break
+
+    if not membership_id:
+        # The add call itself succeeded (202) even if we couldn't confirm
+        # the resulting membership_id — GroupMe will still deliver the
+        # invite. Log clearly rather than raising, so the caller isn't told
+        # the whole operation failed when it likely didn't.
+        logger.warning(
+            f"[groupme] Added {person['name']} to group {group_id} but could not "
+            f"confirm membership_id via results polling — recording add without it"
+        )
+
+    # members/results also returns the person's GroupMe user_id — the same
+    # identifier the webhook matches incoming messages against
+    # (person_ext_id = f"groupme:{sender_id}" in handle_groupme_webhook).
+    # Writing it here means this person's external_id is set deterministically
+    # from the API response, not left to the webhook's name-matching
+    # fallback the first time they post — the exact fragility card #59 was
+    # opened over. Only set if not already present, so this never clobbers
+    # an existing (possibly differently-sourced) external_id; a unique-
+    # constraint failure here is logged but non-fatal, since chat_membership_id
+    # is already recorded and more important to preserve than this backfill.
+    if user_id and not person.get('external_id'):
+        try:
+            repo.update_person(person_id, external_id=f"groupme:{user_id}")
+            logger.info(f"[groupme] Backfilled external_id for {person['name']} from members/results")
+        except Exception as e:
+            logger.warning(f"[groupme] Could not backfill external_id for {person['name']}: {e}")
+
+    updated = repo.record_chat_membership(circle_id, person_id, chat_membership_id=membership_id)
+    logger.info(f"[groupme] Added {person['name']} to GroupMe group {group_id} (membership_id={membership_id})")
+
+    # Fresh phone-based invites hit GroupMe's 12-message SMS trial limit —
+    # per GroupMe's own support docs (#stay command, checked 2026-08-01),
+    # someone added by phone/SMS only receives their first 12 messages in a
+    # group unless they text back "#stay". Someone added by an already-known
+    # user_id has an established GroupMe presence and isn't subject to this
+    # fresh-invite limit, so the nudge is unnecessary (and would be
+    # confusing) for that path. Without this, a new aide or family member
+    # who never installs the app would silently stop receiving updates
+    # after their 12th message with no signal to anyone that it happened —
+    # a direct risk to the "zero behavior change" thesis. See Trello
+    # verification card (2026-08-01) for confirming this with a real device.
+    if not known_user_id:
+        bot_id = (circle.get('integration_config') or {}).get('groupme_bot_id')
+        circle_ext_id = circle.get('external_id')
+        if bot_id:
+            await groupme_reply(
+                bot_id,
+                f"Hi {person['name']} — welcome! If you're using GroupMe by text only "
+                f"(no app), reply #stay to this group so you keep getting updates — "
+                f"GroupMe limits new text-only members to their first 12 messages "
+                f"otherwise. If you have the app, you can ignore this.",
+                circle_ext_id,
+            )
+
+    return {
+        'person_id': person_id,
+        'person_name': person['name'],
+        'group_id': group_id,
+        'chat_membership_id': membership_id,
+        'chat_added_at': str(updated.get('chat_added_at')) if updated else None,
+    }
+
+
 async def setup_groupme_circle(circle_id: str) -> dict:
     """
     Programmatically sets up a GroupMe group and bot for a care circle.
+    Creates an empty group — nobody is added here, not even the ensemble
+    admin. Adding people (any role, including the admin) always goes through
+    add_person_to_groupme(), the same explicit per-person action, once they
+    already hold a circle_membership. See Trello #59, 2026-08-01: the
+    intended flow is (1) create circle, (2) add ensemble members to the
+    circle, (3) create the GroupMe group via this function, (4) per-person
+    "add to GroupMe" for whoever should be in the chat — admin included, no
+    special-cased auto-invite.
 
     Steps:
-      1. Fetch the circle and its ensemble admin's phone number
+      1. Fetch the circle
       2. Create the GroupMe group
-      3. Add the ensemble admin to the group by phone number
-      4. Register the Take Five bot in the group
+      3. Register the Take Five bot in the group
+      4. Lock member management to admin-only (see lock_group_member_management)
       5. Store group_id, bot_id, and external_id back on the circle record
 
     Returns a summary dict with group_id and bot_id.
@@ -549,25 +766,9 @@ async def setup_groupme_circle(circle_id: str) -> dict:
     if not circle:
         raise ValueError(f"Circle {circle_id} not found")
     circle_name = circle['name']
-    ensemble_id = str(circle['ensemble_id'])
-
-    # 2. Find the ensemble admin's phone number
-    admin = repo._execute("""
-        SELECT p.phone, p.name
-        FROM people p
-        JOIN ensemble_memberships em ON em.person_id = p.id
-        WHERE em.ensemble_id = %(ensemble_id)s
-          AND em.user_role = 'admin'
-        LIMIT 1;
-    """, {'ensemble_id': ensemble_id})
-
-    if not admin:
-        raise ValueError(f"No admin found for ensemble {ensemble_id}")
-    if not admin['phone']:
-        raise ValueError(f"Admin '{admin['name']}' has no phone number on record")
 
     async with httpx.AsyncClient() as client:
-        # 3. Create the GroupMe group
+        # 2. Create the GroupMe group
         group_resp = await client.post(
             f"{GROUPME_API_BASE}/groups",
             params={"token": GROUPME_ACCESS_TOKEN},
@@ -578,22 +779,7 @@ async def setup_groupme_circle(circle_id: str) -> dict:
         group_id = group_resp.json()['response']['id']
         logger.info(f"[groupme-setup] Created group '{circle_name}' with id {group_id}")
 
-        # 4. Add the ensemble admin to the group by phone number
-        # Normalize E.164 (+15127404620) to GroupMe's expected format (+1 5127404620)
-        phone = admin['phone']
-        if phone.startswith('+1') and len(phone) == 12:
-            phone = f"+1 {phone[2:]}"
-        member_resp = await client.post(
-            f"{GROUPME_API_BASE}/groups/{group_id}/members/add",
-            params={"token": GROUPME_ACCESS_TOKEN},
-            json={"members": [{"nickname": admin['name'], "phone_number": phone}]},
-        )
-        if member_resp.status_code != 202:
-            logger.warning(f"[groupme-setup] Member add returned {member_resp.status_code}: {member_resp.text}")
-        else:
-            logger.info(f"[groupme-setup] Invited {admin['name']} ({admin['phone']}) to group")
-
-        # 5. Register the bot
+        # 3. Register the bot
         bot_resp = await client.post(
             f"{GROUPME_API_BASE}/bots",
             params={"token": GROUPME_ACCESS_TOKEN},
@@ -608,7 +794,13 @@ async def setup_groupme_circle(circle_id: str) -> dict:
         bot_id = bot_resp.json()['response']['bot']['bot_id']
         logger.info(f"[groupme-setup] Registered bot with id {bot_id}")
 
-    # 6. Store group_id, bot_id, and external_id on the circle record
+        # 4. Lock member management to admin-only — see
+        # lock_group_member_management(). Non-fatal on failure; a warning
+        # is already logged inside the function, so circle setup proceeds
+        # either way rather than leaving the family without a group at all.
+        await lock_group_member_management(group_id)
+
+    # 5. Store group_id, bot_id, and external_id on the circle record
     repo.update_care_circle(circle_id, {
         'external_id': f"groupme:{group_id}",
         'integration_config': {
@@ -622,6 +814,5 @@ async def setup_groupme_circle(circle_id: str) -> dict:
         'group_id': group_id,
         'bot_id': bot_id,
         'group_name': circle_name,
-        'admin_invited': admin['name'],
     }
 
