@@ -47,3 +47,12 @@ async def add_person_to_chat(circle_id: str, person_id: str) -> dict:
     009_chat_membership.sql and Trello #59.
     """
     return await groupme.add_person_to_groupme(circle_id, person_id)
+
+
+async def remove_person_from_chat(circle_id: str, person_id: str) -> dict:
+    """
+    Remove a specific person from a circle's chat platform. Does not affect
+    circle membership itself — only the chat presence (see migration
+    009_chat_membership.sql). Mirrors add_person_to_chat.
+    """
+    return await groupme.remove_person_from_groupme(circle_id, person_id)

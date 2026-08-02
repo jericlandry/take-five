@@ -3074,7 +3074,11 @@ function renderCircleRoster() {
     if (circleHasGroupMe) {
       if (m.chat_added_at) {
         const addedDate = new Date(m.chat_added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const safeName = (m.member_name || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
         chatCell = `<span class="integration-tag connected" title="Added ${addedDate}"><span class="integration-dot"></span>In GroupMe</span>`;
+        if (isAdmin) {
+          chatCell += ` <button class="btn btn-ghost btn-sm" id="gm-remove-${m.id}" onclick='removePersonFromGroupMe("${m.id}", "${safeName}")' title="Remove from GroupMe chat (stays a circle member)">Remove</button>`;
+        }
       } else if (isAdmin) {
         const safeName = (m.member_name || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
         chatCell = `<button class="btn btn-ghost btn-sm" id="gm-add-${m.id}" onclick='addPersonToGroupMe("${m.id}", "${safeName}")'>Add to GroupMe</button>`;
@@ -3193,6 +3197,30 @@ async function addPersonToGroupMe(personId, personName) {
   } catch (e) {
     toast('Failed: ' + e.message, true);
     if (btn) { btn.disabled = false; btn.textContent = 'Add to GroupMe'; }
+  }
+}
+
+// Removes one person from a circle's GroupMe chat (their circle_membership
+// and clinical/digest access are untouched — this only affects the chat
+// itself). Confirms first since it's a visible action inside a live group
+// chat, unlike adding someone. Calls DELETE .../people/{person_id}/chat,
+// which mirrors addPersonToGroupMe() above. See migration
+// 009_chat_membership.sql and Trello #59, 2026-08-01.
+async function removePersonFromGroupMe(personId, personName) {
+  if (!confirm(`Remove ${personName} from the GroupMe chat? They'll stay a member of this circle.`)) return;
+  const circleId = circleState.currentCircleId;
+  const btn = document.getElementById(`gm-remove-${personId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Removing…'; }
+  try {
+    const res = await apiFetch(`/app/circles/${circleId}/people/${personId}/chat`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || await res.text());
+    toast(`${personName} removed from GroupMe`);
+    await loadCircleRoster();
+  } catch (e) {
+    toast('Failed: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = 'Remove'; }
   }
 }
 

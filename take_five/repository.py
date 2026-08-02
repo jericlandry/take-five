@@ -445,6 +445,23 @@ class TakeFiveRepository:
             'chat_membership_id': chat_membership_id,
         })
 
+    def clear_chat_membership(self, circle_id: str, person_id: str) -> Optional[Dict]:
+        """
+        Reverses record_chat_membership — called after successfully removing
+        someone from the circle's chat platform. Resets both columns to NULL
+        so the roster correctly shows them as not-in-chat again (and the
+        admin UI's "Add to GroupMe" button reappears for them). Does NOT
+        touch people.external_id — that's the person's platform identity,
+        which stays valid even after being removed from one circle's chat.
+        """
+        return self._execute("""
+            UPDATE circle_memberships SET
+                chat_membership_id = NULL,
+                chat_added_at = NULL
+            WHERE circle_id = %(circle_id)s AND person_id = %(person_id)s
+            RETURNING *;
+        """, {'circle_id': circle_id, 'person_id': person_id})
+
     def remove_person_from_circle(self, circle_id: str, person_id: str) -> None:
         self._execute("""
             DELETE FROM circle_memberships

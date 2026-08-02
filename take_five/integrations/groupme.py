@@ -732,6 +732,105 @@ async def add_person_to_groupme(circle_id: str, person_id: str) -> dict:
     }
 
 
+async def remove_person_from_groupme(circle_id: str, person_id: str) -> dict:
+    """
+    Remove a single person from a circle's GroupMe group, and clear
+    chat_membership_id/chat_added_at on their circle_membership (via
+    repo.clear_chat_membership) so the roster and add button correctly
+    reflect that they're no longer in the chat. Does NOT remove them from
+    the circle itself (circle_memberships row stays — that's a separate
+    action, remove_person_from_circle). Does NOT touch people.external_id
+    — their GroupMe identity remains valid for other circles.
+
+    Uses circle_memberships.chat_membership_id when available (the fast,
+    already-correct path). If it's missing — e.g. a person added before
+    migration 009_chat_membership.sql existed, or before the backfill script
+    ran — falls back to a live lookup via GET /groups/:group_id, matching
+    on the person's known user_id (people.external_id). This makes the
+    function self-healing rather than requiring the backfill to have run
+    first.
+
+    Per GroupMe's API: the group creator cannot be removed (will surface as
+    a RuntimeError from a non-200 response) — see Trello #39, confirmed
+    2026-08-01. Explicit, per-person action, mirroring add_person_to_groupme.
+    See migration 009_chat_membership.sql and Trello #59.
+
+    Raises ValueError for caller-fixable problems (no group configured,
+    person not a circle member, person not currently in the chat, or their
+    membership id couldn't be resolved even via fallback). Raises
+    RuntimeError for unexpected GroupMe API failures (including "can't
+    remove the group creator").
+    """
+    GROUPME_API_BASE = "https://api.groupme.com/v3"
+    GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_USER_ACCESS_TOKEN")
+    if not GROUPME_ACCESS_TOKEN:
+        raise ValueError("GROUPME_USER_ACCESS_TOKEN not set in environment")
+
+    circle = repo.get_circle_by_id(circle_id)
+    if not circle:
+        raise ValueError(f"Circle {circle_id} not found")
+    group_id = (circle.get('integration_config') or {}).get('groupme_group_id')
+    if not group_id:
+        raise ValueError(f"Circle {circle_id} has no GroupMe group configured")
+
+    person = repo.get_person_by_id(person_id)
+    if not person:
+        raise ValueError(f"Person {person_id} not found")
+
+    membership = repo.get_circle_membership(circle_id, person_id)
+    if not membership:
+        raise ValueError(f"'{person['name']}' is not a member of this circle")
+
+    chat_membership_id = membership.get('chat_membership_id')
+
+    async with httpx.AsyncClient() as client:
+        if not chat_membership_id:
+            # Self-healing fallback — look up the live member list and match
+            # by known user_id, same approach as backfill_chat_membership.py.
+            known_external_id = person.get('external_id') or ''
+            known_user_id = known_external_id.split(':', 1)[1] if known_external_id.startswith('groupme:') else None
+            if not known_user_id:
+                raise ValueError(
+                    f"'{person['name']}' has no recorded chat_membership_id and no known "
+                    f"GroupMe identity to look one up with — can't determine if or how "
+                    f"they're in this group"
+                )
+            group_resp = await client.get(
+                f"{GROUPME_API_BASE}/groups/{group_id}",
+                params={"token": GROUPME_ACCESS_TOKEN},
+            )
+            if group_resp.status_code != 200:
+                raise RuntimeError(f"GroupMe group fetch failed: {group_resp.status_code} {group_resp.text}")
+            live_members = group_resp.json().get('response', {}).get('members', [])
+            match = next((m for m in live_members if m.get('user_id') == known_user_id), None)
+            if not match:
+                # Not actually in the group per GroupMe itself — just clear
+                # our stale local state rather than erroring, since the end
+                # state the caller wants (not in chat) is already true.
+                repo.clear_chat_membership(circle_id, person_id)
+                logger.info(
+                    f"[groupme] {person['name']} wasn't actually in group {group_id} "
+                    f"(stale local state cleared)"
+                )
+                return {'person_id': person_id, 'person_name': person['name'], 'group_id': group_id, 'already_absent': True}
+            chat_membership_id = match['id']
+            logger.info(f"[groupme] Resolved missing chat_membership_id for {person['name']} via live lookup")
+
+        remove_resp = await client.post(
+            f"{GROUPME_API_BASE}/groups/{group_id}/members/{chat_membership_id}/remove",
+            params={"token": GROUPME_ACCESS_TOKEN},
+        )
+        if remove_resp.status_code != 200:
+            raise RuntimeError(
+                f"GroupMe member remove failed: {remove_resp.status_code} {remove_resp.text} "
+                f"(note: the group creator cannot be removed)"
+            )
+
+    repo.clear_chat_membership(circle_id, person_id)
+    logger.info(f"[groupme] Removed {person['name']} from GroupMe group {group_id}")
+    return {'person_id': person_id, 'person_name': person['name'], 'group_id': group_id, 'already_absent': False}
+
+
 async def setup_groupme_circle(circle_id: str) -> dict:
     """
     Programmatically sets up a GroupMe group and bot for a care circle.

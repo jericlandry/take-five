@@ -11,7 +11,7 @@ from take_five.auth import (
     require_ensemble_scope, person_payload, ensemble_payload,
 )
 from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply
-from take_five.integrations.chat import setup_chat_circle, add_person_to_chat
+from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms, send_sms
 from take_five.messages import ask_with_tools, generate_prep_packet
@@ -214,6 +214,20 @@ async def superadmin_add_person_to_chat(circle_id: str, person_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@secure_router.delete("/circles/{circle_id}/people/{person_id}/chat")
+async def superadmin_remove_person_from_chat(circle_id: str, person_id: str):
+    """
+    Remove a circle member from the circle's chat platform (GroupMe today).
+    Does not remove them from the circle itself. Mirrors the add endpoint
+    above. See Trello #59.
+    """
+    try:
+        result = await remove_person_from_chat(circle_id, person_id)
+        return {"status": "ok", "result": result}
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @secure_router.post("/circles/{circle_id}/people/{person_id}")
 async def add_person_to_circle(circle_id: str, person_id: str,
                                 body: CreateCircleMembershipRequest):
@@ -391,6 +405,27 @@ async def app_add_person_to_chat(
     """
     try:
         result = await add_person_to_chat(circle_id, person_id)
+        return {"status": "ok", "result": result}
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@open_router.delete("/app/circles/{circle_id}/people/{person_id}/chat")
+async def app_remove_person_from_chat(
+    circle_id: str,
+    person_id: str,
+    person: dict = Depends(require_ensemble_scope(
+        [("circle", "circle_id"), ("person", "person_id")], admin_only=True,
+    )),
+):
+    """
+    Remove a circle member from the circle's chat platform (GroupMe today).
+    Admin-only. Does not remove them from the circle itself — that's a
+    separate action (DELETE .../members/{person_id}). Mirrors the add
+    endpoint above. See Trello #59.
+    """
+    try:
+        result = await remove_person_from_chat(circle_id, person_id)
         return {"status": "ok", "result": result}
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
