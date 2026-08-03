@@ -523,14 +523,71 @@ async def handle_groupme_webhook(data: dict):
     return {"status": "ok"}
 
 
-async def lock_group_member_management(group_id: str) -> bool:
+def resolve_groupme_token(admin_person_id: Optional[str] = None) -> str:
+    """
+    Resolve which GroupMe access token to use for an action, per the
+    OAuth-per-admin design (Trello #39, 2026-08-02).
+
+    If admin_person_id is given and has a stored per-admin token (from the
+    OAuth flow — see connect_groupme_account() and
+    /app/groupme/oauth/token in main.py), that token is used. This is the
+    account that actually created/owns the relevant GroupMe group, so it's
+    the only token with standing to act on it (confirmed: GroupMe's
+    "Admin only" member-management permission authorizes the group owner
+    specifically — there's no API-level way to extend that to a second
+    account).
+
+    Falls back to GROUPME_USER_ACCESS_TOKEN when admin_person_id is None or
+    has no stored token — this is what keeps Landry/Addams's existing
+    circles (created the old way, before this design existed) working
+    unchanged, and is the source of truth for circles created before any
+    admin had gone through the OAuth flow. See card #63's remaining-scope
+    note: the six call sites that use this fallback are migrated
+    incrementally, not all at once.
+
+    Raises ValueError if neither a per-admin token nor the env var fallback
+    is available.
+    """
+    if admin_person_id:
+        credential = repo.get_person_channel_credential(admin_person_id, "groupme")
+        if credential and credential.get("access_token"):
+            return credential["access_token"]
+    fallback = os.getenv("GROUPME_USER_ACCESS_TOKEN")
+    if not fallback:
+        raise ValueError(
+            f"No GroupMe token available — no stored credential for "
+            f"admin_person_id={admin_person_id} and GROUPME_USER_ACCESS_TOKEN not set"
+        )
+    return fallback
+
+
+async def get_groupme_user_id(access_token: str) -> str:
+    """
+    Resolve the GroupMe account identity behind an access token, via
+    GET /users/me. Called once right after an admin completes the OAuth
+    popup flow, so the token and the resulting person_channel_identities /
+    person_channel_credentials rows get written together — see
+    /app/groupme/oauth/token in main.py.
+    """
+    GROUPME_API_BASE = "https://api.groupme.com/v3"
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{GROUPME_API_BASE}/users/me",
+            params={"token": access_token},
+        )
+    if resp.status_code != 200:
+        raise RuntimeError(f"GroupMe /users/me failed: {resp.status_code} {resp.text}")
+    return str(resp.json()["response"]["id"])
+
+
+async def lock_group_member_management(group_id: str, access_token: str) -> bool:
     """
     Sets a GroupMe group's group_type to 'closed', which restricts member-
-    roster and settings management to the group admin/owner (Take Five's
-    account, since it created the group) while leaving messaging open to
-    everyone. This makes the Take Five admin app the sole path for adding
-    new chat members going forward — a plain GroupMe-native "add to group"
-    from any other member is blocked.
+    roster and settings management to the group owner (the admin whose
+    token created it — see resolve_groupme_token) while leaving messaging
+    open to everyone. This makes the Take Five admin app the sole path for
+    adding new chat members going forward — a plain GroupMe-native "add to
+    group" from any other member is blocked.
 
     Deliberately 'closed', not 'announcement': 'announcement' also restricts
     who can *send messages*, which would break normal family/caregiver
@@ -541,21 +598,21 @@ async def lock_group_member_management(group_id: str) -> bool:
     on the official page but confirmed working via community docs, checked
     2026-08-01).
 
+    access_token: the same token used to create the group (see
+    setup_groupme_circle) — passed in explicitly rather than re-resolved
+    here, since the caller already has it and this avoids a second lookup.
+
     Returns True on success. Failure is logged but non-fatal — a family's
     circle is still usable without the lock, just without the member-add
     protection (see Trello #59/#39). Caller (setup_groupme_circle) does not
     fail circle creation over this.
     """
     GROUPME_API_BASE = "https://api.groupme.com/v3"
-    GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_USER_ACCESS_TOKEN")
-    if not GROUPME_ACCESS_TOKEN:
-        logger.error("[groupme-setup] Cannot lock group — GROUPME_USER_ACCESS_TOKEN not set")
-        return False
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{GROUPME_API_BASE}/groups/{group_id}/update",
-            params={"token": GROUPME_ACCESS_TOKEN},
+            params={"token": access_token},
             json={"group_type": "closed"},
         )
     if resp.status_code != 200:
@@ -831,7 +888,7 @@ async def remove_person_from_groupme(circle_id: str, person_id: str) -> dict:
     return {'person_id': person_id, 'person_name': person['name'], 'group_id': group_id, 'already_absent': False}
 
 
-async def setup_groupme_circle(circle_id: str) -> dict:
+async def setup_groupme_circle(circle_id: str, admin_person_id: Optional[str] = None) -> dict:
     """
     Programmatically sets up a GroupMe group and bot for a care circle.
     Creates an empty group — nobody is added here, not even the ensemble
@@ -843,22 +900,34 @@ async def setup_groupme_circle(circle_id: str) -> dict:
     "add to GroupMe" for whoever should be in the chat — admin included, no
     special-cased auto-invite.
 
+    admin_person_id: the person whose GroupMe account should create (and
+    therefore own) this circle's group — see resolve_groupme_token() and
+    Trello #39's OAuth-per-admin design. None falls back to
+    GROUPME_USER_ACCESS_TOKEN, i.e. the pre-#39 behavior — kept as the
+    default so existing callers (the secure_router endpoint, superadmin
+    tooling) keep working unchanged until they're deliberately switched
+    over to passing a real admin_person_id.
+
     Steps:
       1. Fetch the circle
-      2. Create the GroupMe group
-      3. Register the Take Five bot in the group
-      4. Lock member management to admin-only (see lock_group_member_management)
-      5. Store group_id, bot_id, and external_id back on the circle record
+      2. Resolve which token/account creates the group (admin_person_id's
+         stored OAuth token, or GROUPME_USER_ACCESS_TOKEN)
+      3. Create the GroupMe group
+      4. Register the Take Five bot in the group
+      5. Lock member management to admin-only (see lock_group_member_management)
+      6. Store group_id, bot_id, external_id, and (if admin_person_id was
+         given) groupme_admin_person_id back on the circle record — that
+         last field is what add_person_to_groupme()/remove_person_from_groupme()
+         will look up later to resolve the same admin's token for ongoing
+         member management (not yet wired — see card #63 remaining scope).
 
     Returns a summary dict with group_id and bot_id.
     """
     GROUPME_API_BASE = "https://api.groupme.com/v3"
-    GROUPME_ACCESS_TOKEN = os.getenv("GROUPME_USER_ACCESS_TOKEN")
     GROUPME_CALLBACK_URL = "https://app.takefive.care/groupme/webhook"
     BOT_NAME = "Take Five"
 
-    if not GROUPME_ACCESS_TOKEN:
-        raise ValueError("GROUPME_USER_ACCESS_TOKEN not set in environment")
+    access_token = resolve_groupme_token(admin_person_id)
 
     # 1. Fetch the circle
     circle = repo.get_circle_by_id(circle_id)
@@ -867,21 +936,23 @@ async def setup_groupme_circle(circle_id: str) -> dict:
     circle_name = circle['name']
 
     async with httpx.AsyncClient() as client:
-        # 2. Create the GroupMe group
+        # 2. Create the GroupMe group — the admin's account (or the legacy
+        # env-var account) becomes the owner automatically, no transfer step.
         group_resp = await client.post(
             f"{GROUPME_API_BASE}/groups",
-            params={"token": GROUPME_ACCESS_TOKEN},
+            params={"token": access_token},
             json={"name": circle_name},
         )
         if group_resp.status_code != 201:
             raise RuntimeError(f"GroupMe group creation failed: {group_resp.status_code} {group_resp.text}")
         group_id = group_resp.json()['response']['id']
-        logger.info(f"[groupme-setup] Created group '{circle_name}' with id {group_id}")
+        logger.info(f"[groupme-setup] Created group '{circle_name}' with id {group_id}"
+                    f"{f' (owner: person {admin_person_id})' if admin_person_id else ' (owner: env var account)'}")
 
         # 3. Register the bot
         bot_resp = await client.post(
             f"{GROUPME_API_BASE}/bots",
-            params={"token": GROUPME_ACCESS_TOKEN},
+            params={"token": access_token},
             json={"bot": {
                 "name": BOT_NAME,
                 "group_id": group_id,
@@ -897,15 +968,19 @@ async def setup_groupme_circle(circle_id: str) -> dict:
         # lock_group_member_management(). Non-fatal on failure; a warning
         # is already logged inside the function, so circle setup proceeds
         # either way rather than leaving the family without a group at all.
-        await lock_group_member_management(group_id)
+        await lock_group_member_management(group_id, access_token)
 
-    # 5. Store group_id, bot_id, and external_id on the circle record
+    # 5. Store group_id, bot_id, external_id, and (if known) which admin's
+    # account owns this group on the circle record.
+    integration_config = {
+        'groupme_group_id': group_id,
+        'groupme_bot_id': bot_id,
+    }
+    if admin_person_id:
+        integration_config['groupme_admin_person_id'] = admin_person_id
     repo.update_care_circle(circle_id, {
         'external_id': f"groupme:{group_id}",
-        'integration_config': {
-            'groupme_group_id': group_id,
-            'groupme_bot_id': bot_id,
-        },
+        'integration_config': integration_config,
     })
     logger.info(f"[groupme-setup] Circle {circle_id} updated with groupme config")
 

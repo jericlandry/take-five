@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Take Five · GroupMe OAuth test</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 560px; margin: 3rem auto; padding: 0 1.5rem; color: #1A1A18; }
+  h1 { font-size: 1.3rem; color: #085041; }
+  h2 { font-size: 1rem; color: #085041; margin-top: 2.5rem; border-top: 1px solid #E8E5DF; padding-top: 1.5rem; }
+  input { display: block; width: 100%; box-sizing: border-box; padding: 0.6rem; margin: 0.4rem 0 0.8rem; border: 1px solid #B0ADA6; border-radius: 6px; font-size: 0.95rem; }
+  button { padding: 0.6rem 1.2rem; border: none; border-radius: 6px; background: #1D9E75; color: white; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+  button:hover { background: #0F6E56; }
+  button:disabled { background: #B0ADA6; cursor: not-allowed; }
+  pre { background: #F9F6F0; border: 1px solid #E8E5DF; border-radius: 6px; padding: 0.75rem; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+  .status { font-size: 0.85rem; color: #6B6763; margin-top: 0.4rem; }
+  .ok { color: #1D9E75; }
+  .err { color: #c0392b; }
+</style>
+</head>
+<body>
+
+<h1>Take Five · GroupMe OAuth test page</h1>
+<p class="status">Not wired into the real admin UI — standalone page for testing the connect flow end to end before it goes into <code>takefive-ensemble-admin.html</code>. See Trello #39.</p>
+
+<label>API base URL</label>
+<input id="apiBase" value="https://app.takefive.care" />
+
+<label>GroupMe OAuth Client ID (from dev.groupme.com)</label>
+<input id="clientId" placeholder="paste your client_id here" />
+
+<h2>1. Log in (same OTP flow as the real app)</h2>
+<label>Phone number</label>
+<input id="loginPhone" placeholder="+15551234567" />
+<button onclick="requestOtp()">Send code</button>
+<div id="otpRequestStatus" class="status"></div>
+
+<div style="margin-top:1rem;">
+  <label>Code</label>
+  <input id="loginCode" placeholder="6-digit code" />
+  <button onclick="verifyOtp()">Verify</button>
+</div>
+<div id="sessionStatus" class="status"></div>
+<pre id="sessionInfo" style="display:none;"></pre>
+
+<h2>2. Connect GroupMe</h2>
+<p class="status">Opens a popup to GroupMe's login. Once you authorize, the popup posts the token back here automatically.</p>
+<button id="connectBtn" onclick="connectGroupMe()" disabled>Connect GroupMe</button>
+<div id="connectStatus" class="status"></div>
+
+<h2>3. Create a GroupMe group for a test circle</h2>
+<p class="status">Should use your connected account (step 2) to create the group — you'll own it directly, no Take Five ownership involved. Use a throwaway circle under Addams, not an existing one.</p>
+<label>Circle ID</label>
+<input id="circleId" placeholder="circle UUID" />
+<button id="setupBtn" onclick="setupGroupMe()" disabled>Create GroupMe group</button>
+<div id="setupStatus" class="status"></div>
+<pre id="setupResult" style="display:none;"></pre>
+
+<script>
+  let sessionToken = null;
+  let selectionTicket = null;
+
+  function apiBase() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
+
+  async function requestOtp() {
+    const phone = document.getElementById('loginPhone').value.trim();
+    const statusEl = document.getElementById('otpRequestStatus');
+    statusEl.textContent = 'Sending...';
+    try {
+      const res = await fetch(`${apiBase()}/auth/otp/request`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ phone }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      statusEl.textContent = 'Code sent (if that number is registered). Check your phone.';
+      statusEl.className = 'status ok';
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      statusEl.className = 'status err';
+    }
+  }
+
+  async function verifyOtp() {
+    const phone = document.getElementById('loginPhone').value.trim();
+    const code = document.getElementById('loginCode').value.trim();
+    const statusEl = document.getElementById('sessionStatus');
+    statusEl.textContent = 'Verifying...';
+    try {
+      const res = await fetch(`${apiBase()}/auth/otp/verify`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ phone, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+
+      if (data.status === 'select_account') {
+        // More than one person on this phone — just use the first candidate
+        // for test purposes. Real UI would show a picker.
+        selectionTicket = data.selection_ticket;
+        const first = data.candidates[0];
+        const selRes = await fetch(`${apiBase()}/auth/otp/select-account`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ selection_ticket: selectionTicket, person_id: first.person_id }),
+        });
+        const selData = await selRes.json();
+        if (!selRes.ok) throw new Error(selData.detail || JSON.stringify(selData));
+        sessionToken = selData.session_token;
+        document.getElementById('sessionInfo').textContent = JSON.stringify(selData, null, 2);
+      } else {
+        sessionToken = data.session_token;
+        document.getElementById('sessionInfo').textContent = JSON.stringify(data, null, 2);
+      }
+
+      document.getElementById('sessionInfo').style.display = 'block';
+      statusEl.textContent = 'Logged in.';
+      statusEl.className = 'status ok';
+      document.getElementById('connectBtn').disabled = false;
+      document.getElementById('setupBtn').disabled = false;
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      statusEl.className = 'status err';
+    }
+  }
+
+  function connectGroupMe() {
+    const clientId = document.getElementById('clientId').value.trim();
+    const statusEl = document.getElementById('connectStatus');
+    if (!clientId) { statusEl.textContent = 'Enter a Client ID first.'; statusEl.className = 'status err'; return; }
+    if (!sessionToken) { statusEl.textContent = 'Log in first.'; statusEl.className = 'status err'; return; }
+
+    statusEl.textContent = 'Waiting for popup...';
+    statusEl.className = 'status';
+
+    const width = 500, height = 650;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2.5;
+    const authUrl = `https://oauth.groupme.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}`;
+    const popup = window.open(authUrl, 'groupme-connect', `width=${width},height=${height},left=${left},top=${top}`);
+
+    const listener = async (event) => {
+      if (!event.data || event.data.source !== 'takefive-groupme-oauth') return;
+      window.removeEventListener('message', listener);
+      const accessToken = event.data.access_token;
+      statusEl.textContent = 'Token received, saving...';
+      try {
+        const res = await fetch(`${apiBase()}/app/groupme/oauth/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+          body: JSON.stringify({ access_token: accessToken }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+        statusEl.textContent = `Connected! GroupMe user_id: ${data.groupme_user_id}`;
+        statusEl.className = 'status ok';
+      } catch (e) {
+        statusEl.textContent = 'Error saving token: ' + e.message;
+        statusEl.className = 'status err';
+      }
+    };
+    window.addEventListener('message', listener);
+  }
+
+  async function setupGroupMe() {
+    const circleId = document.getElementById('circleId').value.trim();
+    const statusEl = document.getElementById('setupStatus');
+    const resultEl = document.getElementById('setupResult');
+    if (!circleId) { statusEl.textContent = 'Enter a circle ID.'; statusEl.className = 'status err'; return; }
+    if (!sessionToken) { statusEl.textContent = 'Log in first.'; statusEl.className = 'status err'; return; }
+
+    statusEl.textContent = 'Creating group...';
+    statusEl.className = 'status';
+    try {
+      const res = await fetch(`${apiBase()}/app/circles/${circleId}/groupme-setup`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${sessionToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+      statusEl.textContent = 'Done — check GroupMe for the new group.';
+      statusEl.className = 'status ok';
+      resultEl.textContent = JSON.stringify(data, null, 2);
+      resultEl.style.display = 'block';
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      statusEl.className = 'status err';
+    }
+  }
+</script>
+
+</body>
+</html>

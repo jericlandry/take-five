@@ -4,13 +4,13 @@ from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, APIRouter, Request, Form, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from take_five.auth import (
     auth_router, verify_admin_token, get_current_person, require_admin,
     require_ensemble_scope, person_payload, ensemble_payload,
 )
-from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply
+from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply, get_groupme_user_id
 from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms, send_sms
@@ -331,6 +331,50 @@ async def groupme_webhook(request: Request):
     return await handle_groupme_webhook(data)
 
 
+@open_router.get("/groupme/oauth/callback")
+async def groupme_oauth_callback():
+    """
+    Landing page for the GroupMe OAuth implicit-grant redirect. Opened in a
+    popup window (not an iframe — GroupMe's login page won't allow framing,
+    same as virtually every OAuth provider), never navigated to directly.
+
+    GroupMe redirects here with the token in the URL *fragment*
+    (#access_token=...), which never gets sent to a server automatically —
+    that's the whole reason this needs a small client-side script rather
+    than just reading a query param server-side. The script reads the
+    fragment, posts the token back to the window that opened the popup via
+    postMessage, then closes itself. The opener (wherever the "Connect
+    GroupMe" button lives) listens for that message and POSTs the token to
+    /app/groupme/oauth/token to actually store it. See Trello #39.
+    """
+    html = """<!DOCTYPE html>
+<html>
+<head><title>Connecting GroupMe…</title></head>
+<body style="font-family: sans-serif; text-align: center; padding-top: 3rem; color: #085041;">
+<p id="status">Connecting your GroupMe account…</p>
+<script>
+  (function () {
+    var statusEl = document.getElementById('status');
+    var params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    var token = params.get('access_token');
+    if (!token) {
+      statusEl.textContent = 'Something went wrong — no token received. You can close this window and try again.';
+      return;
+    }
+    if (window.opener) {
+      window.opener.postMessage({ source: 'takefive-groupme-oauth', access_token: token }, '*');
+      statusEl.textContent = 'Connected! This window will close automatically.';
+      setTimeout(function () { window.close(); }, 800);
+    } else {
+      statusEl.textContent = 'Connected, but this window wasn\'t opened by Take Five — you can close it.';
+    }
+  })();
+</script>
+</body>
+</html>"""
+    return Response(content=html, media_type="text/html")
+
+
 @open_router.post("/twilio/sms")
 async def receive_sms(
     From: str = Form(...),
@@ -365,11 +409,63 @@ async def health():
 @open_router.get("/app/me")
 async def app_me(person: dict = Depends(get_current_person)):
     """Validate/restore a stored session on page load."""
+    groupme_identities = repo.get_person_channel_identities(str(person["person_id"]))
+    groupme_connected = any(i["channel"] == "groupme" for i in (groupme_identities or []))
     return {
         "person": person_payload(person),
         "ensemble": ensemble_payload(person),
         "user_role": person["user_role"],
+        "groupme_connected": groupme_connected,
     }
+
+
+@open_router.post("/app/groupme/oauth/token")
+async def app_groupme_oauth_token(
+    body: dict = Body(...),
+    person: dict = Depends(require_admin),
+):
+    """
+    Exchange a GroupMe access token (captured client-side from the OAuth
+    popup's callback page — see /groupme/oauth/callback above) for stored
+    identity + credential rows on the calling admin's own person record.
+    Admin-only; always writes against the authenticated caller, never a
+    person_id from the request body — an admin can only connect their own
+    GroupMe account, not someone else's.
+
+    Calls GroupMe's GET /users/me with the token to resolve the account's
+    real GroupMe user_id (so the same account is recognized consistently
+    even if the token itself is later replaced — tokens don't carry
+    identity on their own, per Trello #39's confirmed API behavior).
+
+    Idempotent: repo.upsert_person_channel_identity is a safe no-op if this
+    exact (channel, external_id) pair is already linked to this person, and
+    repo.upsert_person_channel_credential replaces any prior stored token
+    for this person/channel outright — confirmed safe, since a new token
+    for the same GroupMe account carries identical permissions to the old
+    one (see card #39 design notes).
+    """
+    access_token = body.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="access_token is required")
+
+    person_id = str(person["person_id"])
+    try:
+        groupme_user_id = await get_groupme_user_id(access_token)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=f"Could not verify GroupMe token: {e}")
+
+    try:
+        repo.upsert_person_channel_identity(person_id, "groupme", groupme_user_id)
+    except ValueError as e:
+        # This GroupMe account is already linked to a different person —
+        # a real conflict, surfaced rather than silently overwritten (see
+        # repo.upsert_person_channel_identity's docstring).
+        raise HTTPException(status_code=409, detail=str(e))
+
+    repo.upsert_person_channel_credential(person_id, "groupme", access_token)
+
+    logger.info(f"[groupme-oauth] Connected GroupMe account {groupme_user_id} to person {person_id}")
+    return {"status": "connected", "groupme_user_id": groupme_user_id}
 
 
 @open_router.post("/app/circles/{circle_id}/groupme-setup")
@@ -380,9 +476,17 @@ async def app_groupme_setup(
     """
     Create a chat group and bot for a care circle. Admin-only.
     Routed through the chat.py dispatcher (GroupMe today; see take_five/integrations/chat.py).
+
+    Passes the calling admin's person_id through so the GroupMe group gets
+    created under *their* account (via their stored OAuth token, if they've
+    connected one — see /app/groupme/oauth/token below) rather than the
+    shared GROUPME_USER_ACCESS_TOKEN. See Trello #39. Falls back to the env
+    var automatically if this admin hasn't gone through the OAuth flow yet
+    (resolve_groupme_token's fallback), so this is safe to ship before every
+    admin has connected an account.
     """
     try:
-        result = await setup_chat_circle(circle_id)
+        result = await setup_chat_circle(circle_id, admin_person_id=str(person["person_id"]))
         return {"status": "ok", "result": result}
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))

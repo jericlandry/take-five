@@ -726,6 +726,19 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <div class="card">
         <div class="card-title">
           <svg viewBox="0 0 16 16"><path d="M10 3l3 3-3 3M6 13l-3-3 3-3M9 5l-2 6"/></svg>
+          My GroupMe connection
+        </div>
+        <div class="form-hint" style="margin-bottom:0.75rem;">
+          Connect your own GroupMe account so groups you create for your circles are owned by you, not Take Five — nothing to transfer later, and Take Five never joins or owns your family's chat. See <a href="https://trello.com/c/j4noQD1K" target="_blank" rel="noopener">card #39</a>.
+        </div>
+        <div id="groupme-connection-status" style="display:flex;align-items:center;justify-content:space-between;">
+          <span class="integration-tag" id="groupme-my-connection-tag"><span class="integration-dot"></span>Checking…</span>
+          <button class="btn btn-primary btn-sm" id="btn-connect-groupme" onclick="connectMyGroupMe()" style="display:none;">Connect GroupMe</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 16 16"><path d="M10 3l3 3-3 3M6 13l-3-3 3-3M9 5l-2 6"/></svg>
           Integrations
         </div>
         <div id="integrations-list" style="display:flex;flex-direction:column;gap:0.75rem;"></div>
@@ -1321,12 +1334,16 @@ const BASE = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.host
   ? 'http://localhost:10000'
   : 'https://take-five.onrender.com';
 
+// From registering an app at https://dev.groupme.com/ with callback URL
+// https://app.takefive.care/groupme/oauth/callback — see Trello #39.
+const GROUPME_OAUTH_CLIENT_ID = 'uFgC7jZtsn7C0ntXvMkGp0HrnaNlNMisg1TMP3s3UrNJlIJU';
+
 const SESSION_STORAGE_KEY = 'takefive_session_token';
 
 const state = {
   person: null, ensemble: null, circles: [],
   allPeople: [], activity: [], lastDigests: [], digestHistory: [], medications: [], userRole: null,
-  sessionToken: null,
+  sessionToken: null, groupmeConnected: false,
 };
 
 // ─── AUTH ───
@@ -2056,7 +2073,7 @@ function renderMedications() {
     </div>`).join('');
 }
 
-function renderSettings() {
+async function renderSettings() {
   const ens = state.ensemble;
   document.getElementById('settings-name').value = ens.name || '';
   document.getElementById('settings-plan').value = ens.plan || 'family';
@@ -2075,6 +2092,73 @@ function renderSettings() {
       </div>
     </div>`;
   }).join('') || '<div style="font-size:13px;color:var(--g400);">No circles yet.</div>';
+
+  // My GroupMe connection — fetched fresh each time Settings renders (once
+  // per boot today, see bootApp) rather than trusting stale login-time
+  // state, since this can change independently of the rest of the session
+  // (e.g. connected in another tab).
+  try {
+    const res = await apiFetch('/app/me');
+    const data = await res.json();
+    state.groupmeConnected = !!data.groupme_connected;
+  } catch {
+    // Leave state.groupmeConnected as-is on a transient failure — the tag
+    // below will just show whatever it last knew.
+  }
+  renderMyGroupMeConnection();
+}
+
+function renderMyGroupMeConnection() {
+  const tag = document.getElementById('groupme-my-connection-tag');
+  const btn = document.getElementById('btn-connect-groupme');
+  if (state.groupmeConnected) {
+    tag.className = 'integration-tag connected';
+    tag.innerHTML = '<span class="integration-dot"></span>Connected';
+    btn.style.display = 'none';
+  } else {
+    tag.className = 'integration-tag';
+    tag.innerHTML = '<span class="integration-dot"></span>Not connected';
+    btn.style.display = '';
+  }
+}
+
+// Opens a popup to GroupMe's OAuth login (implicit grant — GroupMe's login
+// page won't allow framing, so this can't be a true modal/iframe). The
+// popup lands on /groupme/oauth/callback, which reads the token out of the
+// URL fragment and posts it back here via postMessage; this function's job
+// is just to catch that message and hand the token to the backend. See
+// Trello #39 for the full design and why the token is stored per-admin
+// rather than Take Five holding its own GroupMe account.
+function connectMyGroupMe() {
+  if (!GROUPME_OAUTH_CLIENT_ID || GROUPME_OAUTH_CLIENT_ID === 'REPLACE_ME') {
+    toast('GroupMe OAuth Client ID not configured yet — see GROUPME_OAUTH_CLIENT_ID in this file', true);
+    return;
+  }
+  const width = 500, height = 650;
+  const left = window.screenX + (window.outerWidth - width) / 2;
+  const top = window.screenY + (window.outerHeight - height) / 2.5;
+  const authUrl = `https://oauth.groupme.com/oauth/authorize?client_id=${encodeURIComponent(GROUPME_OAUTH_CLIENT_ID)}`;
+  const popup = window.open(authUrl, 'groupme-connect', `width=${width},height=${height},left=${left},top=${top}`);
+
+  const listener = async (event) => {
+    if (!event.data || event.data.source !== 'takefive-groupme-oauth') return;
+    window.removeEventListener('message', listener);
+    try {
+      const res = await apiFetch('/app/groupme/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: event.data.access_token }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to connect');
+      state.groupmeConnected = true;
+      renderMyGroupMeConnection();
+      toast('GroupMe connected!');
+    } catch (e) {
+      toast('GroupMe connect failed: ' + e.message, true);
+    }
+  };
+  window.addEventListener('message', listener);
 }
 
 // ─── PANEL NAV ───

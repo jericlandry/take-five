@@ -180,6 +180,99 @@ class TakeFiveRepository:
             'clinical_access': clinical_access,
         })
 
+    # --- CHANNEL IDENTITIES (replaces people.external_id — see Trello #63) ---
+    #
+    # people.external_id is still read/written elsewhere in this file and in
+    # take_five/integrations/groupme.py during the transition — these are the
+    # new, general per-channel equivalents. Not yet wired into any caller;
+    # that migration is scoped separately (call sites in groupme.py, plus
+    # log_message/fetch_circle_roster/list_people_by_ensemble in this file).
+
+    def get_person_by_channel_identity(self, channel: str, external_id: str) -> Optional[Dict]:
+        """
+        The per-channel replacement for get_person_by_external_id(). Used on
+        the hot path (inbound webhook person lookup) — backed by the table's
+        UNIQUE(channel, external_id) constraint, so this is a direct index
+        lookup, not a scan.
+        """
+        return self._execute("""
+            SELECT p.* FROM people p
+            JOIN person_channel_identities pci ON pci.person_id = p.id
+            WHERE pci.channel = %(channel)s AND pci.external_id = %(external_id)s;
+        """, {'channel': channel, 'external_id': str(external_id)})
+
+    def get_person_channel_identities(self, person_id: str) -> List[Dict]:
+        """All known channel identities for a person — e.g. for an admin
+        view showing which platforms someone is reachable on."""
+        return self._execute("""
+            SELECT * FROM person_channel_identities
+            WHERE person_id = %(person_id)s
+            ORDER BY channel;
+        """, {'person_id': person_id}, fetch='all')
+
+    def upsert_person_channel_identity(self, person_id: str, channel: str,
+                                        external_id: str) -> Dict:
+        """
+        Link a person to a channel identity. ON CONFLICT (channel,
+        external_id) DO NOTHING — this identity may already be linked to
+        this exact person (safe re-add, e.g. re-running a backfill), but if
+        it's linked to a *different* person that's a real conflict (the
+        same GroupMe account somehow matched two people rows) that should
+        surface, not silently overwrite who owns the identity. Mirrors the
+        carefulness in add_person_to_groupme()'s own external_id backfill,
+        which never clobbers an existing value either.
+
+        Raises ValueError if the identity is already linked to a different
+        person.
+        """
+        existing = self._execute("""
+            SELECT person_id FROM person_channel_identities
+            WHERE channel = %(channel)s AND external_id = %(external_id)s;
+        """, {'channel': channel, 'external_id': str(external_id)})
+        if existing and str(existing['person_id']) != str(person_id):
+            raise ValueError(
+                f"Channel identity {channel}:{external_id} is already linked to a "
+                f"different person ({existing['person_id']}), not {person_id}"
+            )
+        return self._execute("""
+            INSERT INTO person_channel_identities (person_id, channel, external_id)
+            VALUES (%(person_id)s, %(channel)s, %(external_id)s)
+            ON CONFLICT (channel, external_id) DO NOTHING
+            RETURNING *;
+        """, {'person_id': person_id, 'channel': channel, 'external_id': str(external_id)}) or existing
+
+    def get_person_channel_credential(self, person_id: str, channel: str) -> Optional[Dict]:
+        """
+        Stored access token for a person on a channel — currently only
+        GroupMe populates this (per-admin OAuth token, card #39). Most
+        channels (WhatsApp, default-case email) never have a row here; their
+        credentials are platform-level app config, not person-scoped. See
+        migration 010_channel_identities.sql for the reasoning.
+        """
+        return self._execute("""
+            SELECT * FROM person_channel_credentials
+            WHERE person_id = %(person_id)s AND channel = %(channel)s;
+        """, {'person_id': person_id, 'channel': channel})
+
+    def upsert_person_channel_credential(self, person_id: str, channel: str,
+                                          access_token: str) -> Dict:
+        """
+        Store or replace a person's credential for a channel. A fresh OAuth
+        login for the same person/channel replaces the prior token rather
+        than adding a second row — backed by UNIQUE(person_id, channel).
+        Confirmed safe for GroupMe specifically: a new token for the same
+        account carries identical permissions to the old one, so replacing
+        rather than appending loses nothing (see card #39 design notes).
+        """
+        return self._execute("""
+            INSERT INTO person_channel_credentials (person_id, channel, access_token)
+            VALUES (%(person_id)s, %(channel)s, %(access_token)s)
+            ON CONFLICT (person_id, channel) DO UPDATE SET
+                access_token = EXCLUDED.access_token,
+                obtained_at = now()
+            RETURNING *;
+        """, {'person_id': person_id, 'channel': channel, 'access_token': access_token})
+
     def add_person_to_ensemble(self, ensemble_id: str, name: str, **kwargs) -> Dict:
         """
         clinical_access (kwarg, default False): decided once, here, at

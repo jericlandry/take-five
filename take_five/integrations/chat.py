@@ -24,18 +24,23 @@ from take_five.integrations import groupme
 logger = logging.getLogger(__name__)
 
 
-async def setup_chat_circle(circle_id: str) -> dict:
+async def setup_chat_circle(circle_id: str, admin_person_id: str = None) -> dict:
     """
     Create a chat group/bot for a care circle on its configured chat
     platform, and lock down member management to admin-only so the Take
     Five admin app becomes the sole path for adding chat members going
     forward (a GroupMe-native member add is blocked once this runs).
 
+    admin_person_id: the person whose account should create (and own) the
+    group — see groupme.setup_groupme_circle() / Trello #39. Optional and
+    defaults to None (falls back to GROUPME_USER_ACCESS_TOKEN) purely for
+    backward compatibility with callers not yet updated to pass it.
+
     Only GroupMe is implemented today; this is the dispatch point where a
     second platform plugs in without touching callers.
     """
     # No per-circle channel selection yet — see module docstring.
-    return await groupme.setup_groupme_circle(circle_id)
+    return await groupme.setup_groupme_circle(circle_id, admin_person_id=admin_person_id)
 
 
 async def add_person_to_chat(circle_id: str, person_id: str) -> dict:
