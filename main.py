@@ -338,13 +338,17 @@ async def groupme_oauth_callback():
     popup window (not an iframe — GroupMe's login page won't allow framing,
     same as virtually every OAuth provider), never navigated to directly.
 
-    GroupMe redirects here with the token in the URL *fragment*
-    (#access_token=...), which never gets sent to a server automatically —
-    that's the whole reason this needs a small client-side script rather
-    than just reading a query param server-side. The script reads the
-    fragment, posts the token back to the window that opened the popup via
-    postMessage, then closes itself. The opener (wherever the "Connect
-    GroupMe" button lives) listens for that message and POSTs the token to
+    GroupMe's own docs describe the token arriving in the URL *fragment*
+    (#access_token=...), which never reaches a server automatically —
+    that's why this needs a client-side script at all rather than a plain
+    server-side query param read. In practice (confirmed live, 2026-08-03),
+    GroupMe actually delivers it as a *query string* param instead
+    (?access_token=...), contradicting the docs. The script below checks
+    both, so it works regardless of which one GroupMe actually does on any
+    given day. The script reads whichever is present, posts the token back
+    to the window that opened the popup via postMessage, then closes
+    itself. The opener (wherever the "Connect GroupMe" button lives)
+    listens for that message and POSTs the token to
     /app/groupme/oauth/token to actually store it. See Trello #39.
     """
     html = """<!DOCTYPE html>
@@ -355,8 +359,9 @@ async def groupme_oauth_callback():
 <script>
   (function () {
     var statusEl = document.getElementById('status');
-    var params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    var token = params.get('access_token');
+    var hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    var queryParams = new URLSearchParams(window.location.search);
+    var token = hashParams.get('access_token') || queryParams.get('access_token');
     if (!token) {
       statusEl.textContent = 'Something went wrong — no token received. You can close this window and try again.';
       return;
