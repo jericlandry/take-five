@@ -444,8 +444,15 @@ async def health():
 @open_router.get("/app/me")
 async def app_me(person: dict = Depends(get_current_person)):
     """Validate/restore a stored session on page load."""
-    groupme_identities = repo.get_person_channel_identities(str(person["person_id"]))
-    groupme_connected = any(i["channel"] == "groupme" for i in (groupme_identities or []))
+    # Deliberately checks person_channel_credentials (a live, usable OAuth
+    # token), not person_channel_identities. A person can have a known
+    # GroupMe identity (e.g. backfilled from the old flat external_id
+    # column, card #63) without ever having gone through the OAuth flow —
+    # checking identities here would show "Connected" for people who
+    # haven't actually authorized anything, which is exactly the false
+    # positive found testing this on 2026-08-03.
+    groupme_credential = repo.get_person_channel_credential(str(person["person_id"]), "groupme")
+    groupme_connected = groupme_credential is not None
     return {
         "person": person_payload(person),
         "ensemble": ensemble_payload(person),
