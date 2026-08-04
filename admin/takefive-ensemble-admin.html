@@ -735,6 +735,13 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
           <span class="integration-tag" id="groupme-my-connection-tag"><span class="integration-dot"></span>Checking…</span>
           <button class="btn btn-primary btn-sm" id="btn-connect-groupme" onclick="connectMyGroupMe()" style="display:none;">Connect GroupMe</button>
         </div>
+        <div style="margin-top:0.6rem;">
+          <a href="#" onclick="document.getElementById('groupme-manual-entry').style.display='flex';this.style.display='none';return false;" style="font-size:12px;color:var(--g600);">Having trouble? Paste your code manually</a>
+          <div id="groupme-manual-entry" style="display:none;gap:0.5rem;margin-top:0.5rem;">
+            <input id="groupme-manual-token" placeholder="paste code from the connect window" style="flex:1;padding:0.5rem;font-size:13px;border:1px solid var(--g200);border-radius:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="submitManualGroupMeToken()">Submit</button>
+          </div>
+        </div>
       </div>
       <div class="card">
         <div class="card-title">
@@ -2143,22 +2150,33 @@ function connectMyGroupMe() {
   const listener = async (event) => {
     if (!event.data || event.data.source !== 'takefive-groupme-oauth') return;
     window.removeEventListener('message', listener);
-    try {
-      const res = await apiFetch('/app/groupme/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: event.data.access_token }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to connect');
-      state.groupmeConnected = true;
-      renderMyGroupMeConnection();
-      toast('GroupMe connected!');
-    } catch (e) {
-      toast('GroupMe connect failed: ' + e.message, true);
-    }
+    await submitGroupMeToken(event.data.access_token);
   };
   window.addEventListener('message', listener);
+}
+
+async function submitManualGroupMeToken() {
+  const token = document.getElementById('groupme-manual-token').value.trim();
+  if (!token) { toast('Paste the code first', true); return; }
+  await submitGroupMeToken(token);
+}
+
+async function submitGroupMeToken(accessToken) {
+  try {
+    const res = await apiFetch('/app/groupme/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to connect');
+    state.groupmeConnected = true;
+    renderMyGroupMeConnection();
+    document.getElementById('groupme-manual-entry').style.display = 'none';
+    toast('GroupMe connected!');
+  } catch (e) {
+    toast('GroupMe connect failed: ' + e.message, true);
+  }
 }
 
 // ─── PANEL NAV ───

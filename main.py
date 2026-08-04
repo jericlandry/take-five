@@ -356,28 +356,58 @@ async def groupme_oauth_callback():
 <head><title>Connecting GroupMe…</title></head>
 <body style="font-family: sans-serif; text-align: center; padding-top: 3rem; color: #085041;">
 <p id="status">Connecting your GroupMe account…</p>
+<div id="manual" style="display:none; margin-top:1.5rem; font-size:0.85rem; color:#6B6763;">
+  <p>Automatic connection didn't complete (this can happen in Safari). Copy this code and paste it into the "Connect GroupMe" box in Take Five:</p>
+  <input id="tokenBox" readonly style="width:80%;max-width:400px;padding:0.5rem;margin-top:0.5rem;font-family:monospace;" onclick="this.select()">
+</div>
 <script>
   (function () {
     var statusEl = document.getElementById('status');
-    var hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    var queryParams = new URLSearchParams(window.location.search);
-    var token = hashParams.get('access_token') || queryParams.get('access_token');
-    if (!token) {
-      statusEl.textContent = 'Something went wrong — no token received. You can close this window and try again.';
-      return;
+    function showManualFallback(token, reason) {
+      statusEl.textContent = 'Connected — finish this step manually:';
+      document.getElementById('manual').style.display = 'block';
+      document.getElementById('tokenBox').value = token;
+      console.warn('[takefive-groupme-oauth] Falling back to manual token entry:', reason);
     }
-    if (window.opener) {
-      window.opener.postMessage({ source: 'takefive-groupme-oauth', access_token: token }, '*');
-      statusEl.textContent = 'Connected! This window will close automatically.';
-      setTimeout(function () { window.close(); }, 800);
-    } else {
-      statusEl.textContent = 'Connected, but this window wasn\'t opened by Take Five — you can close it.';
+    try {
+      var hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      var queryParams = new URLSearchParams(window.location.search);
+      var token = hashParams.get('access_token') || queryParams.get('access_token');
+      if (!token) {
+        statusEl.textContent = 'Something went wrong — no token received. You can close this window and try again.';
+        return;
+      }
+      var opener;
+      try {
+        opener = window.opener;
+      } catch (e) {
+        showManualFallback(token, 'window.opener threw: ' + e.message);
+        return;
+      }
+      if (!opener) {
+        showManualFallback(token, 'window.opener is null/undefined');
+        return;
+      }
+      try {
+        opener.postMessage({ source: 'takefive-groupme-oauth', access_token: token }, '*');
+        statusEl.textContent = 'Connected! This window will close automatically.';
+        setTimeout(function () { window.close(); }, 800);
+      } catch (e) {
+        showManualFallback(token, 'postMessage threw: ' + e.message);
+      }
+    } catch (e) {
+      statusEl.textContent = 'Something went wrong (' + e.message + '). You can close this window and try again.';
+      console.error('[takefive-groupme-oauth]', e);
     }
   })();
 </script>
 </body>
 </html>"""
-    return Response(content=html, media_type="text/html")
+    return Response(
+        content=html,
+        media_type="text/html",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
 
 
 @open_router.post("/twilio/sms")
