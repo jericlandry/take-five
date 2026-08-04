@@ -729,7 +729,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
           My GroupMe connection
         </div>
         <div class="form-hint" style="margin-bottom:0.75rem;">
-          Connect your own GroupMe account so groups you create for your circles are owned by you, not Take Five — nothing to transfer later, and Take Five never joins or owns your family's chat. See <a href="https://trello.com/c/j4noQD1K" target="_blank" rel="noopener">card #39</a>.
+          Connect your own GroupMe account so groups you create for your circles are owned by you, not Take Five — nothing to transfer later, and Take Five never joins or owns your family's chat. You'll also be prompted here automatically the first time you set up GroupMe for a circle. See <a href="https://trello.com/c/j4noQD1K" target="_blank" rel="noopener">card #39</a>.
         </div>
         <div id="groupme-connection-status" style="display:flex;align-items:center;justify-content:space-between;">
           <span class="integration-tag" id="groupme-my-connection-tag"><span class="integration-dot"></span>Checking…</span>
@@ -2132,51 +2132,104 @@ function renderMyGroupMeConnection() {
 // Opens a popup to GroupMe's OAuth login (implicit grant — GroupMe's login
 // page won't allow framing, so this can't be a true modal/iframe). The
 // popup lands on /groupme/oauth/callback, which reads the token out of the
-// URL fragment and posts it back here via postMessage; this function's job
-// is just to catch that message and hand the token to the backend. See
-// Trello #39 for the full design and why the token is stored per-admin
-// rather than Take Five holding its own GroupMe account.
-function connectMyGroupMe() {
-  if (!GROUPME_OAUTH_CLIENT_ID || GROUPME_OAUTH_CLIENT_ID === 'REPLACE_ME') {
-    toast('GroupMe OAuth Client ID not configured yet — see GROUPME_OAUTH_CLIENT_ID in this file', true);
-    return;
-  }
-  const width = 500, height = 650;
-  const left = window.screenX + (window.outerWidth - width) / 2;
-  const top = window.screenY + (window.outerHeight - height) / 2.5;
-  const authUrl = `https://oauth.groupme.com/oauth/authorize?client_id=${encodeURIComponent(GROUPME_OAUTH_CLIENT_ID)}`;
-  const popup = window.open(authUrl, 'groupme-connect', `width=${width},height=${height},left=${left},top=${top}`);
+// URL fragment/query string and posts it back here via postMessage. Returns
+// a Promise that resolves once the token has been captured AND stored via
+// submitGroupMeToken — or rejects if the user closes the popup without
+// completing it. See Trello #39 for the full design and why the token is
+// stored per-admin rather than Take Five holding its own GroupMe account.
+//
+// Shared by both the Settings "Connect GroupMe" button (connectMyGroupMe,
+// standalone) and ensureGroupMeConnected (triggered inline from "Set up
+// GroupMe" on a circle when the admin hasn't connected yet) — one popup
+// implementation, two call sites.
+function openGroupMeConnectPopup() {
+  return new Promise((resolve, reject) => {
+    if (!GROUPME_OAUTH_CLIENT_ID || GROUPME_OAUTH_CLIENT_ID === 'REPLACE_ME') {
+      reject(new Error('GroupMe OAuth Client ID not configured — see GROUPME_OAUTH_CLIENT_ID in this file'));
+      return;
+    }
+    const width = 500, height = 650;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2.5;
+    const authUrl = `https://oauth.groupme.com/oauth/authorize?client_id=${encodeURIComponent(GROUPME_OAUTH_CLIENT_ID)}`;
+    const popup = window.open(authUrl, 'groupme-connect', `width=${width},height=${height},left=${left},top=${top}`);
 
-  const listener = async (event) => {
-    if (!event.data || event.data.source !== 'takefive-groupme-oauth') return;
-    window.removeEventListener('message', listener);
-    await submitGroupMeToken(event.data.access_token);
-  };
-  window.addEventListener('message', listener);
+    let settled = false;
+    const listener = async (event) => {
+      if (!event.data || event.data.source !== 'takefive-groupme-oauth') return;
+      window.removeEventListener('message', listener);
+      clearInterval(closedCheck);
+      try {
+        await submitGroupMeToken(event.data.access_token);
+        settled = true;
+        resolve();
+      } catch (e) {
+        settled = true;
+        reject(e);
+      }
+    };
+    window.addEventListener('message', listener);
+
+    // If the user closes the popup without ever authorizing (changed their
+    // mind, closed by accident), don't leave the caller hanging forever —
+    // reject so "Set up GroupMe" can reset its button state instead of
+    // showing "Setting up…" indefinitely.
+    const closedCheck = setInterval(() => {
+      if (popup && popup.closed && !settled) {
+        clearInterval(closedCheck);
+        window.removeEventListener('message', listener);
+        reject(new Error('GroupMe connect window was closed before finishing'));
+      }
+    }, 500);
+  });
+}
+
+async function connectMyGroupMe() {
+  try {
+    await openGroupMeConnectPopup();
+  } catch (e) {
+    toast('GroupMe connect failed: ' + e.message, true);
+  }
+}
+
+// Ensures the calling admin has a usable GroupMe token before an action
+// that needs one (currently: setupGroupMe). Returns immediately if already
+// connected (the common case once an admin has connected once — no popup,
+// no interruption). Otherwise opens the connect popup inline and waits for
+// it, so connecting happens at the moment it's actually needed rather than
+// requiring a separate trip to Settings first.
+async function ensureGroupMeConnected() {
+  if (state.groupmeConnected) return;
+  toast('Connect your GroupMe account to continue…');
+  await openGroupMeConnectPopup();
 }
 
 async function submitManualGroupMeToken() {
   const token = document.getElementById('groupme-manual-token').value.trim();
   if (!token) { toast('Paste the code first', true); return; }
-  await submitGroupMeToken(token);
-}
-
-async function submitGroupMeToken(accessToken) {
   try {
-    const res = await apiFetch('/app/groupme/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_token: accessToken }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to connect');
-    state.groupmeConnected = true;
-    renderMyGroupMeConnection();
-    document.getElementById('groupme-manual-entry').style.display = 'none';
-    toast('GroupMe connected!');
+    await submitGroupMeToken(token);
   } catch (e) {
     toast('GroupMe connect failed: ' + e.message, true);
   }
+}
+
+// Stores a captured GroupMe access token via the backend. Throws on
+// failure so callers (openGroupMeConnectPopup, submitManualGroupMeToken)
+// can react — each caller is responsible for its own toast/UI handling on
+// failure rather than this function assuming how it's being used.
+async function submitGroupMeToken(accessToken) {
+  const res = await apiFetch('/app/groupme/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ access_token: accessToken }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Failed to connect');
+  state.groupmeConnected = true;
+  renderMyGroupMeConnection();
+  document.getElementById('groupme-manual-entry').style.display = 'none';
+  toast('GroupMe connected!');
 }
 
 // ─── PANEL NAV ───
@@ -3661,6 +3714,11 @@ async function setupGroupMe() {
   btn.disabled = true;
   btn.textContent = 'Setting up…';
   try {
+    // If this admin hasn't connected their own GroupMe account yet, do it
+    // inline here rather than requiring a separate trip to Settings first
+    // (see Trello #39). Once connected — here or previously — this is a
+    // no-op and setup proceeds immediately.
+    await ensureGroupMeConnected();
     const res = await apiFetch(`/app/circles/${circleId}/groupme-setup`, {
       method: 'POST',
     });
