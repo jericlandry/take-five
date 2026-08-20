@@ -29,7 +29,7 @@ def already_sent_check_in_today(circle_id: str, as_of: Optional[datetime] = None
     """
     reference_time = as_of or datetime.now(timezone.utc)
     start_of_day = reference_time.replace(hour=0, minute=0, second=0, microsecond=0)
-    messages = repo.get_messages(circle_id, start_date=start_of_day, end_date=reference_time)
+    messages = repo.get_messages([circle_id], start_date=start_of_day, end_date=reference_time)
     return any(m["message_type"] == "check_in" for m in messages)
 
 
