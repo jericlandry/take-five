@@ -1061,6 +1061,59 @@ async def app_generate_prep_packet(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@open_router.get("/app/circles/{circle_id}/reference-threads")
+async def app_get_circle_reference_threads(
+    circle_id: str,
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
+):
+    """Thread labels already logged for this circle via the References
+    section. Admin-only — same gate as adding members or medications."""
+    threads = repo.get_reference_threads(circle_id)
+    return {"threads": row_list_to_dict_list(threads)}
+
+
+@open_router.get("/app/circles/{circle_id}/reference-threads/{thread_label}")
+async def app_get_circle_reference_thread_messages(
+    circle_id: str,
+    thread_label: str,
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
+):
+    messages = repo.get_reference_messages(circle_id, thread_label)
+    return {"messages": row_list_to_dict_list(messages)}
+
+
+@open_router.post("/app/circles/{circle_id}/reference-threads")
+async def app_create_circle_reference_thread(
+    circle_id: str,
+    body: CreateReferenceThreadRequest,
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
+):
+    """
+    Admin-entered external reference content (email threads, documents) that
+    predates ingestion — ensemble-admin counterpart to the superadmin route
+    of the same shape. Each entry becomes its own messages row with
+    message_type='external_reference', keeping it out of the weekly digest
+    while remaining fully retrievable via ask() and decision support.
+    """
+    entries = [
+        {
+            'person_id': m.person_id,
+            'external_name': m.external_name,
+            'external_org': m.external_org,
+            'sent_at': m.sent_at,
+            'body': m.body,
+        }
+        for m in body.messages
+    ]
+    inserted = repo.insert_reference_messages(
+        circle_id=circle_id,
+        channel=body.channel,
+        thread_label=body.thread_label,
+        entries=entries,
+    )
+    return {"messages": row_list_to_dict_list(inserted)}
+
+
 async def _send_sms_invite(person_id: str, circle_id: str) -> dict:
     """
     Send an SMS invite to a person on behalf of a specific circle, so they
