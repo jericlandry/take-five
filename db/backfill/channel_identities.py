@@ -17,9 +17,9 @@ e.g. "groupme:123456"):
      should be reviewed manually, not silently backfilled wrong.
 
 Usage:
-    python backfill_channel_identities.py                # dry run by default
-    python backfill_channel_identities.py --apply         # actually write
-    python backfill_channel_identities.py --apply --ensemble-id <uuid>  # scope to one ensemble first
+    python db/backfill/channel_identities.py                # dry run by default
+    python db/backfill/channel_identities.py --apply         # actually write
+    python db/backfill/channel_identities.py --apply --ensemble-id <uuid>  # scope to one ensemble first
 
 Requirements:
     - .env file in project root with DB_USER / DB_PASSWORD set

@@ -5,10 +5,10 @@ One-time script to extract clinical signals from all historical messages.
 Run locally against the production DB.
 
 Usage:
-    python backfill_signals.py                    # Addams Family only (safe default)
-    python backfill_signals.py --ensemble landry  # Landry Family only
-    python backfill_signals.py --ensemble all     # Both ensembles
-    python backfill_signals.py --dry-run          # Print what would be processed, no DB writes
+    python db/backfill/signals.py                    # Addams Family only (safe default)
+    python db/backfill/signals.py --ensemble landry  # Landry Family only
+    python db/backfill/signals.py --ensemble all     # Both ensembles
+    python db/backfill/signals.py --dry-run          # Print what would be processed, no DB writes
 
 Requirements:
     - .env file in project root with DATABASE_URL set
@@ -20,7 +20,9 @@ import asyncio
 import json
 import logging
 import re
+import sys
 import time
+from pathlib import Path
 from typing import Optional
 
 import psycopg2
@@ -29,6 +31,11 @@ from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 import os
 
+# Moved from repo root to db/backfill/ for organization (was previously
+# alongside main.py, which put script's own directory on sys.path and made
+# `from take_five...` resolve automatically). Two levels deeper now, so the
+# repo root has to be added explicitly.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from take_five.signals import DETECTION_PROMPT
 
 load_dotenv()
@@ -342,7 +349,7 @@ if __name__ == "__main__":
         print("\nAvailable ensembles:")
         for e in ensembles:
             print(f"  {e['id']}  {e['name']}")
-        print("\nRun with: python backfill_signals.py --ensemble-id <uuid>")
+        print("\nRun with: python db/backfill/signals.py --ensemble-id <uuid>")
     else:
         ensemble_name = get_ensemble_name(conn, args.ensemble_id)
         conn.close()

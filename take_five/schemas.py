@@ -109,6 +109,20 @@ class DigestRequest(BaseModel):
     end_date: Optional[datetime] = None
 
 
+class ReferenceMessageEntry(BaseModel):
+    person_id: Optional[str] = None       # matched ensemble member, if any
+    external_name: Optional[str] = None    # set when person_id is None
+    external_org: Optional[str] = None
+    sent_at: datetime
+    body: str
+
+
+class CreateReferenceThreadRequest(BaseModel):
+    thread_label: str
+    channel: str  # 'email' | 'document' | 'other'
+    messages: List[ReferenceMessageEntry]
+
+
 class RequestOtpRequest(BaseModel):
     phone: str
 

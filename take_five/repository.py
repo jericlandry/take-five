@@ -624,6 +624,42 @@ class TakeFiveRepository:
             )
         return self._execute(query, params)
 
+    def insert_reference_messages(self, circle_id: str, channel: str,
+                                   thread_label: str, entries: List[Dict]) -> List[Dict]:
+        """
+        Backfills external reference content (email threads, documents) added
+        manually via the admin References tab. Unlike log_message, this takes
+        an internal circle_id directly (admin already has it, no external_id
+        subquery needed) and an explicit historical sent_at per entry, since
+        this content predates ingestion.
+
+        entries: list of dicts with keys person_id (optional), external_name
+                 (optional, used when person_id is None), external_org
+                 (optional), sent_at (datetime), body (str).
+
+        message_type is fixed to 'external_reference' so the digest generator
+        can exclude this content from "what happened this week" summaries
+        while ask() and decision support can still retrieve it.
+        """
+        inserted = []
+        for entry in entries:
+            raw_data = {
+                'thread_label': thread_label,
+                'external_name': entry.get('external_name'),
+                'external_org': entry.get('external_org'),
+            }
+            query = """
+                INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel, sent_at)
+                VALUES (%s, %s, 'external_reference', 'inbound', %s, %s, %s, %s)
+                RETURNING *;
+            """
+            params = (
+                str(circle_id), entry.get('person_id'), entry['body'],
+                Json(raw_data), channel, entry['sent_at'],
+            )
+            inserted.append(self._execute(query, params))
+        return inserted
+
     def get_messages(self, circle_ids: List[str], start_date: datetime = None,
                      end_date: datetime = None, limit: int = None) -> List[Dict]:
         """
@@ -662,6 +698,41 @@ class TakeFiveRepository:
             params.append(limit)
 
         return self._execute(query, tuple(params), fetch='all')
+
+    def get_reference_threads(self, circle_id: str) -> List[Dict]:
+        """
+        Distinct thread labels already logged for a circle via the admin
+        References tab, with a count and most recent sent_at — powers the
+        "already logged for this thread" panel so an admin can see where
+        they left off before pasting more of a thread.
+        """
+        return self._execute("""
+            SELECT
+                raw->>'thread_label' AS thread_label,
+                COUNT(*) AS message_count,
+                MAX(sent_at) AS last_sent_at
+            FROM messages
+            WHERE circle_id = %(circle_id)s
+              AND message_type = 'external_reference'
+            GROUP BY raw->>'thread_label'
+            ORDER BY MAX(sent_at) DESC;
+        """, {'circle_id': str(circle_id)}, fetch='all')
+
+    def get_reference_messages(self, circle_id: str, thread_label: str) -> List[Dict]:
+        """Messages already logged for one thread label, oldest first."""
+        return self._execute("""
+            SELECT
+                m.sent_at,
+                COALESCE(p.name, m.raw->>'external_name') AS sender_name,
+                (m.person_id IS NULL) AS is_external,
+                m.body
+            FROM messages m
+            LEFT JOIN people p ON m.person_id = p.id
+            WHERE m.circle_id = %(circle_id)s
+              AND m.message_type = 'external_reference'
+              AND m.raw->>'thread_label' = %(thread_label)s
+            ORDER BY m.sent_at ASC;
+        """, {'circle_id': str(circle_id), 'thread_label': thread_label}, fetch='all')
 
     def get_message_by_id(self, message_id: str) -> Optional[Dict]:
         """Fetch a single message with author_name resolved, for citing the

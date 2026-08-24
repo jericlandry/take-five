@@ -290,9 +290,10 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
     </div>
     <div class="tabs">
-      <button class="tab active" id="ctab-roster"    onclick="switchCircleTab('roster')">Roster</button>
-      <button class="tab"        id="ctab-config"    onclick="switchCircleTab('config')">Config</button>
-      <button class="tab"        id="ctab-analytics" onclick="switchCircleTab('analytics')">Analytics</button>
+      <button class="tab active" id="ctab-roster"     onclick="switchCircleTab('roster')">Roster</button>
+      <button class="tab"        id="ctab-config"     onclick="switchCircleTab('config')">Config</button>
+      <button class="tab"        id="ctab-analytics"  onclick="switchCircleTab('analytics')">Analytics</button>
+      <button class="tab"        id="ctab-references" onclick="switchCircleTab('references')">References</button>
     </div>
 
     <!-- ROSTER TAB -->
@@ -368,6 +369,18 @@ tbody tr:last-child td { border-bottom: none; }
           <div class="card-title">Trending words</div>
           <div style="position:relative;height:160px;"><canvas id="an-word-cloud"></canvas></div>
         </div>
+      </div>
+    </div>
+
+    <!-- REFERENCES TAB -->
+    <div id="circle-tab-references" style="display:none;">
+      <div class="page-header" style="margin-bottom:1rem;">
+        <div class="page-sub">Add external content (email threads, documents) that predates ingestion. Retrievable via ask() and decision support; excluded from the weekly digest.</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddReference()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Reference</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>Reference threads</div>
+        <div class="table-wrap"><table><thead><tr><th>Thread</th><th class="center">Messages</th><th>Last message</th><th></th></tr></thead><tbody id="reference-threads-tbody"></tbody></table></div>
       </div>
     </div>
   </div>
@@ -484,6 +497,21 @@ tbody tr:last-child td { border-bottom: none; }
 <div class="field" style="margin-bottom:0.75rem;"><label>Select Person</label><div class="member-pick" id="member-pick-list"></div></div>
 <div class="field" style="margin-bottom:0;"><label>Role in this Circle *</label><select id="member-role"><option value="senior">Senior (care recipient)</option><option value="family">Family</option><option value="friend">Friend / neighbor</option><option value="caregiver">Caregiver</option></select></div>
 <div class="form-actions"><button class="btn btn-primary" id="btn-add-member" onclick="addMember()">Add to Circle</button><button class="btn btn-ghost" onclick="closeModal('modal-add-member')">Cancel</button></div>
+</div></div>
+
+<!-- Add Reference -->
+<div class="modal-backdrop" id="modal-add-reference"><div class="modal" style="width:600px;"><div class="modal-header"><div class="modal-title">Add Reference</div><button class="modal-close" onclick="closeModal('modal-add-reference')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="form-row cols-2">
+  <div class="field"><label>Source type</label><select id="ref-channel"><option value="email">Email thread</option><option value="document">Document</option><option value="other">Other</option></select></div>
+  <div class="field"><label>Thread label *</label><input type="text" id="ref-thread-label" placeholder="Mary Ellen and John Landry, EdenHill" onblur="checkRefExistingThread()"/></div>
+</div>
+<div id="ref-existing-wrap" style="display:none;background:var(--cream);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-bottom:0.75rem;">
+  <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--g600);margin-bottom:6px;">Already logged for this thread</div>
+  <div id="ref-existing-list" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--g600);"></div>
+</div>
+<div id="ref-blocks"></div>
+<button type="button" class="btn btn-ghost btn-sm" onclick="addRefBlock()">+ Add another message</button>
+<div class="form-actions"><button class="btn btn-primary" id="btn-save-reference" onclick="saveReferenceThread()">Save Thread</button><button class="btn btn-ghost" onclick="closeModal('modal-add-reference')">Cancel</button></div>
 </div></div>
 
 <!-- Edit Care Team Member -->
@@ -931,11 +959,12 @@ function backToCircles() {
 }
 
 function switchCircleTab(tab) {
-  ['roster','config','analytics'].forEach(t => {
+  ['roster','config','analytics','references'].forEach(t => {
     document.getElementById('circle-tab-'+t).style.display = t === tab ? '' : 'none';
     document.getElementById('ctab-'+t).classList.toggle('active', t === tab);
   });
   if (tab === 'analytics') { loadCircleAnalytics(); loadCircleTopics(); }
+  if (tab === 'references') { loadReferenceThreads(); }
 }
 
 function setAnalyticsPeriod(days) {
@@ -1176,6 +1205,153 @@ async function addMember() {
 }
 
 window.openModal = openModal; window.closeModal = closeModal; window.addMember = addMember;
+
+// ─── REFERENCES ───
+
+let refBlockCount = 0;
+let refCircleMemberIds = new Set();
+
+async function loadReferenceThreads() {
+  if (!state.currentCircleId) return;
+  const data = await api('GET', `/circles/${state.currentCircleId}/reference-threads`);
+  if (!data) return;
+  renderReferenceThreads(data.threads || []);
+}
+
+function renderReferenceThreads(threads) {
+  const tbody = document.getElementById('reference-threads-tbody');
+  if (!threads.length) { tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="empty-title">No references yet</div><div class="empty-sub">Add an email thread or document to get started</div></div></td></tr>`; return; }
+  tbody.innerHTML = threads.map(t => {
+    const last = t.last_sent_at ? new Date(t.last_sent_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '—';
+    return `<tr>
+      <td><strong>${t.thread_label}</strong></td>
+      <td class="center">${t.message_count}</td>
+      <td style="font-size:12px;color:var(--g600);">${last}</td>
+      <td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="openAddReference('${t.thread_label.replace(/'/g,"\\'")}')">Add more →</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openAddReference(existingLabel) {
+  if (!state.currentCircleId) { toast('No circle selected', true); return; }
+
+  // Circle members sort to the top of the sender list, but the picker
+  // stays ensemble-wide — admin access is ensemble-scoped, and narrowing
+  // to circle membership would silently misattribute a real ensemble
+  // member (e.g. cc'd on an email) as external.
+  const rosterData = await api('GET', `/circles/${state.currentCircleId}/people`);
+  refCircleMemberIds = new Set((rosterData?.people || []).map(m => m.id));
+
+  document.getElementById('ref-channel').value = 'email';
+  document.getElementById('ref-thread-label').value = existingLabel || '';
+  document.getElementById('ref-blocks').innerHTML = '';
+  refBlockCount = 0;
+  document.getElementById('ref-existing-wrap').style.display = 'none';
+
+  if (existingLabel) { await checkRefExistingThread(existingLabel); }
+  else { addRefBlock(); addRefBlock(); }
+
+  openModal('modal-add-reference');
+}
+
+async function checkRefExistingThread(label) {
+  label = (label || document.getElementById('ref-thread-label').value).trim();
+  const wrap = document.getElementById('ref-existing-wrap');
+  if (!label || !state.currentCircleId) { wrap.style.display = 'none'; return; }
+  const data = await api('GET', `/circles/${state.currentCircleId}/reference-threads/${encodeURIComponent(label)}`);
+  const msgs = data?.messages || [];
+  if (!msgs.length) { wrap.style.display = 'none'; document.getElementById('ref-blocks').innerHTML = ''; refBlockCount = 0; addRefBlock(); return; }
+  wrap.style.display = '';
+  document.getElementById('ref-existing-list').innerHTML = msgs.map(m => {
+    const when = new Date(m.sent_at).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    return `<div style="display:flex;justify-content:space-between;gap:1rem;"><span>${m.sender_name || 'Unknown'}${m.is_external ? ' (external)' : ''}</span><span>${when}</span></div>`;
+  }).join('');
+  document.getElementById('ref-blocks').innerHTML = '';
+  refBlockCount = 0;
+  addRefBlock();
+}
+
+function sortedRefPeople() {
+  return [...state.people].sort((a, b) => {
+    const aMember = refCircleMemberIds.has(a.id) ? 0 : 1;
+    const bMember = refCircleMemberIds.has(b.id) ? 0 : 1;
+    return aMember - bMember || a.name.localeCompare(b.name);
+  });
+}
+
+function addRefBlock() {
+  refBlockCount++;
+  const n = refBlockCount;
+  const options = sortedRefPeople().map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  const html = `<div class="card" id="ref-block-${n}" style="margin-bottom:0.75rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <div class="card-title" style="margin-bottom:0;">Message ${n}</div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ref-block-${n}').remove()">Remove</button>
+    </div>
+    <div class="form-row cols-2">
+      <div class="field"><label>Sender</label><select class="ref-sender" onchange="toggleRefExternal(this)"><option value="">— External sender —</option>${options}</select></div>
+      <div class="field"><label>Sent at</label><input type="datetime-local" class="ref-sent-at"/></div>
+    </div>
+    <div class="form-row cols-2 ref-external-fields" style="display:none;">
+      <div class="field"><label>External name</label><input type="text" class="ref-ext-name" placeholder="Jennifer Smith"/></div>
+      <div class="field"><label>External org</label><input type="text" class="ref-ext-org" placeholder="EdenHill Communities"/></div>
+    </div>
+    <div class="field"><label>Body</label><textarea class="ref-body" placeholder="Paste the message text"></textarea></div>
+  </div>`;
+  document.getElementById('ref-blocks').insertAdjacentHTML('beforeend', html);
+  const block = document.getElementById('ref-block-' + n);
+  toggleRefExternal(block.querySelector('.ref-sender'));
+}
+
+function toggleRefExternal(select) {
+  const block = select.closest('.card');
+  block.querySelector('.ref-external-fields').style.display = select.value ? 'none' : '';
+}
+
+async function saveReferenceThread() {
+  const threadLabel = document.getElementById('ref-thread-label').value.trim();
+  const channel = document.getElementById('ref-channel').value;
+  if (!threadLabel) { toast('Thread label is required', true); return; }
+
+  const blocks = [...document.querySelectorAll('#ref-blocks .card')];
+  if (!blocks.length) { toast('Add at least one message', true); return; }
+
+  const messages = [];
+  for (const block of blocks) {
+    const personId = block.querySelector('.ref-sender').value;
+    const sentAt = block.querySelector('.ref-sent-at').value;
+    const body = block.querySelector('.ref-body').value.trim();
+    const extName = block.querySelector('.ref-ext-name').value.trim();
+    const extOrg = block.querySelector('.ref-ext-org').value.trim();
+
+    if (!sentAt) { toast('Every message needs a sent-at time', true); return; }
+    if (!body) { toast('Every message needs a body', true); return; }
+    if (!personId && !extName) { toast('Pick a sender or enter an external name', true); return; }
+
+    messages.push({
+      person_id: personId || null,
+      external_name: personId ? null : extName,
+      external_org: personId ? null : (extOrg || null),
+      sent_at: new Date(sentAt).toISOString(),
+      body,
+    });
+  }
+
+  setLoading('btn-save-reference', true);
+  const data = await api('POST', `/circles/${state.currentCircleId}/reference-threads`, {
+    thread_label: threadLabel, channel, messages,
+  });
+  setLoading('btn-save-reference', false);
+  if (!data) return;
+
+  toast(`${data.messages.length} message(s) added to thread`);
+  closeModal('modal-add-reference');
+  await loadReferenceThreads();
+}
+
+window.openAddReference = openAddReference; window.addRefBlock = addRefBlock;
+window.toggleRefExternal = toggleRefExternal; window.saveReferenceThread = saveReferenceThread;
+window.checkRefExistingThread = checkRefExistingThread;
 
 // ─── PERSON DETAIL ───
 async function openPersonDetail(personId) {

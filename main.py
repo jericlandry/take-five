@@ -26,6 +26,7 @@ from take_five.schemas import (
     InvitePersonRequest,
     CreateLeadRequest,
     MessageRequest, DigestRequest,
+    CreateReferenceThreadRequest,
 )
 from take_five.summaries import generate_weekly_digest
 from take_five.utils import row_to_dict, row_list_to_dict_list
@@ -310,6 +311,48 @@ async def get_circle_analytics(circle_id: str, days: Optional[int] = Query(None)
 @secure_router.get("/circles/{circle_id}/topics")
 async def get_circle_topics(circle_id: str, days: Optional[int] = Query(None)):
     return repo.get_circle_topics(circle_id, days=days)
+
+
+@secure_router.get("/circles/{circle_id}/reference-threads")
+async def get_circle_reference_threads(circle_id: str):
+    """Thread labels already logged via the admin References tab, for the
+    'already logged for this thread' panel shown before adding more."""
+    threads = repo.get_reference_threads(circle_id)
+    return {"threads": row_list_to_dict_list(threads)}
+
+
+@secure_router.get("/circles/{circle_id}/reference-threads/{thread_label}")
+async def get_circle_reference_thread_messages(circle_id: str, thread_label: str):
+    messages = repo.get_reference_messages(circle_id, thread_label)
+    return {"messages": row_list_to_dict_list(messages)}
+
+
+@secure_router.post("/circles/{circle_id}/reference-threads")
+async def create_circle_reference_thread(circle_id: str, body: CreateReferenceThreadRequest):
+    """
+    Admin-entered external reference content (email threads, documents) that
+    predates ingestion — see /admin References tab. Each entry becomes its
+    own messages row with message_type='external_reference', keeping it out
+    of the weekly digest while remaining fully retrievable via ask() and
+    decision support.
+    """
+    entries = [
+        {
+            'person_id': m.person_id,
+            'external_name': m.external_name,
+            'external_org': m.external_org,
+            'sent_at': m.sent_at,
+            'body': m.body,
+        }
+        for m in body.messages
+    ]
+    inserted = repo.insert_reference_messages(
+        circle_id=circle_id,
+        channel=body.channel,
+        thread_label=body.thread_label,
+        entries=entries,
+    )
+    return {"messages": row_list_to_dict_list(inserted)}
 
 
 @secure_router.post("/messages")

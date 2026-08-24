@@ -31,9 +31,9 @@ directly from GroupMe (GET /groups/:group_id), then for each member:
      is not the place to make that judgment call.
 
 Usage:
-    python backfill_chat_membership.py                    # list GroupMe-enabled circles
-    python backfill_chat_membership.py --circle-id <uuid>  # backfill one circle
-    python backfill_chat_membership.py --circle-id <uuid> --dry-run
+    python db/backfill/chat_membership.py                    # list GroupMe-enabled circles
+    python db/backfill/chat_membership.py --circle-id <uuid>  # backfill one circle
+    python db/backfill/chat_membership.py --circle-id <uuid> --dry-run
 
 Requirements:
     - .env file in project root with DB_USER / DB_PASSWORD and
@@ -262,6 +262,6 @@ if __name__ == "__main__":
         print("\nGroupMe-enabled circles:")
         for c in circles:
             print(f"  {c['id']}  {c['ensemble_name']} / {c['name']}  (group {c['group_id']})")
-        print("\nRun with: python backfill_chat_membership.py --circle-id <uuid>")
+        print("\nRun with: python db/backfill/chat_membership.py --circle-id <uuid>")
     else:
         backfill_circle(args.circle_id, dry_run=args.dry_run)
