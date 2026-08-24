@@ -150,7 +150,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 /* ─── MODAL ─── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
 .modal-backdrop.open { display: flex; }
-.modal { background: var(--white); border-radius: var(--radius-lg); padding: 1.75rem; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: modalIn 0.2s ease; }
+.modal { background: var(--white); border-radius: var(--radius-lg); padding: 1.75rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: modalIn 0.2s ease; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .modal-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--t800); margin-bottom: 1.25rem; }
@@ -1118,7 +1118,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       </div>
       <div class="form-group">
         <label class="form-label">Thread label <span style="color:var(--danger);">*</span></label>
-        <input class="form-input" type="text" id="ref-thread-label" placeholder="Mary Ellen and John Landry, EdenHill" onblur="checkRefExistingThread()"/>
+        <input class="form-input" type="text" id="ref-thread-label" placeholder="e.g. Facility correspondence, doctor visit summary" onblur="checkRefExistingThread()"/>
       </div>
     </div>
     <div id="ref-existing-wrap" style="display:none;background:var(--cream);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-bottom:0.75rem;">
@@ -3236,7 +3236,7 @@ async function openCircleDetail(circleId, circleName) {
   } else {
     typeTag.style.display = 'none';
   }
-  document.getElementById('btn-add-circle-member').style.display = state.userRole === 'admin' ? '' : 'none';
+  document.getElementById('btn-add-circle-member').style.display = state.userRole === 'admin' ? '' : 'none'; // overwritten below by switchCircleDetailTab, harmless as an initial value
   const isAdmin = state.userRole === 'admin';
   const hasGroupMe = !!(circle?.integration_config?.groupme_group_id);
   document.getElementById('btn-groupme-setup').style.display = isAdmin && !hasGroupMe ? '' : 'none';
@@ -3257,6 +3257,12 @@ function switchCircleDetailTab(tab) {
   document.getElementById('circle-detail-tab-references').style.display = tab === 'references' ? '' : 'none';
   document.getElementById('cdtab-roster').classList.toggle('active',     tab === 'roster');
   document.getElementById('cdtab-references').classList.toggle('active', tab === 'references');
+  // Add member is roster-specific — shouldn't linger in the header while
+  // looking at References. Only re-show it on Roster, and only if this
+  // person is actually an admin (openCircleDetail's own admin check, since
+  // switching tabs shouldn't grant a non-admin the button back).
+  document.getElementById('btn-add-circle-member').style.display =
+    (tab === 'roster' && state.userRole === 'admin') ? '' : 'none';
   if (tab === 'references') { loadReferenceThreads(); }
 }
 
@@ -3416,8 +3422,8 @@ function addRefBlock() {
       <div class="form-group"><label class="form-label">Sent at</label><input class="form-input ref-sent-at" type="datetime-local"/></div>
     </div>
     <div class="form-row-2 ref-external-fields" style="display:none;">
-      <div class="form-group"><label class="form-label">External name</label><input class="form-input ref-ext-name" type="text" placeholder="Jennifer Smith"/></div>
-      <div class="form-group"><label class="form-label">External org</label><input class="form-input ref-ext-org" type="text" placeholder="EdenHill Communities"/></div>
+      <div class="form-group"><label class="form-label">External name</label><input class="form-input ref-ext-name" type="text" placeholder="Full name"/></div>
+      <div class="form-group"><label class="form-label">External org</label><input class="form-input ref-ext-org" type="text" placeholder="Organization"/></div>
     </div>
     <div class="form-group"><label class="form-label">Body</label><textarea class="form-input ref-body" rows="3" placeholder="Paste the message text"></textarea></div>
   </div>`;

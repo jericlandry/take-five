@@ -503,7 +503,7 @@ tbody tr:last-child td { border-bottom: none; }
 <div class="modal-backdrop" id="modal-add-reference"><div class="modal" style="width:600px;"><div class="modal-header"><div class="modal-title">Add Reference</div><button class="modal-close" onclick="closeModal('modal-add-reference')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 <div class="form-row cols-2">
   <div class="field"><label>Source type</label><select id="ref-channel"><option value="email">Email thread</option><option value="document">Document</option><option value="other">Other</option></select></div>
-  <div class="field"><label>Thread label *</label><input type="text" id="ref-thread-label" placeholder="Mary Ellen and John Landry, EdenHill" onblur="checkRefExistingThread()"/></div>
+  <div class="field"><label>Thread label *</label><input type="text" id="ref-thread-label" placeholder="e.g. Facility correspondence, doctor visit summary" onblur="checkRefExistingThread()"/></div>
 </div>
 <div id="ref-existing-wrap" style="display:none;background:var(--cream);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-bottom:0.75rem;">
   <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--g600);margin-bottom:6px;">Already logged for this thread</div>
@@ -1293,8 +1293,8 @@ function addRefBlock() {
       <div class="field"><label>Sent at</label><input type="datetime-local" class="ref-sent-at"/></div>
     </div>
     <div class="form-row cols-2 ref-external-fields" style="display:none;">
-      <div class="field"><label>External name</label><input type="text" class="ref-ext-name" placeholder="Jennifer Smith"/></div>
-      <div class="field"><label>External org</label><input type="text" class="ref-ext-org" placeholder="EdenHill Communities"/></div>
+      <div class="field"><label>External name</label><input type="text" class="ref-ext-name" placeholder="Full name"/></div>
+      <div class="field"><label>External org</label><input type="text" class="ref-ext-org" placeholder="Organization"/></div>
     </div>
     <div class="field"><label>Body</label><textarea class="ref-body" placeholder="Paste the message text"></textarea></div>
   </div>`;
