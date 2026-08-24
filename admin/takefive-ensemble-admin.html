@@ -546,16 +546,23 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         </button>
       </div>
       </div>
-      <div class="card" style="padding:0;overflow:hidden;">
-        <table class="people-table">
-          <thead><tr><th>Person</th><th>Role</th><th>Contact</th><th>Last active</th><th>Chat</th><th></th></tr></thead>
-          <tbody id="circle-roster-tbody"><tr><td colspan="6"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
-        </table>
+
+      <div class="tabs">
+        <button class="tab active" id="cdtab-roster" onclick="switchCircleDetailTab('roster')">Roster</button>
+        <button class="tab" id="cdtab-references" style="display:none;" onclick="switchCircleDetailTab('references')">References</button>
       </div>
 
-      <div id="circle-references-section" style="display:none;margin-top:1.5rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-          <div class="page-sub" style="margin:0;">References — email threads or documents that predate ingestion. Retrievable via ask(); excluded from the weekly digest.</div>
+      <div id="circle-detail-tab-roster">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table class="people-table">
+            <thead><tr><th>Person</th><th>Role</th><th>Contact</th><th>Last active</th><th>Chat</th><th></th></tr></thead>
+            <tbody id="circle-roster-tbody"><tr><td colspan="6"><div class="empty"><div class="empty-title">Loading…</div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="circle-detail-tab-references" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:0.75rem;">
           <button class="btn btn-primary btn-sm" onclick="openAddReference()">
             <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
             Add reference
@@ -3238,11 +3245,19 @@ async function openCircleDetail(circleId, circleName) {
   // medications — the content it logs (facility correspondence, clinical
   // documents) is decision-adjacent, not something to expose read-only
   // to every circle member either.
-  document.getElementById('circle-references-section').style.display = isAdmin ? '' : 'none';
+  document.getElementById('cdtab-references').style.display = isAdmin ? '' : 'none';
+  switchCircleDetailTab('roster');
   showPanel('circle-detail');
   document.getElementById('nav-circles').classList.add('active');
   await loadCircleRoster();
-  if (isAdmin) { await loadReferenceThreads(); }
+}
+
+function switchCircleDetailTab(tab) {
+  document.getElementById('circle-detail-tab-roster').style.display     = tab === 'roster'     ? '' : 'none';
+  document.getElementById('circle-detail-tab-references').style.display = tab === 'references' ? '' : 'none';
+  document.getElementById('cdtab-roster').classList.toggle('active',     tab === 'roster');
+  document.getElementById('cdtab-references').classList.toggle('active', tab === 'references');
+  if (tab === 'references') { loadReferenceThreads(); }
 }
 
 async function loadCircleRoster() {
