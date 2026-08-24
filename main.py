@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 
@@ -15,6 +16,7 @@ from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, r
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms, send_sms
 from take_five.messages import ask_with_tools, generate_prep_packet
+from take_five.pipeline import run_post_storage_pipeline
 from take_five.repository import repo
 from take_five.schemas import (
     CreatePersonRequest, UpdatePersonRequest,
@@ -313,6 +315,39 @@ async def get_circle_topics(circle_id: str, days: Optional[int] = Query(None)):
     return repo.get_circle_topics(circle_id, days=days)
 
 
+def _fire_reference_pipeline(entries: list, inserted: list, channel: str) -> None:
+    """
+    Reference content skipped run_post_storage_pipeline entirely when this
+    feature first shipped — insert_reference_messages() only wrote the raw
+    row. That meant no message_chunks (no embeddings, so semantic search
+    over message history never finds this content once it ages out of the
+    14-day recency window ask() also checks) and no clinical signal
+    detection, even though reference content is exactly the kind of thing
+    likely to carry real signals (a facility contact's note about UTIs, a
+    doctor's treatment plan). Fire the same pipeline every other inbound
+    channel (GroupMe, SMS) already gets, same fire-and-forget pattern as
+    take_five.integrations.groupme's webhook handler.
+
+    entries and inserted are the same length, same order (insert_reference_
+    messages iterates entries in place and appends to inserted 1:1) — zip
+    is safe here without a separate id-matching step.
+    """
+    for entry, row in zip(entries, inserted):
+        if entry.get('person_id'):
+            person = repo.get_person_by_id(entry['person_id'])
+            sender = person['name'] if person else 'Unknown'
+        else:
+            sender = entry.get('external_name') or 'Unknown'
+        asyncio.create_task(run_post_storage_pipeline(
+            message_id=str(row['id']),
+            circle_id=str(row['circle_id']),
+            body=row['body'],
+            sender=sender,
+            sent_at=row['sent_at'],
+            channel=channel,
+        ))
+
+
 @secure_router.get("/circles/{circle_id}/reference-threads")
 async def get_circle_reference_threads(circle_id: str):
     """Thread labels already logged via the admin References tab, for the
@@ -352,6 +387,7 @@ async def create_circle_reference_thread(circle_id: str, body: CreateReferenceTh
         thread_label=body.thread_label,
         entries=entries,
     )
+    _fire_reference_pipeline(entries, inserted, body.channel)
     return {"messages": row_list_to_dict_list(inserted)}
 
 
@@ -1111,6 +1147,7 @@ async def app_create_circle_reference_thread(
         thread_label=body.thread_label,
         entries=entries,
     )
+    _fire_reference_pipeline(entries, inserted, body.channel)
     return {"messages": row_list_to_dict_list(inserted)}
 
 

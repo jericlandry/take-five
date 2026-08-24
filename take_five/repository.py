@@ -677,7 +677,7 @@ class TakeFiveRepository:
         query = """
             SELECT
                 m.*,
-                COALESCE(p.name, 'Take Five') AS author_name
+                COALESCE(p.name, m.raw->>'external_name', 'Take Five') AS author_name
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
             WHERE m.circle_id = ANY(%s::uuid[])
@@ -741,7 +741,7 @@ class TakeFiveRepository:
         return self._execute("""
             SELECT
                 m.*,
-                COALESCE(p.name, 'Take Five') AS author_name
+                COALESCE(p.name, m.raw->>'external_name', 'Take Five') AS author_name
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
             WHERE m.id = %(message_id)s;
@@ -761,7 +761,7 @@ class TakeFiveRepository:
         rows = self._execute("""
             SELECT
                 m.sent_at,
-                COALESCE(p.name, 'Take Five') AS author_name,
+                COALESCE(p.name, m.raw->>'external_name', 'Take Five') AS author_name,
                 m.body
             FROM messages m
             LEFT JOIN people p ON m.person_id = p.id
@@ -1725,8 +1725,12 @@ class TakeFiveRepository:
                     m.sent_at       AS created_at,
                     m.circle_id,
                     cc.name         AS circle_name,
-                    COALESCE(p.name, 'Take Five') AS sender_name,
-                    CASE WHEN m.person_id IS NULL THEN 'bot' ELSE 'human' END AS author_type
+                    COALESCE(p.name, m.raw->>'external_name', 'Take Five') AS sender_name,
+                    CASE
+                        WHEN m.person_id IS NOT NULL THEN 'human'
+                        WHEN m.message_type = 'external_reference' THEN 'external'
+                        ELSE 'bot'
+                    END AS author_type
                 FROM messages m
                 JOIN care_circles cc ON cc.id = m.circle_id
                 LEFT JOIN people p ON p.id = m.person_id
@@ -1743,8 +1747,12 @@ class TakeFiveRepository:
                     m.sent_at       AS created_at,
                     m.circle_id,
                     cc.name         AS circle_name,
-                    COALESCE(p.name, 'Take Five') AS sender_name,
-                    CASE WHEN m.person_id IS NULL THEN 'bot' ELSE 'human' END AS author_type
+                    COALESCE(p.name, m.raw->>'external_name', 'Take Five') AS sender_name,
+                    CASE
+                        WHEN m.person_id IS NOT NULL THEN 'human'
+                        WHEN m.message_type = 'external_reference' THEN 'external'
+                        ELSE 'bot'
+                    END AS author_type
                 FROM messages m
                 JOIN care_circles cc ON cc.id = m.circle_id
                 LEFT JOIN people p ON p.id = m.person_id
