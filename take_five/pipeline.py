@@ -23,11 +23,11 @@ async def run_post_storage_pipeline(
     All tasks are wrapped in create_task so they run concurrently and never
     block the webhook response.
     """
-    asyncio.create_task(_run_memory(message_id, circle_id, body, sender, sent_at))
-    asyncio.create_task(_run_signal_detection(message_id, circle_id, body, channel))
+    asyncio.create_task(run_memory(message_id, circle_id, body, sender, sent_at))
+    asyncio.create_task(run_signal_detection(message_id, circle_id, body, channel))
 
 
-async def _run_memory(
+async def run_memory(
     message_id: str,
     circle_id: str,
     body: str,
@@ -46,7 +46,7 @@ async def _run_memory(
         logger.error(f"[pipeline] Memory processing failed for {message_id}: {e}", exc_info=True)
 
 
-async def _run_signal_detection(
+async def run_signal_detection(
     message_id: str,
     circle_id: str,
     body: str,

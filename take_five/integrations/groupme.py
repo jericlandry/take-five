@@ -7,7 +7,7 @@ import httpx
 from typing import Optional
 
 from take_five.repository import repo
-from take_five.pipeline import run_post_storage_pipeline
+from take_five.pipeline import run_post_storage_pipeline, run_memory, run_signal_detection
 from take_five.messages import (
     ask_with_tools,
     generate_prep_packet,
@@ -260,14 +260,21 @@ async def handle_groupme_webhook(data: dict):
             channel="groupme"
         )
 
-        asyncio.create_task(run_post_storage_pipeline(
-            message_id=str(new_msg['id']),
-            circle_id=str(new_msg['circle_id']),
-            body=text,
-            sender=person_name,
-            sent_at=new_msg['sent_at'],
-            channel="groupme",
-        ))
+        image_attachment = extract_groupme_image(data)
+
+        if not image_attachment:
+            asyncio.create_task(run_post_storage_pipeline(
+                message_id=str(new_msg['id']),
+                circle_id=str(new_msg['circle_id']),
+                body=text,
+                sender=person_name,
+                sent_at=new_msg['sent_at'],
+                channel="groupme",
+            ))
+        # else: nothing fires yet. For an image, memory and signal detection
+        # are deferred together until vision classification resolves (and,
+        # for DOCUMENT, until caption + OCR text are combined) — see
+        # finalize_image_pipeline() below, called exactly once on the final body.
 
         # Resolve circle once — used by both image and ask branches
         circle    = repo.get_circle_by_external_id(circle_ext_id)
@@ -286,18 +293,76 @@ async def handle_groupme_webhook(data: dict):
         sender_person_id = str(sender_person['id']) if sender_person else None
 
         # 3. Image detection — returns (reply, vision_result) tuple or None
-        image_attachment = extract_groupme_image(data)
         if image_attachment:
+            def finalize_image_pipeline(body: str, sender_name: str, sent_at):
+                """
+                Fire memory (chunk/embed) and signal detection together,
+                exactly once, on whatever text ends up being the message's
+                final content. Called from every resolution point below
+                (vision failure, DOCUMENT success, DOCUMENT with no usable
+                text, MEDICATION/OTHER) so an image message always gets both
+                passes exactly once — never zero (silently unsearchable),
+                never twice (duplicate signal rows, since clinical_signals
+                has no dedupe constraint).
+                """
+                asyncio.create_task(run_memory(
+                    message_id=str(new_msg['id']),
+                    circle_id=str(new_msg['circle_id']),
+                    body=body,
+                    sender=sender_name,
+                    sent_at=sent_at,
+                ))
+                asyncio.create_task(run_signal_detection(
+                    message_id=str(new_msg['id']),
+                    circle_id=str(new_msg['circle_id']),
+                    body=body,
+                    channel="groupme",
+                ))
+
             async def process_image():
                 result = await handle_image_message(image_attachment)
                 if not result:
+                    # Vision call failed — still process the caption alone
+                    # rather than silently dropping it.
+                    finalize_image_pipeline(text, person_name, new_msg['sent_at'])
                     return
                 reply, vision_result = result
                 if reply:
                     await groupme_reply(bot_id, reply, circle_ext_id)
 
-                # Build a clean log body for the messages table
                 classification = vision_result.get("classification")
+
+                if classification == "DOCUMENT":
+                    extracted_text = (vision_result.get("extracted_text") or "").strip()
+                    if not extracted_text:
+                        logger.warning(
+                            f"[groupme] DOCUMENT classified but no extracted_text — "
+                            f"message {new_msg['id']}"
+                        )
+                        finalize_image_pipeline(text, person_name, new_msg['sent_at'])
+                        return
+                    caption = image_attachment.message_text
+                    enriched_body = (
+                        f"{caption}\n\n[Document text]:\n{extracted_text}"
+                        if caption else
+                        f"[Document text]:\n{extracted_text}"
+                    )
+                    confidence = vision_result.get("confidence", "medium")
+                    updated = repo.update_message_body(
+                        message_id=str(new_msg['id']),
+                        body=enriched_body,
+                        raw_data={"ocr": {"detected": True, "confidence": confidence}},
+                    )
+                    logger.info(
+                        f"[groupme] DOCUMENT — appended OCR text to message "
+                        f"{new_msg['id']} ({len(extracted_text)} chars, confidence: {confidence})"
+                    )
+                    # Now that caption + OCR text are combined, this is the
+                    # first and only time memory/signal detection run.
+                    finalize_image_pipeline(enriched_body, image_attachment.sender_name, updated['sent_at'])
+                    return
+
+                # Build a clean log body for the messages table
                 caption = image_attachment.message_text
                 parts = [f"Image received from {image_attachment.sender_name}."]
                 if caption:
@@ -329,6 +394,11 @@ async def handle_groupme_webhook(data: dict):
                     direction="outbound",
                     channel="groupme",
                 )
+
+                # No document text to combine with — process the caption
+                # alone, deferred until here so this is still the first and
+                # only pass for this message.
+                finalize_image_pipeline(text, person_name, new_msg['sent_at'])
             asyncio.create_task(process_image())
 
         # 4. T5 ask flow — ask_with_tools handles both Q&A and medication saves

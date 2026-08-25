@@ -281,5 +281,13 @@ async def handle_image_message(attachment: ImageAttachment) -> Optional[tuple[st
         )
         return reply, result
 
+    if classification == "DOCUMENT":
+        extracted_text = result.get("extracted_text") or ""
+        logger.info(
+            f"[images] DOCUMENT DETECTED — description: {result.get('description')}, "
+            f"text length: {len(extracted_text)}, confidence: {result.get('confidence')}"
+        )
+        return None, result
+
     logger.info(f"[images] OTHER image — {result.get('description')} | text_found: {result.get('text_found')}")
     return None, result

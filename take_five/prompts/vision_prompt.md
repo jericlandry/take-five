@@ -4,6 +4,9 @@ Examine the image carefully and do two things:
 
 1. CLASSIFY it as one of:
    - MEDICATION: a prescription bottle, OTC medication, pill bottle, or supplement/vitamin label
+   - DOCUMENT: a form, letter, printed instructions, clinical paperwork, appointment or procedure
+     instructions, insurance or facility correspondence, or any other page whose primary content is
+     text meant to be read and referenced later (not a label on a medication container)
    - OTHER: anything else (food, people, places, pets, etc.)
 
 2. Respond with a JSON object in this exact format:
@@ -28,6 +31,16 @@ If MEDICATION:
   },
   "confidence": "high | medium | low",
   "notes": "anything else worth flagging (e.g. label partially obscured, text curved and hard to read)"
+}
+
+If DOCUMENT:
+{
+  "classification": "DOCUMENT",
+  "description": "Brief one-sentence description of what the document is",
+  "extracted_text": "The full text content of the document, transcribed as accurately as possible, preserving line breaks between distinct fields or sections",
+  "extracted": null,
+  "confidence": "high | medium | low",
+  "notes": "anything else worth flagging (e.g. handwriting hard to read, page partially cut off)"
 }
 
 If OTHER:

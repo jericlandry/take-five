@@ -747,6 +747,32 @@ class TakeFiveRepository:
             WHERE m.id = %(message_id)s;
         """, {'message_id': str(message_id)})
 
+    def update_message_body(self, message_id: str, body: str,
+                             raw_data: Optional[Dict] = None) -> Dict:
+        """
+        Update a message's body after async post-processing completes — e.g.
+        appending OCR-extracted document text once vision analysis finishes,
+        so the message reflects full content by the time chunking/embedding
+        runs (see images.py DOCUMENT classification, groupme.py process_image).
+
+        raw_data, if given, is shallow-merged into the existing raw JSONB via
+        Postgres's || operator rather than replacing it — preserves the
+        original webhook payload (attachments, sender info, etc.) while
+        adding new keys (e.g. {'ocr': {'detected': True, 'confidence': ...}}).
+        """
+        query = """
+            UPDATE messages SET
+                body = %(body)s,
+                raw  = COALESCE(raw, '{}'::jsonb) || %(raw_data)s::jsonb
+            WHERE id = %(id)s
+            RETURNING *;
+        """
+        return self._execute(query, {
+            'id': message_id,
+            'body': body,
+            'raw_data': Json(raw_data or {}),
+        })
+
     def get_recent_context_messages(self, circle_id: str, before_message_id: str,
                                      limit: int = 20) -> List[Dict]:
         """
