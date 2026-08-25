@@ -30,6 +30,7 @@ from anthropic import AsyncAnthropic
 
 from take_five.repository import repo
 from take_five.utils import get_prompt
+from take_five.models import LIFE_LOG_EXTRACTION_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ async def _run_extraction(prompt_template: str, subjects_str: str, messages: lis
     try:
         client = AsyncAnthropic()
         response = await client.messages.create(
-            model="claude-sonnet-4-6",
+            model=LIFE_LOG_EXTRACTION_MODEL,
             max_tokens=300,
             messages=[{"role": "user", "content": prompt}],
         )

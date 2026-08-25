@@ -11,6 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from take_five.repository import repo
 from take_five.memory import get_embedding
 from take_five.utils import get_prompt, RESPONSE_FORMATS, CHANNEL_CONSTRAINTS
+from take_five.models import TOOL_USE_MODEL, PREP_PACKET_MODEL, PARSE_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 # instead of a plain string. Disabling it keeps this a scoped model swap:
 # same plain-string output, same _extract_reply() parsing, no round-trip
 # handling of thinking blocks through the tool-call followup call.
-llm_with_tools = ChatAnthropic(model="claude-sonnet-5", max_tokens=4096, thinking={"type": "disabled"})
+llm_with_tools = ChatAnthropic(model=TOOL_USE_MODEL, max_tokens=4096, thinking={"type": "disabled"})
 
 _REASONING_TAG_RE = re.compile(r"<reasoning>(.*?)</reasoning>", re.DOTALL | re.IGNORECASE)
 _REPLY_TAG_RE = re.compile(r"<reply>(.*?)</reply>", re.DOTALL | re.IGNORECASE)
@@ -749,7 +750,7 @@ Resolve relative dates ("tomorrow", "next Monday", "today") to an actual YYYY-MM
 
 Text: {question}"""
 
-    parse_response = ChatAnthropic(model="claude-haiku-4-5-20251001", max_tokens=200).invoke(
+    parse_response = ChatAnthropic(model=PARSE_MODEL, max_tokens=200).invoke(
         [HumanMessage(content=parse_prompt)]
     )
     raw = parse_response.content.strip()
@@ -1012,7 +1013,7 @@ async def generate_prep_packet(
         messages=messages_text,
     )
 
-    llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=2000)
+    llm = ChatAnthropic(model=PREP_PACKET_MODEL, max_tokens=2000)
     response = llm.invoke([SystemMessage(content=PREP_PACKET_SYSTEM), HumanMessage(content=human_content)])
     packet_text = response.content.strip()
 

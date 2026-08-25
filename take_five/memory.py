@@ -1,7 +1,6 @@
 # take_five/memory.py
 import asyncio
 import logging
-import os
 import re
 from datetime import datetime
 
@@ -12,12 +11,12 @@ from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 from take_five.repository import repo
 from take_five.utils import get_prompt
-
-load_dotenv()
+from take_five.models import SUMMARY_MODEL
 
 logger = logging.getLogger(__name__)
 
-SUMMARY_MODEL = os.getenv("SUMMARY_MODEL", "claude-haiku-4-5-20251001")
+load_dotenv()
+
 CHUNK_THRESHOLD = 300
 MAX_CHUNK_SIZE = 600
 

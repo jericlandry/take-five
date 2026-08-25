@@ -7,6 +7,7 @@ from anthropic import AsyncAnthropic
 
 from take_five.repository import repo
 from take_five.utils import get_prompt
+from take_five.models import SIGNAL_DETECTION_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ async def detect_clinical_signals(
 
         client = AsyncAnthropic()
         response = await client.messages.create(
-            model="claude-sonnet-4-6",
+            model=SIGNAL_DETECTION_MODEL,
             max_tokens=2000,
             messages=[{
                 "role": "user",

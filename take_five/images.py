@@ -18,12 +18,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 from take_five.utils import get_prompt
+from take_five.models import VISION_MODEL
 
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_CLIENT = anthropic.Anthropic()
-
-VISION_MODEL = "claude-opus-4-20250514"
 
 VISION_PROMPT = get_prompt("vision_prompt")
 

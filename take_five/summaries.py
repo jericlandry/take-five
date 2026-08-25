@@ -6,11 +6,12 @@ from langchain_core.messages import HumanMessage
 
 from take_five.messages import ContextBuilder
 from take_five.utils import get_prompt, RESPONSE_FORMATS
+from take_five.models import DIGEST_MODEL
 
 logger = logging.getLogger(__name__)
 
 DIGEST_PROMPT = get_prompt("t5_week_summary")
-digest_llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=1024)
+digest_llm = ChatAnthropic(model=DIGEST_MODEL, max_tokens=1024)
 
 
 def generate_weekly_digest(
