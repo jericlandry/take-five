@@ -243,12 +243,32 @@ async def handle_groupme_webhook(data: dict):
                     )
                     is_new_person = True
                     logger.info(f"[groupme] Created new person: {person_name} ({person_ext_id})")
+            # Check whether this person is already a circle member before
+            # the upsert below -- ON CONFLICT DO NOTHING gives no signal on
+            # its own about whether a row was actually inserted, and this is
+            # the silent first-post auto-add path: someone posting in a
+            # circle's chat for the first time without ever having been
+            # explicitly added is itself a genuine "new in the circle"
+            # moment the family should see in the digest, not just an
+            # internal bookkeeping upsert.
+            is_new_circle_membership = repo.get_circle_membership(
+                str(circle['id']), str(person['id'])
+            ) is None
+
             # Upsert membership with DO NOTHING on conflict so admin-assigned roles are preserved
             repo._execute("""
                 INSERT INTO circle_memberships (circle_id, person_id, role)
                 VALUES (%(circle_id)s, %(person_id)s, 'family')
                 ON CONFLICT (circle_id, person_id) DO NOTHING;
             """, {'circle_id': str(circle['id']), 'person_id': str(person['id'])}, fetch=None)
+
+            if is_new_circle_membership:
+                try:
+                    repo.log_membership_event(
+                        str(circle['id']), str(person['id']), 'family', event_type='joined_circle'
+                    )
+                except Exception as e:
+                    logger.warning(f"[groupme] Failed to log membership event for {person_name}: {e}")
         else:
             logger.warning(f"[groupme] No circle found for external_id {circle_ext_id} — skipping upsert")
 
@@ -825,6 +845,16 @@ async def add_person_to_groupme(circle_id: str, person_id: str) -> dict:
 
     updated = repo.record_chat_membership(circle_id, person_id, chat_membership_id=membership_id)
     logger.info(f"[groupme] Added {person['name']} to GroupMe group {group_id} (membership_id={membership_id})")
+
+    # Log a family-facing 'joined_chat' event (message_type='member_added')
+    # so the weekly digest can surface it -- distinct from the #stay welcome
+    # text below, which is addressed to the new member, not the circle. Runs
+    # for both the known-user_id and phone-invite paths (previously only the
+    # phone-invite path got any message at all, via the #stay text below).
+    try:
+        repo.log_membership_event(circle_id, person_id, membership.get('role'), event_type='joined_chat')
+    except Exception as e:
+        logger.warning(f"[groupme] Failed to log chat-join event for {person['name']}: {e}")
 
     # Fresh phone-based invites hit GroupMe's 12-message SMS trial limit —
     # per GroupMe's own support docs (#stay command, checked 2026-08-01),

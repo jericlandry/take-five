@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from collections import Counter
@@ -11,6 +12,8 @@ from psycopg2.extras import RealDictCursor, Json
 from psycopg2.pool import ThreadedConnectionPool
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # --- Topic analysis constants (used by get_circle_topics) ---
 
@@ -499,16 +502,94 @@ class TakeFiveRepository:
             (ensemble_id,), fetch='all'
         )
 
+    def log_membership_event(self, circle_id: str, person_id: str, role: str,
+                              event_type: str, channel: str = 'system') -> Optional[Dict]:
+        """
+        Logs a person joining a circle (event_type='joined_circle') or its
+        chat platform (event_type='joined_chat') as a regular messages row,
+        so the weekly digest -- and ask()/analytics, for free -- can see it
+        the same way any other circle event is seen. No new table; same
+        reuse-existing-infrastructure pattern as external_reference content.
+
+        'joined_circle': a circle_memberships row was created (Take Five's
+        own record of membership), independent of whether they're in the
+        chat platform yet.
+        'joined_chat': the person was actually added to the circle's chat
+        platform (GroupMe today) and can now be seen posting/receiving
+        messages there -- this is the moment the rest of the circle actually
+        experiences someone as "new," which can lag 'joined_circle' by
+        days/weeks (see David Domingue, Landry F&F: circle-joined Aug 2,
+        chat-added Aug 25, 2026).
+
+        body is written for the family to read in a digest -- deliberately
+        separate from any welcome text sent directly to the new member (see
+        add_person_to_groupme's #stay reminder), which stays untouched.
+
+        circle_scope ('inner'|'outer') is derived from the circle's own
+        parent_circle_id rather than passed in by the caller, so it can't
+        drift out of sync if circle structure changes.
+
+        Returns None (logged, not raised) if the circle or person can't be
+        resolved -- this is a best-effort digest-visibility signal, not a
+        correctness-critical write; callers should not let a failure here
+        block the actual membership/chat-add operation that triggered it.
+        """
+        circle = self.get_circle_by_id(circle_id)
+        person = self.get_person_by_id(person_id)
+        if not circle or not person:
+            logger.warning(
+                f"[repo] log_membership_event: could not resolve circle={circle_id} "
+                f"person={person_id} -- skipping"
+            )
+            return None
+
+        circle_scope = 'outer' if circle.get('parent_circle_id') else 'inner'
+        verb = "joined the chat" if event_type == 'joined_chat' else "joined the circle"
+        scope_label = f" ({circle_scope} circle)" if circle_scope == 'outer' else ""
+        body = f"{person['name']} {verb}{scope_label}."
+
+        raw_data = {
+            'event': event_type,
+            'person_id': str(person_id),
+            'person_name': person['name'],
+            'role': role,
+            'circle_scope': circle_scope,
+        }
+
+        query = """
+            INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
+            VALUES (%s, NULL, 'member_added', 'outbound', %s, %s, %s)
+            RETURNING *;
+        """
+        return self._execute(query, (str(circle_id), body, Json(raw_data), channel))
+
     def add_person_to_circle(self, circle_id: str, person_id: str, role: str) -> Dict:
+        """
+        Logs a 'joined_circle' membership event only on a genuine first-time
+        add -- checked via get_circle_membership() before the upsert -- so
+        the ON CONFLICT DO UPDATE path (a role change on an existing member)
+        never re-announces them as newly joined. See log_membership_event's
+        docstring and card [digest new-member visibility, 2026-08-26].
+        """
+        is_new = self.get_circle_membership(circle_id, person_id) is None
+
         query = """
             INSERT INTO circle_memberships (circle_id, person_id, role)
             VALUES (%(circle_id)s, %(person_id)s, %(role)s)
             ON CONFLICT (circle_id, person_id) DO UPDATE SET role = EXCLUDED.role
             RETURNING *;
         """
-        return self._execute(query, {
+        result = self._execute(query, {
             'circle_id': circle_id, 'person_id': person_id, 'role': role
         })
+
+        if is_new:
+            try:
+                self.log_membership_event(circle_id, person_id, role, event_type='joined_circle')
+            except Exception as e:
+                logger.warning(f"[repo] Failed to log membership event for {person_id} in {circle_id}: {e}")
+
+        return result
 
     def get_circle_membership(self, circle_id: str, person_id: str) -> Optional[Dict]:
         return self._execute("""
@@ -1899,6 +1980,7 @@ class TakeFiveRepository:
         them to a different circle.
         """
         conn = self._pool.getconn()
+        is_new_circle_membership = False
         try:
             with conn:
                 with conn.cursor() as cur:
@@ -1943,6 +2025,17 @@ class TakeFiveRepository:
                             SET user_role = EXCLUDED.user_role;
                     """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'user_role': user_role})
 
+                    # Check whether this is a genuine new circle membership
+                    # (not a role change) before the upsert below -- same
+                    # is-it-new gate as add_person_to_circle(), so a re-invite
+                    # that only changes role never re-announces someone as
+                    # newly joined. See log_membership_event's docstring.
+                    cur.execute("""
+                        SELECT 1 FROM circle_memberships
+                        WHERE circle_id = %(circle_id)s AND person_id = %(person_id)s;
+                    """, {'circle_id': circle_id, 'person_id': person_id})
+                    is_new_circle_membership = cur.fetchone() is None
+
                     # 4. Upsert circle membership (care role)
                     cur.execute("""
                         INSERT INTO circle_memberships (circle_id, person_id, role)
@@ -1954,10 +2047,16 @@ class TakeFiveRepository:
                     # 5. Return full person row
                     cur.execute("SELECT * FROM people WHERE id = %(id)s;", {'id': person_id})
                     person = cur.fetchone()
-
-                    return person
         finally:
             self._pool.putconn(conn)
+
+        if is_new_circle_membership:
+            try:
+                self.log_membership_event(circle_id, person_id, care_role, event_type='joined_circle')
+            except Exception as e:
+                logger.warning(f"[repo] Failed to log membership event for {person_id} in {circle_id}: {e}")
+
+        return person
 
     def upsert_ensemble_membership(self, ensemble_id: str, person_id: str, user_role: str) -> Dict:
         """Set or update a person's user role in an ensemble."""
