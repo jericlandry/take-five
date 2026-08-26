@@ -405,6 +405,41 @@ class TakeFiveRepository:
         """, {"circle_id": str(circle_id)}, fetch="all")
         return [str(r["id"]) for r in (rows or [])]
 
+    def get_outer_digest_source_circle_ids(self, circle_id: str) -> List[str]:
+        """
+        Resolve the source circle set for generating an OUTER circle's own
+        digest -- itself plus its parent inner circle. This is the mirror
+        image of get_readable_circle_ids() (which lets an INNER circle read
+        its outer circles' messages, never the reverse) and exists ONLY to
+        feed the redacted outer-circle digest generator
+        (generate_outer_weekly_digest in summaries.py, using
+        t5_week_summary_outer.md).
+
+        That prompt is instructed to omit clinical and dignity-sensitive
+        content, and its output is checked by a deterministic keyword/regex
+        scan (summaries._contains_restricted_content) before it is ever
+        considered postable -- see 2026-08-26 design discussion on why
+        generation-time instructions alone aren't trusted for something
+        where being wrong has real consequences.
+
+        Do NOT use this for ask(), semantic search, or any other
+        raw-message-exposing surface -- those remain boundary-respecting
+        per card #44 (the outer-circle clinical-records exposure found
+        during Landry pilot testing, 2026-07-30). This resolver is a
+        one-purpose exception scoped tightly to the redacted digest
+        pipeline, not a general relaxation of the inner/outer boundary.
+
+        Returns [circle_id] unchanged (no reverse read) if circle_id isn't
+        actually an outer circle (no parent_circle_id) -- calling this on
+        an inner circle is a caller error, but degrading to "just itself"
+        is safer than raising for what should be a rare, non-destructive
+        misuse.
+        """
+        circle = self.get_circle_by_id(circle_id)
+        if not circle or not circle.get('parent_circle_id'):
+            return [str(circle_id)]
+        return [str(circle_id), str(circle['parent_circle_id'])]
+
     def find_active_sms_members_by_phone(self, phone: str) -> List[Dict]:
         """
         Find every active care circle a phone number can text into, one row

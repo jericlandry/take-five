@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 from take_five.integrations.groupme import send_message
 from take_five.repository import repo
-from take_five.summaries import generate_weekly_digest
+from take_five.summaries import generate_weekly_digest, generate_outer_weekly_digest
 
 load_dotenv()
 
@@ -58,7 +58,22 @@ def main():
         response_format = "text" if ext_id.startswith("groupme:") else "markdown"
 
         try:
-            digest = generate_weekly_digest(str(circle["id"]), response_format=response_format)
+            if circle.get('parent_circle_id'):
+                # Outer circle -- redacted digest, reads inner circle too.
+                # See t5_week_summary_outer.md and
+                # summaries._contains_restricted_content for why this is a
+                # separate path rather than reusing generate_weekly_digest().
+                result = generate_outer_weekly_digest(str(circle["id"]), response_format=response_format)
+                digest = result["digest"]
+                if result["blocked"]:
+                    logger.error(
+                        f"[outer-digest] BLOCKED for {circle_name} -- flagged terms: "
+                        f"{result['flagged_terms']}. Not posted, not logged. Manual review needed."
+                    )
+                    continue
+            else:
+                digest = generate_weekly_digest(str(circle["id"]), response_format=response_format)
+
             send_message(bot_id, digest)
             repo.log_message(
                 circle_ext_id=ext_id,

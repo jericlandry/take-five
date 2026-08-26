@@ -311,6 +311,39 @@ class ContextBuilder:
         instance._semantic        = ""
         return instance
 
+    @classmethod
+    def create_for_outer_digest(
+        cls,
+        circle_id: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> "ContextBuilder":
+        """
+        Builds context for generating an OUTER circle's own digest, which
+        reads messages from itself + its parent inner circle -- the mirror
+        image of create_for_digest()'s normal boundary (inner circles read
+        outward; outer circles read only themselves). See
+        repo.get_outer_digest_source_circle_ids for why this reverse read is
+        safe here specifically: paired with t5_week_summary_outer.md's
+        omission instructions and a deterministic post-generation scan
+        (summaries._contains_restricted_content) before the result is ever
+        considered postable. Never used for ask()/semantic search.
+
+        Clinical records are hardcoded empty here regardless of
+        circle_has_full_clinical_access() -- clinical content is out of
+        scope for this digest by design, not just gated by member
+        composition. This is stricter than the normal inner-circle digest,
+        which does include clinical records when the circle qualifies.
+        """
+        instance = cls(circle_id, question="")
+        instance._roster          = instance._build_roster()
+        instance._circle_context  = instance._load_circle_context()
+        instance._clinical        = ""
+        source_ids                = instance.repo.get_outer_digest_source_circle_ids(circle_id)
+        instance._recent          = instance._build_recent_messages(start_date, end_date, readable_ids=source_ids)
+        instance._semantic        = ""
+        return instance
+
     def _build_roster(self) -> str:
         roster = self.repo.fetch_circle_roster(self.circle_id)
         return self._format_roster_context(roster)

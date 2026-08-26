@@ -30,7 +30,7 @@ from take_five.schemas import (
     MessageRequest, DigestRequest,
     CreateReferenceThreadRequest,
 )
-from take_five.summaries import generate_weekly_digest
+from take_five.summaries import generate_weekly_digest, generate_outer_weekly_digest
 from take_five.utils import row_to_dict, row_list_to_dict_list
 
 logging.basicConfig(level=logging.INFO)
@@ -71,6 +71,18 @@ async def summary(body: DigestRequest):
         kwargs['start_date'] = body.start_date
     if body.end_date:
         kwargs['end_date'] = body.end_date
+
+    circle = repo.get_circle_by_id(body.circle_id)
+    if circle and circle.get('parent_circle_id'):
+        # Outer circle -- redacted digest, reads inner circle too. See
+        # t5_week_summary_outer.md and summaries._contains_restricted_content.
+        result = generate_outer_weekly_digest(body.circle_id, **kwargs)
+        return {
+            "digest": result["digest"],
+            "blocked": result["blocked"],
+            "flagged_terms": result["flagged_terms"],
+        }
+
     digest = generate_weekly_digest(body.circle_id, **kwargs)
     return {"digest": digest}
 
