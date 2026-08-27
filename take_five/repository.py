@@ -1964,8 +1964,16 @@ class TakeFiveRepository:
         Optionally filtered by resource_type (e.g. 'MedicationStatement', 'CareTeamMember').
         Used by the ensemble admin Health panel.
         """
+        # DISTINCT: a senior can have more than one role='senior'
+        # circle_membership row in this ensemble (e.g. inner circle +
+        # its outer circle), and this query does not care which circle
+        # matched -- only that the person belongs to one in this
+        # ensemble. Without DISTINCT, each clinical_records row fans out
+        # once per matching membership, duplicating every record for any
+        # senior in both an inner and outer circle. See Care Team panel
+        # duplicate-doctor bug, 2026-08-27.
         base = """
-            SELECT
+            SELECT DISTINCT
                 cr.id,
                 cr.person_id,
                 cr.resource_type,
@@ -2107,8 +2115,12 @@ class TakeFiveRepository:
         Return active MedicationStatements for all seniors in the ensemble.
         Used by the ensemble admin/member overview panel.
         """
+        # DISTINCT: same fan-out issue as get_clinical_records_for_ensemble
+        # -- a senior in both an inner and outer circle in this ensemble
+        # otherwise gets every medication doubled. See Care Team panel
+        # duplicate-doctor bug, 2026-08-27.
         return self._execute("""
-            SELECT
+            SELECT DISTINCT
                 p.name          AS person_name,
                 cr.data,
                 cr.created_at
