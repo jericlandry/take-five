@@ -270,6 +270,37 @@ TOOLS = [save_clinical_record, patch_clinical_record]
 # own explicit start_date/end_date.
 RECENT_MESSAGES_WINDOW_DAYS = 14
 
+# message_type values excluded from digest generation's "Recent Messages"
+# context (both create_for_digest and create_for_outer_digest). Without
+# this, get_messages() returns every row in the date window with no type
+# filtering at all, including Take Five's own prior output -- so a digest
+# generated near the same weekly boundary as the last one would pull that
+# prior digest in as if it were new conversation and echo its content
+# forward. Traced from an outer-digest false-positive block on 'hearing',
+# 2026-08-30 -- the flagged term turned out to come from the PRIOR week's
+# inner digest text (posted ~37s before this week's 7-day cutoff), not
+# from any message actually sent that week.
+#
+# 'digest': the recursion case above -- never feed a digest into generating
+# another digest.
+# 'prep_packet': long clinical checklists: legitimate content for the
+# inner circle to have generated once, but not raw "what happened this
+# week" material, and actively risky context for the outer digest given
+# how much clinical/medication detail they contain.
+# 'external_reference': explicitly called out in
+# insert_reference_messages()'s docstring as intended to be excluded from
+# digest "what happened this week" summaries, but that exclusion was never
+# actually wired into get_messages() until now.
+#
+# Deliberately does NOT include 'agent_note' or 'check_in' -- those
+# represent genuine informational content generated in direct response to
+# real family activity (e.g. answering a medication question, a
+# corroboration check-in), not synthesized recaps of a prior period.
+#
+# NOT used by create() (ask_with_tools's context) -- someone asking "what
+# did last week's digest say" should still be answerable there.
+DIGEST_EXCLUDED_MESSAGE_TYPES = ['digest', 'prep_packet', 'external_reference']
+
 
 class ContextBuilder:
     def __init__(self, circle_id: str, question: str):
@@ -307,7 +338,9 @@ class ContextBuilder:
         instance._roster          = instance._build_roster()
         instance._circle_context  = instance._load_circle_context()
         instance._clinical        = instance._build_clinical_records()
-        instance._recent          = instance._build_recent_messages(start_date, end_date)
+        instance._recent          = instance._build_recent_messages(
+            start_date, end_date, exclude_types=DIGEST_EXCLUDED_MESSAGE_TYPES
+        )
         instance._semantic        = ""
         return instance
 
@@ -340,7 +373,10 @@ class ContextBuilder:
         instance._circle_context  = instance._load_circle_context()
         instance._clinical        = ""
         source_ids                = instance.repo.get_outer_digest_source_circle_ids(circle_id)
-        instance._recent          = instance._build_recent_messages(start_date, end_date, readable_ids=source_ids)
+        instance._recent          = instance._build_recent_messages(
+            start_date, end_date, readable_ids=source_ids,
+            exclude_types=DIGEST_EXCLUDED_MESSAGE_TYPES,
+        )
         instance._semantic        = ""
         return instance
 
@@ -504,7 +540,8 @@ class ContextBuilder:
         self,
         start_date: datetime = None,
         end_date: datetime = None,
-        readable_ids: list = None
+        readable_ids: list = None,
+        exclude_types: list = None,
     ) -> str:
         # Resolve the readable circle set — for an inner circle this is
         # itself + its outer circle(s); for an outer circle, just itself.
@@ -524,7 +561,8 @@ class ContextBuilder:
         recent_msgs = self.repo.get_messages(
             readable_ids,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            exclude_types=exclude_types,
         )
         return self._format_recent_messages_context(recent_msgs)
 

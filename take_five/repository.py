@@ -777,7 +777,8 @@ class TakeFiveRepository:
         return inserted
 
     def get_messages(self, circle_ids: List[str], start_date: datetime = None,
-                     end_date: datetime = None, limit: int = None) -> List[Dict]:
+                     end_date: datetime = None, limit: int = None,
+                     exclude_types: List[str] = None) -> List[Dict]:
         """
         Fetch messages for one or more circles. Bot messages (person_id IS
         NULL) are labelled 'Take Five' so ask() can identify them in context.
@@ -789,6 +790,17 @@ class TakeFiveRepository:
         get_readable_circle_ids() and pass that list straight in. Keeping
         the signature always-plural means this function never needs to know
         or care why the list has one item or several.
+
+        exclude_types: message_type values to omit entirely, e.g. ['digest'].
+        Added specifically so digest generation can exclude its own prior
+        output from context -- previously unfiltered, which let last week's
+        digest (message_type='digest') get pulled in as if it were new
+        conversation whenever the 7-day window happened to still include it,
+        and the model would echo content from it into this week's digest.
+        See outer-digest false-positive block on 'hearing', 2026-08-30 --
+        the flagged term came from last week's digest text, not this week's
+        actual messages. None (default) applies no filter, preserving
+        existing behavior for ask()/prep-packet callers that don't pass it.
         """
         query = """
             SELECT
@@ -806,6 +818,9 @@ class TakeFiveRepository:
         if end_date:
             query += " AND m.sent_at <= %s"
             params.append(end_date)
+        if exclude_types:
+            query += " AND m.message_type != ALL(%s)"
+            params.append(list(exclude_types))
 
         query += " ORDER BY m.sent_at DESC"
 
