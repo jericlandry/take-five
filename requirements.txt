@@ -55,3 +55,9 @@ sentence-transformers
 
 # Twilio
 twilio
+
+# SendGrid Inbound Parse (webhook signature verification)
+ecdsa
+
+# Email quote/signature stripping for inbound care updates
+email_reply_parser

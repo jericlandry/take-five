@@ -440,6 +440,32 @@ class TakeFiveRepository:
             return [str(circle_id)]
         return [str(circle_id), str(circle['parent_circle_id'])]
 
+    def find_person_in_circle_by_email(self, circle_id: str, email: str) -> Optional[Dict]:
+        """
+        Match an inbound email's sender against ONE specific circle's
+        membership -- not the wider ensemble -- so a message addressed to
+        the inner-circle inbound address from someone who only belongs to
+        the outer circle (or vice versa) is correctly treated as "not a
+        member of this circle", mirroring the read-side inner/outer
+        boundary get_readable_circle_ids() enforces. Case-insensitive:
+        mail clients vary in casing and it isn't a meaningful distinction
+        for an address. Returns at most one row -- email is effectively
+        unique per circle membership in practice; if it isn't, this
+        deliberately picks one rather than raising, since an inbound
+        webhook needs an answer, not a disambiguation prompt.
+
+        See take_five/integrations/sendgrid_email.py.
+        """
+        if not email:
+            return None
+        return self._execute("""
+            SELECT p.* FROM people p
+            JOIN circle_memberships cm ON cm.person_id = p.id
+            WHERE cm.circle_id = %(circle_id)s
+              AND LOWER(p.email) = LOWER(%(email)s)
+            LIMIT 1;
+        """, {'circle_id': str(circle_id), 'email': email})
+
     def find_active_sms_members_by_phone(self, phone: str) -> List[Dict]:
         """
         Find every active care circle a phone number can text into, one row

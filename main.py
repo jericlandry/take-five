@@ -15,6 +15,7 @@ from take_five.integrations.groupme import handle_groupme_webhook, send_message_
 from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms, send_sms
+from take_five.integrations.sendgrid_email import handle_inbound_email
 from take_five.messages import ask_with_tools, generate_prep_packet
 from take_five.pipeline import run_post_storage_pipeline
 from take_five.repository import repo
@@ -499,6 +500,18 @@ async def groupme_oauth_callback():
         media_type="text/html",
         headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
     )
+
+
+@open_router.post("/sendgrid/inbound")
+async def sendgrid_inbound(request: Request):
+    """
+    SendGrid Inbound Parse webhook. One hostname (combo.takefive.care) is
+    configured in SendGrid to POST every address's mail here -- routing to
+    the right circle happens inside handle_inbound_email() by decoding the
+    recipient local-part back into a circle_id, not via separate
+    per-circle SendGrid config. See take_five/integrations/sendgrid_email.py.
+    """
+    return await handle_inbound_email(request)
 
 
 @open_router.post("/twilio/sms")
