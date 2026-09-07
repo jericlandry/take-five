@@ -1,12 +1,14 @@
 import re
 from datetime import date, datetime, timedelta
 import logging
+from typing import Dict, List, Optional
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 
+from take_five.engagement.life_log import extract_life_log_topic
 from take_five.messages import ContextBuilder
-from take_five.repository import TOPIC_CATEGORIES
+from take_five.repository import repo, TOPIC_CATEGORIES
 from take_five.utils import get_prompt, RESPONSE_FORMATS
 from take_five.models import DIGEST_MODEL
 
@@ -17,6 +19,12 @@ digest_llm = ChatAnthropic(model=DIGEST_MODEL, max_tokens=1024)
 
 OUTER_DIGEST_PROMPT = get_prompt("t5_week_summary_outer")
 outer_digest_llm = ChatAnthropic(model=DIGEST_MODEL, max_tokens=1024)
+
+SENIOR_DIGEST_PROMPT = get_prompt("t5_week_summary_senior")
+# Shorter max_tokens than the family digest -- this is meant to read like a
+# short personal note, not a report; a low ceiling also discourages the
+# model from padding it out into something digest-shaped.
+senior_digest_llm = ChatAnthropic(model=DIGEST_MODEL, max_tokens=400)
 
 
 def _build_calendar_context(start_date: datetime, end_date: datetime, lookback_days: int = 3) -> str:
@@ -77,6 +85,101 @@ def generate_weekly_digest(
 
     return response.content if hasattr(response, "content") else str(response)
 
+
+# ---------------------------------------------------------------------------
+# Senior-facing weekly email -- see chat history (2026-09-xx) for the design
+# reasoning. Deliberately built from a NARROWER, safer set of sources than
+# generate_weekly_digest(): never the raw inner-circle conversation, only
+# extract_life_log_topic() (the same grounded, never-generic extraction the
+# Tuesday engagement cron uses) and upcoming prep-packet appointments. Both
+# of those sources are safe by construction -- there is structurally nothing
+# clinical/concern-toned in the context window for the model to leak -- 
+# rather than relying on a prompt instruction to correctly omit sensitive
+# content out of the full conversation history every single week.
+# ---------------------------------------------------------------------------
+
+def _format_life_log_section(topic: Optional[Dict]) -> str:
+    if not topic:
+        return "(Nothing grounded came up this week -- skip this part of the email entirely.)"
+    subject = topic.get("subject_name")
+    excerpt = topic["excerpt"]
+    return f"About {subject}: {excerpt}" if subject else excerpt
+
+
+def _format_upcoming_events_section(events: List[Dict]) -> str:
+    if not events:
+        return "(Nothing scheduled this week -- skip this part of the email entirely.)"
+    lines = []
+    for e in events:
+        appt_date = e["appointment_date"].strftime("%A, %B %d")
+        doctor = e.get("doctor_name") or "a doctor's appointment"
+        desc = e.get("appointment_desc")
+        label = f"{doctor}" + (f" -- {desc}" if desc else "")
+        lines.append(f"- {appt_date}: {label}")
+    return "\n".join(lines)
+
+
+def _format_invitation_target(senior_name: str, other_seniors: List[Dict]) -> str:
+    """
+    Grammar handled here in Python (singular "is" vs plural "are") rather
+    than left to the model to get right -- same reasoning as
+    _build_calendar_context computing dates itself instead of asking the
+    model to do weekday arithmetic.
+    """
+    if other_seniors:
+        others = " and ".join(s["name"] for s in other_seniors)
+        return f"how {senior_name} and {others} are doing this week"
+    return f"how {senior_name} is doing this week"
+
+
+def _format_reply_footer(other_seniors: List[Dict]) -> str:
+    """
+    Static instructional line, always exactly the same wording every week --
+    deliberately NOT part of the LLM's job (unlike the warm invitation in
+    the prompt itself, which is meant to vary). This is teaching a
+    mechanic (hit reply), not making conversation, so consistency matters
+    more than warmth here -- same reasoning as never asking the model to
+    reproduce the reply-to address itself.
+    """
+    who = "from you both" if other_seniors else "from you"
+    return f"Just reply to this email with any updates. I'd love to hear {who}."
+
+
+async def generate_senior_digest(circle_id: str, senior: Dict, other_seniors: List[Dict]) -> Optional[str]:
+    """
+    Generate the senior-facing weekly email body for one senior in a circle.
+    other_seniors: any other role='senior' people in the same circle (e.g. a
+    spouse sharing the circle) -- included only to phrase the closing
+    invitation ("how you and Mom are doing"), not fed any additional data.
+
+    async because extract_life_log_topic() is (unlike the rest of this
+    file's sync ChatAnthropic calls) -- caller (main_summary.py) wraps this
+    with asyncio.run().
+
+    Returns None on LLM failure; caller skips sending rather than emailing
+    a broken/empty note.
+    """
+    topic = await extract_life_log_topic(circle_id)
+    upcoming = repo.get_upcoming_prep_packets(circle_id)
+
+    prompt_text = SENIOR_DIGEST_PROMPT.format(
+        current_date=date.today().strftime("%A, %B %d, %Y"),
+        senior_name=senior["name"],
+        invitation_target=_format_invitation_target(senior["name"], other_seniors),
+        life_log_section=_format_life_log_section(topic),
+        upcoming_events_section=_format_upcoming_events_section(upcoming),
+    )
+
+    try:
+        response = senior_digest_llm.invoke([HumanMessage(content=prompt_text)])
+        body = response.content if hasattr(response, "content") else str(response)
+        return f"{body}\n\n{_format_reply_footer(other_seniors)}"
+    except Exception as e:
+        logger.error(
+            f"[senior-digest] Generation failed for circle_id={circle_id}, "
+            f"senior={senior.get('name')}: {e}"
+        )
+        return None
 
 # ---------------------------------------------------------------------------
 # Outer-circle digest (redacted) -- see 2026-08-26 design discussion.

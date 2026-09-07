@@ -47,8 +47,10 @@ import uuid
 from email.utils import parseaddr
 from typing import Optional
 
+import httpx
 from email_reply_parser import EmailReplyParser
 from fastapi import Request
+from markdown_it import MarkdownIt
 
 from take_five.integrations.groupme import groupme_reply
 from take_five.pipeline import run_post_storage_pipeline
@@ -287,3 +289,143 @@ async def handle_inbound_email(request: Request) -> dict:
 
     logger.info(f"[sendgrid-email] Logged message from {person['name']} to circle {circle_id}")
     return {"status": "ok"}
+
+
+# --- Outbound sending ---------------------------------------------------
+#
+# Raw httpx against SendGrid's v3 Mail Send API, not the official
+# sendgrid-python SDK -- matches how the rest of this codebase talks to
+# third-party APIs (see groupme.py: every GroupMe call is a raw httpx POST,
+# no SDK; twilio.py's twilio.rest.Client is the one exception, kept because
+# it's genuinely load-bearing for the existing SMS features). Adding a new
+# SDK dependency here for a single POST endpoint would be inconsistent with
+# that pattern for no real benefit.
+
+SENDGRID_MAIL_SEND_URL = "https://api.sendgrid.com/v3/mail/send"
+
+# Deterministic, not model-written -- same reasoning as the reply footer
+# (see summaries.py's _format_reply_footer): needs consistent wording AND,
+# for the HTML version, consistent brand styling every time, which only
+# works if it's never mixed into the LLM's free-form Markdown output.
+SIGNOFF_PLAIN = "Take Five"
+
+
+def render_senior_email_html(body_text: str) -> str:
+    """
+    body_text (LLM content + reply footer, no signoff -- see
+    generate_senior_digest() and t5_week_summary_senior.md; may contain
+    light Markdown, currently just **bold**) -> full HTML fragment with
+    the Take Five logo, a thin brand-color divider, and a styled signoff.
+    Shared by send_email() and preview_senior_email.py so the local
+    preview matches the real send exactly rather than maintaining two
+    copies of this markup that could drift apart.
+
+    Light-touch branding by design (see chat history): a colored header
+    banner or boxed template would read as a corporate mailing, working
+    against the "a person wrote this" feel the prompt itself is written
+    for. Logo + a thin rule + brand-colored signoff is recognizable without
+    tipping into that.
+
+    Playfair Display (the brand serif, used for taglines/signoffs
+    elsewhere -- see takefive.html) with a Georgia/serif fallback for the
+    signoff, since custom web font support in email is inconsistent --
+    Outlook desktop in particular typically ignores @font-face/Google
+    Fonts entirely and falls back to a system font regardless, so the
+    fallback needs to look intentional on its own, not just present.
+
+    Inline styles throughout (not a <style> block) -- email clients
+    commonly strip <head>/<style> content entirely, inline styles are the
+    reliable path. Logo is PNG, not SVG -- Outlook has actively blocked
+    inline SVG in email since September 2025, and SVG support in <img> is
+    inconsistent across clients generally (confirmed via search rather
+    than assumed -- see chat history).
+    """
+    logo_url = os.getenv(
+        "TAKEFIVE_LOGO_URL",
+        "https://take-five-website.onrender.com/takefive_logo.png",
+    )
+    rendered_body = MarkdownIt().render(body_text)
+    signoff_html = (
+        '<p style="font-family:\'Playfair Display\',Georgia,serif;'
+        'font-style:italic;color:#085041;margin-top:20px;font-size:15px;">'
+        f'{SIGNOFF_PLAIN}</p>'
+    )
+    return (
+        '<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;'
+        'max-width:480px;margin:0 auto;color:#1A1A18;line-height:1.6;">'
+        '<div style="text-align:center;margin-bottom:20px;">'
+        f'<img src="{logo_url}" width="56" height="56" alt="Take Five" '
+        'style="display:inline-block;">'
+        '<div style="border-bottom:2px solid #5DCAA5;width:48px;'
+        'margin:14px auto 0;"></div>'
+        f'</div>{rendered_body}{signoff_html}</div>'
+    )
+
+
+async def send_email(
+    to_email: str,
+    to_name: str,
+    from_display_name: str,
+    reply_to: str,
+    subject: str,
+    body_text: str,
+) -> bool:
+    """
+    Send a single outbound transactional email. Returns True on success
+    (SendGrid's Mail Send API returns 202 Accepted, not 200, on success --
+    matching GroupMe's own 202-on-success convention in groupme.py).
+
+    from_display_name: what the recipient sees as the sender name, e.g.
+    "The Landry Family - Take Five Circle" -- decoupled from the actual
+    From address (SENDGRID_FROM_EMAIL, an address that doesn't need to
+    receive mail) and from reply_to (which does -- see
+    circle_inbound_address()). Three separate things by design: see chat
+    history on why the reply-to address is never something the model or a
+    human needs to type correctly -- it's set here as a header, never
+    written as visible text anywhere.
+
+    Requires SENDGRID_API_KEY. Returns False (logs, doesn't raise) if it's
+    not configured -- a missing outbound send shouldn't crash a cron run
+    processing multiple circles; the caller logs and moves to the next one.
+    """
+    api_key = os.getenv("SENDGRID_API_KEY")
+    if not api_key:
+        logger.error("[sendgrid-email] SENDGRID_API_KEY not configured -- cannot send")
+        return False
+
+    from_email = os.getenv("SENDGRID_FROM_EMAIL", "notifications@takefive.care")
+    html_body = render_senior_email_html(body_text)
+    # Plain-text fallback needs its own signoff appended -- the HTML
+    # version gets a styled one from render_senior_email_html, but that
+    # styling obviously doesn't apply to the plain-text content block, so
+    # this is a second, separate append rather than something shared.
+    plain_body = f"{body_text}\n\n{SIGNOFF_PLAIN}"
+
+    payload = {
+        "personalizations": [{
+            "to": [{"email": to_email, "name": to_name}],
+        }],
+        "from": {"email": from_email, "name": from_display_name},
+        "reply_to": {"email": reply_to},
+        "subject": subject,
+        "content": [
+            {"type": "text/plain", "value": plain_body},
+            {"type": "text/html", "value": html_body},
+        ],
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            SENDGRID_MAIL_SEND_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+
+    if response.status_code == 202:
+        logger.info(f"[sendgrid-email] Sent to {to_email}")
+        return True
+    logger.error(f"[sendgrid-email] Send failed: {response.status_code} - {response.text}")
+    return False

@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
@@ -543,10 +543,13 @@ class TakeFiveRepository:
         """
         Return all people with role='senior' in a circle.
         Used by ask_with_tools() to resolve care recipient when
-        the label has no patient name.
+        the label has no patient name, and by generate_senior_digest()
+        (take_five/summaries.py) to find who to email the senior-facing
+        weekly note to -- callers that only need the roster fields
+        (aliases-based resolution) simply ignore the added email column.
         """
         query = """
-            SELECT p.id, p.name, p.aliases
+            SELECT p.id, p.name, p.aliases, p.email
             FROM people p
             JOIN circle_memberships cm ON p.id = cm.person_id
             WHERE cm.circle_id = %(circle_id)s
@@ -554,6 +557,56 @@ class TakeFiveRepository:
             ORDER BY p.name;
         """
         return self._execute(query, {"circle_id": circle_id}, fetch="all")
+
+    def get_upcoming_prep_packets(self, circle_id: str, as_of: Optional[datetime] = None,
+                                   days_ahead: int = 7) -> List[Dict]:
+        """
+        Forward-looking mirror of the date filtering in
+        take_five/engagement/post_visit.py's find_due_followups() -- that
+        one finds appointments 1-7 days in the PAST for post-visit
+        follow-up; this finds appointments 0-days_ahead days in the FUTURE,
+        for surfacing "what's coming up" (e.g. in generate_senior_digest()).
+        Same underlying data (prep packets' raw.appointment_date -- there is
+        no separate calendar/events table, see chat history), same
+        SQL-then-Python-date-filter approach as find_due_followups, just a
+        different window and direction.
+
+        Fetches a wide SQL candidate set (packets sent in the last 30 days
+        -- a packet can be requested well before its appointment date) and
+        filters to the actual target window in Python, same reasoning as
+        find_due_followups: appointment_date lives in JSONB, not a real
+        column, so it can't be filtered in SQL directly without a JSONB
+        expression index that doesn't exist. Not deduped by senior like
+        find_due_followups -- a digest listing every upcoming appointment is
+        the correct behavior, unlike the follow-up-ask case where duplicate
+        pings for the same visit are the thing being avoided.
+        """
+        reference_time = as_of or datetime.now(timezone.utc)
+        today = reference_time.date()
+        window_end = today + timedelta(days=days_ahead)
+
+        since = reference_time - timedelta(days=30)
+        packets = self.get_prep_packets(circle_id, limit=100, since=since)
+
+        upcoming = []
+        for p in packets:
+            raw = p.get("raw") or {}
+            appt_date_str = raw.get("appointment_date")
+            if not appt_date_str:
+                continue
+            try:
+                appt_date = date.fromisoformat(appt_date_str)
+            except ValueError:
+                continue
+            if today <= appt_date <= window_end:
+                upcoming.append({
+                    "appointment_date": appt_date,
+                    "doctor_name": raw.get("doctor_name"),
+                    "appointment_desc": raw.get("appointment_desc"),
+                })
+
+        upcoming.sort(key=lambda x: x["appointment_date"])
+        return upcoming
 
     # --- MEMBERSHIPS ---
 
