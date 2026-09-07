@@ -787,11 +787,12 @@ async def app_update_me(
 ):
     """
     Allow a person to update their own profile fields.
-    Scoped to phone, aliases, notes, date_of_birth only — no name or type changes.
+    Scoped to phone, email, aliases, notes, date_of_birth only — no name or type changes.
     """
     updated = repo.update_person(
         person_id=str(person["person_id"]),
         phone=body.phone,
+        email=body.email,
         aliases=body.aliases,
         notes=body.notes,
         date_of_birth=body.date_of_birth,

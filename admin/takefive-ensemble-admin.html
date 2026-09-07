@@ -975,6 +975,10 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <input class="form-input" id="my-phone" type="tel" placeholder="+1 (555) 000-0000"/>
     </div>
     <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" id="my-email" type="email" placeholder="you@example.com"/>
+    </div>
+    <div class="form-group">
       <label class="form-label">Date of birth</label>
       <input class="form-input" id="my-dob" type="date"/>
     </div>
@@ -2506,6 +2510,7 @@ function openMyProfile() {
   if (!p) return;
   document.getElementById('my-name').value    = p.name || '';
   document.getElementById('my-phone').value   = p.phone || '';
+  document.getElementById('my-email').value   = p.email || '';
   document.getElementById('my-dob').value     = p.date_of_birth ? p.date_of_birth.slice(0, 10) : '';
   document.getElementById('my-aliases').value = (p.aliases || []).join(', ');
   document.getElementById('my-notes').value   = p.notes || '';
@@ -2514,6 +2519,7 @@ function openMyProfile() {
 
 async function saveMyProfile() {
   const phone   = document.getElementById('my-phone').value.trim() || null;
+  const email   = document.getElementById('my-email').value.trim() || null;
   const dob     = document.getElementById('my-dob').value || null;
   const aliases = document.getElementById('my-aliases').value.trim().split(',').map(s => s.trim()).filter(Boolean);
   const notes   = document.getElementById('my-notes').value.trim() || null;
@@ -2521,12 +2527,13 @@ async function saveMyProfile() {
     const res = await apiFetch(`/app/people/me`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, date_of_birth: dob, aliases, notes }),
+      body: JSON.stringify({ phone, email, date_of_birth: dob, aliases, notes }),
     });
     if (!res.ok) throw new Error();
     const data = await res.json();
     // Update local state
     state.person.phone         = data.person.phone;
+    state.person.email         = data.person.email;
     state.person.date_of_birth = data.person.date_of_birth;
     state.person.aliases       = data.person.aliases;
     state.person.notes         = data.person.notes;
