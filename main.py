@@ -15,7 +15,7 @@ from take_five.integrations.groupme import handle_groupme_webhook, send_message_
 from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat
 from take_five.integrations.npi import search_npi
 from take_five.integrations.twilio import handle_sms, send_sms
-from take_five.integrations.sendgrid_email import handle_inbound_email
+from take_five.integrations.sendgrid_email import handle_inbound_email, circle_inbound_address
 from take_five.messages import ask_with_tools, generate_prep_packet
 from take_five.pipeline import run_post_storage_pipeline
 from take_five.repository import repo
@@ -711,13 +711,33 @@ async def app_get_circles(
     """
     Return circles visible to the requester.
     Admins see all circles; members see only their own.
+
+    Every circle carries its inbound email address (inbound_email) and a
+    ready-to-use display name for it (inbound_email_display_name, same
+    "{ensemble} - {circle}" convention used for the outbound Reply-To in
+    sendgrid_email.py) so the UI can render a mailto: link. Deliberately
+    NOT gated to admin_only -- this is a functional address every circle
+    member needs to actually use the feature (send an update by email),
+    not admin configuration. See card #44 for why other circle-scoped data
+    (medications, references) IS gated and this intentionally is not: it
+    carries no clinical or decision-sensitive content, only a routing
+    address, so there's nothing here to protect between inner/outer circle
+    or clinical-access boundaries.
     """
     circles = repo.list_circles_for_person(
         ensemble_id=ensemble_id,
         person_id=str(person["person_id"]),
         user_role=person["user_role"],
     )
-    return {"circles": [row_to_dict(c) for c in (circles or [])]}
+    ensemble = repo.get_ensemble(ensemble_id)
+    ensemble_name = ensemble["name"] if ensemble else ""
+    result = []
+    for c in (circles or []):
+        d = row_to_dict(c)
+        d["inbound_email"] = circle_inbound_address(str(d["id"]))
+        d["inbound_email_display_name"] = f"{ensemble_name} - {d['name']}" if ensemble_name else d["name"]
+        result.append(d)
+    return {"circles": result}
 
 
 @open_router.get("/app/ensembles/{ensemble_id}/people")

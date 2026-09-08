@@ -532,6 +532,9 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <div class="page-header">
         <div>
           <div class="page-sub" id="circle-detail-sub">—</div>
+          <a id="circle-detail-email-link" href="#" style="display:none;font-size:12px;color:var(--t500);text-decoration:none;margin-top:2px;" title="Email care updates to this circle">
+            <span style="opacity:0.7;">Email updates to:</span> <span id="circle-detail-email-text"></span>
+          </a>
         </div>
       <div style="display:flex;gap:0.5rem;align-items:center;">
         <span class="integration-tag connected" id="groupme-connected-tag" style="display:none;">
@@ -3232,6 +3235,26 @@ async function openCircleDetail(circleId, circleName) {
   const circle = state.circles.find(c => c.id === circleId);
   const seniors = (state.allPeople.filter(p => p.circle_ids?.includes(circleId) && p.care_roles?.includes('senior'))).map(s => s.name).join(' & ');
   document.getElementById('circle-detail-sub').textContent = seniors || 'No seniors assigned';
+  // Inbound email address for this circle -- available to every circle
+  // member regardless of admin/clinical-access status (see main.py's
+  // app_get_circles docstring for why this one is deliberately ungated).
+  // Rendered as a mailto: link carrying a display name ("{ensemble} -
+  // {circle}") ahead of the address, same convention used for the
+  // outbound Reply-To in sendgrid_email.py, so a reply/new message in the
+  // recipient's mail client shows a readable name rather than the raw
+  // encoded local-part. This is outside strict RFC 6068 (which only
+  // defines a bare addr-spec for mailto), but every mainstream client
+  // (Gmail, Apple Mail, Outlook) accepts the quoted "Name" <address> form.
+  const emailLink = document.getElementById('circle-detail-email-link');
+  const emailText = document.getElementById('circle-detail-email-text');
+  if (circle?.inbound_email) {
+    const mailbox = `"${circle.inbound_email_display_name || circleName}" <${circle.inbound_email}>`;
+    emailLink.href = `mailto:${encodeURIComponent(mailbox)}`;
+    emailText.textContent = circle.inbound_email;
+    emailLink.style.display = 'block';
+  } else {
+    emailLink.style.display = 'none';
+  }
   // Inner/outer indicator, same logic as the Circles panel table and
   // Overview cards — parent_circle_id null/absent = inner (top-level).
   // See card #44.
