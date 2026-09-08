@@ -533,7 +533,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <div>
           <div class="page-sub" id="circle-detail-sub">—</div>
           <a id="circle-detail-email-link" href="#" style="display:none;font-size:12px;color:var(--t500);text-decoration:none;margin-top:2px;" title="Email care updates to this circle">
-            <span style="opacity:0.7;">Email updates to:</span> <span id="circle-detail-email-text"></span>
+            <span style="opacity:0.7;">Email:</span> <span id="circle-detail-email-text"></span>
           </a>
         </div>
       <div style="display:flex;gap:0.5rem;align-items:center;">
@@ -3248,9 +3248,17 @@ async function openCircleDetail(circleId, circleName) {
   const emailLink = document.getElementById('circle-detail-email-link');
   const emailText = document.getElementById('circle-detail-email-text');
   if (circle?.inbound_email) {
-    const mailbox = `"${circle.inbound_email_display_name || circleName}" <${circle.inbound_email}>`;
+    const displayName = circle.inbound_email_display_name || circleName;
+    const mailbox = `"${displayName}" <${circle.inbound_email}>`;
     emailLink.href = `mailto:${encodeURIComponent(mailbox)}`;
-    emailText.textContent = circle.inbound_email;
+    // Shows the display name, not the raw address -- the base62 local-
+    // part is deliberately opaque (see chat history: chosen specifically
+    // so it never needs to be something a person reads, types, or
+    // recognizes), so surfacing it here as visible text would just be
+    // confusing clutter with no benefit. The real address still does its
+    // job invisibly inside the mailto: href itself.
+    emailText.textContent = displayName;
+    emailLink.title = `Email updates to: ${circle.inbound_email}`;
     emailLink.style.display = 'block';
   } else {
     emailLink.style.display = 'none';
