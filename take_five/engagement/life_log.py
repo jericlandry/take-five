@@ -29,7 +29,7 @@ from typing import Dict, Optional
 from anthropic import AsyncAnthropic
 
 from take_five.repository import repo
-from take_five.utils import get_prompt
+from take_five.utils import get_prompt, build_calendar_context
 from take_five.models import LIFE_LOG_EXTRACTION_MODEL
 
 logger = logging.getLogger(__name__)
@@ -67,12 +67,18 @@ def _strip_and_parse(raw: str) -> Optional[dict]:
         return None
 
 
-async def _run_extraction(prompt_template: str, subjects_str: str, messages: list) -> Optional[Dict]:
+async def _run_extraction(
+    prompt_template: str,
+    subjects_str: str,
+    messages: list,
+    calendar_context: str = "",
+) -> Optional[Dict]:
     if not messages:
         return None
     prompt = prompt_template.format(
         subjects=subjects_str,
         messages=_format_messages(messages),
+        calendar_context=calendar_context,
     )
     try:
         client = AsyncAnthropic()
@@ -122,7 +128,19 @@ async def extract_life_log_topic(circle_id: str, as_of: Optional[datetime] = Non
         m for m in repo.get_messages([circle_id], start_date=since, end_date=reference_time)
         if m.get("direction") == "inbound"
     ]
-    result = await _run_extraction(RECENT_THREAD_PROMPT, subjects_str, recent_messages)
+    # Same fix as generate_weekly_digest()'s calendar_context -- without
+    # this, a message saying "appt Monday" gets echoed into the excerpt as
+    # a bare "Monday" with no date resolution, which reads as ambiguous or
+    # even as already-past by the time the email goes out days later (see
+    # Dr. Kalif appointment confusion, 2026-09-16). Durable-detail
+    # extraction below deliberately does NOT get this -- evergreen details
+    # (hobbies, interests) aren't date-sensitive the way a recent
+    # unresolved-thread item is, and a calendar table spanning full message
+    # history would be impractically large.
+    recent_calendar_context = build_calendar_context(since, reference_time)
+    result = await _run_extraction(
+        RECENT_THREAD_PROMPT, subjects_str, recent_messages, recent_calendar_context
+    )
     if result:
         logger.info(
             f"[life_log] circle {circle_id}: recent-thread extraction found something "

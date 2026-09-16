@@ -99,6 +99,7 @@ def send_senior_emails(circle: dict) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Generate and send weekly care circle digests.")
     parser.add_argument("--circle-id", dest="circle_id", default=None, help="Internal UUID of a single care circle to process. Omit to process all active circles.")
+    parser.add_argument("--email-only", dest="email_only", action="store_true", help="Send only the senior-facing email (send_senior_emails) -- skip the GroupMe family digest entirely, including its log_message call. Useful for re-sending/testing the senior email in isolation, e.g. after a prompt change, without re-posting to the family chat.")
     args = parser.parse_args()
 
     if args.circle_id:
@@ -125,6 +126,10 @@ def main():
 
         # Independent of GroupMe config below -- email is its own channel.
         send_senior_emails(circle)
+
+        if args.email_only:
+            logger.info(f"--email-only set -- skipping GroupMe digest for {circle_name}.")
+            continue
 
         if not ext_id:
             logger.warning(f"Skipping {circle_name} — no external_id.")

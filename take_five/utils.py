@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List
 from uuid import UUID
 
@@ -19,6 +19,41 @@ CHANNEL_CONSTRAINTS = {
     "groupme": "Keep your response under 600 characters. If the topic warrants more depth, give a focused answer and offer to continue.",
     "sms":     "Keep your response under 300 characters.",
 }
+
+
+def build_calendar_context(start_date: datetime, end_date: datetime, lookback_days: int = 3) -> str:
+    """
+    Deterministic day-name -> date lookup table, so an LLM can resolve a
+    relative day mentioned in a message ("we did X Friday") by lookup
+    instead of computing weekday arithmetic itself -- found doing this
+    arithmetic wrong in production (labeled a message's "Friday" reference
+    as August 22, 2026, which is actually a Saturday -- see Kathy Landry /
+    Landry F&F digest, 2026-08-26). Also used to fix the same class of bug
+    in the senior email's Life Log excerpt, which echoed a bare "Monday"
+    from a source message with no date resolution at all (see Dr. Kalif
+    appointment confusion, 2026-09-16).
+
+    Shared by generate_weekly_digest()/generate_outer_weekly_digest() in
+    summaries.py and extract_life_log_topic()'s recent-thread extraction in
+    engagement/life_log.py -- lives here rather than in summaries.py so
+    life_log.py can import it without a circular import (summaries.py
+    already imports from engagement.life_log).
+
+    lookback_days extends the table before start_date so a message sent
+    early in the window referencing a day just before it can still resolve
+    correctly, without pulling in a full extra week.
+    """
+    calendar_start = (start_date - timedelta(days=lookback_days)).date()
+    calendar_end = end_date.date()
+    lines = ["## Calendar Reference\n",
+             "Use this table to resolve any day name mentioned in a message "
+             "(e.g. \"Friday\") to its actual date. Do not compute weekday "
+             "arithmetic yourself -- look it up here.\n"]
+    d = calendar_start
+    while d <= calendar_end:
+        lines.append(f"- {d.strftime('%A, %B %d, %Y')}")
+        d += timedelta(days=1)
+    return "\n".join(lines)
 
 
 def get_prompt(name: str) -> str:

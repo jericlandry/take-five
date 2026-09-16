@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage
 from take_five.engagement.life_log import extract_life_log_topic
 from take_five.messages import ContextBuilder
 from take_five.repository import repo, TOPIC_CATEGORIES
-from take_five.utils import get_prompt, RESPONSE_FORMATS
+from take_five.utils import get_prompt, RESPONSE_FORMATS, build_calendar_context
 from take_five.models import DIGEST_MODEL
 
 logger = logging.getLogger(__name__)
@@ -25,32 +25,6 @@ SENIOR_DIGEST_PROMPT = get_prompt("t5_week_summary_senior")
 # short personal note, not a report; a low ceiling also discourages the
 # model from padding it out into something digest-shaped.
 senior_digest_llm = ChatAnthropic(model=DIGEST_MODEL, max_tokens=400)
-
-
-def _build_calendar_context(start_date: datetime, end_date: datetime, lookback_days: int = 3) -> str:
-    """
-    Deterministic day-name -> date lookup table for the digest window, so
-    the model can resolve a relative day mentioned in a message ("we did X
-    Friday") by lookup instead of computing weekday arithmetic itself --
-    found doing this arithmetic wrong in production (labeled a message's
-    "Friday" reference as August 22, 2026, which is actually a Saturday --
-    see Kathy Landry / Landry F&F digest, 2026-08-26).
-
-    lookback_days extends the table before start_date so a message sent
-    early in the window referencing a day just before it can still resolve
-    correctly, without pulling in a full extra week.
-    """
-    calendar_start = (start_date - timedelta(days=lookback_days)).date()
-    calendar_end = end_date.date()
-    lines = ["## Calendar Reference\n",
-             "Use this table to resolve any day name mentioned in a message "
-             "(e.g. \"Friday\") to its actual date. Do not compute weekday "
-             "arithmetic yourself -- look it up here.\n"]
-    d = calendar_start
-    while d <= calendar_end:
-        lines.append(f"- {d.strftime('%A, %B %d, %Y')}")
-        d += timedelta(days=1)
-    return "\n".join(lines)
 
 
 def generate_weekly_digest(
@@ -77,7 +51,7 @@ def generate_weekly_digest(
         conversation_text=messages,
         roster_context=ctx.get_roster(),
         current_date=date.today().strftime("%A, %B %d, %Y"),
-        calendar_context=_build_calendar_context(start_date, end_date),
+        calendar_context=build_calendar_context(start_date, end_date),
         response_format=RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"]),
     )
 
@@ -353,7 +327,7 @@ def generate_outer_weekly_digest(
         conversation_text=messages,
         roster_context=ctx.get_roster(),
         current_date=date.today().strftime("%A, %B %d, %Y"),
-        calendar_context=_build_calendar_context(start_date, end_date),
+        calendar_context=build_calendar_context(start_date, end_date),
         response_format=RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"]),
     )
 
