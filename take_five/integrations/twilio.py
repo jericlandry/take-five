@@ -213,14 +213,31 @@ async def _process_caregiver_sms(
         person_id=str(person['id']),
     )
 
-    asyncio.create_task(run_post_storage_pipeline(
-        message_id=str(new_msg['id']),
-        circle_id=str(new_msg['circle_id']),
-        body=Body,
-        sender=person['name'],
-        sent_at=new_msg['sent_at'],
-        channel="sms",
-    ))
+    has_media = int(NumMedia) > 0 and bool(MediaUrl0)
+
+    def finalize_pipeline(body: str, sender_name: str, sent_at):
+        """
+        Fire memory (chunk/embed) and signal detection exactly once, on
+        whatever text ends up being this message's final content.
+
+        Mirrors groupme.py's finalize_image_pipeline: for a plain-text SMS
+        (no media) this runs immediately below. For an MMS it's deferred
+        until image classification — and, for a DOCUMENT, OCR enrichment —
+        resolves inside process_sms_image(), so embeddings/signal detection
+        never run on stale caption-only text moments before a document's
+        extracted text gets appended to the body.
+        """
+        asyncio.create_task(run_post_storage_pipeline(
+            message_id=str(new_msg['id']),
+            circle_id=str(new_msg['circle_id']),
+            body=body,
+            sender=sender_name,
+            sent_at=sent_at,
+            channel="sms",
+        ))
+
+    if not has_media:
+        finalize_pipeline(Body, person['name'], new_msg['sent_at'])
 
     # Relay to GroupMe — raw text as written, no LLM paraphrasing. If there's an
     # MMS image, it's re-hosted on GroupMe's Image Service and attached to the
@@ -228,7 +245,6 @@ async def _process_caregiver_sms(
     # sender had posted it in GroupMe directly.
     bot_id         = (circle.get('integration_config') or {}).get('groupme_bot_id')
     groupme_ext_id = circle.get('external_id')  # groupme:{group_id}
-    has_media      = int(NumMedia) > 0 and bool(MediaUrl0)
 
     if bot_id and groupme_ext_id:
         async def relay_to_groupme():
@@ -267,12 +283,52 @@ async def _process_caregiver_sms(
             async def process_sms_image():
                 result = await handle_image_message(image_attachment)
                 if not result:
+                    # Vision call failed — still process the caption alone
+                    # rather than silently dropping it. Mirrors groupme.py's
+                    # process_image() on a vision failure.
+                    finalize_pipeline(Body, person['name'], new_msg['sent_at'])
                     return
                 reply, vision_result = result
                 if reply:
                     await groupme_reply(bot_id, reply, groupme_ext_id)
 
                 classification = vision_result.get("classification")
+
+                if classification == "DOCUMENT":
+                    extracted_text = (vision_result.get("extracted_text") or "").strip()
+                    if extracted_text:
+                        caption = image_attachment.message_text
+                        enriched_body = (
+                            f"{caption}\n\n[Document text]:\n{extracted_text}"
+                            if caption else
+                            f"[Document text]:\n{extracted_text}"
+                        )
+                        confidence = vision_result.get("confidence", "medium")
+                        updated = repo.update_message_body(
+                            message_id=str(new_msg['id']),
+                            body=enriched_body,
+                            raw_data={"ocr": {"detected": True, "confidence": confidence}},
+                        )
+                        logger.info(
+                            f"[sms] DOCUMENT — appended OCR text to message "
+                            f"{new_msg['id']} ({len(extracted_text)} chars, confidence: {confidence})"
+                        )
+                        # Now that caption + OCR text are combined, this is
+                        # the first and only time memory/signal detection
+                        # run for this message — same ordering as
+                        # groupme.py's DOCUMENT branch, and specifically
+                        # what makes the extracted text (e.g. an appointment
+                        # date) findable via ask_with_tools()'s Recent
+                        # Messages context afterward.
+                        finalize_pipeline(enriched_body, image_attachment.sender_name, updated['sent_at'])
+                        return
+                    logger.warning(
+                        f"[sms] DOCUMENT classified but no extracted_text — "
+                        f"message {new_msg['id']}"
+                    )
+                    finalize_pipeline(Body, person['name'], new_msg['sent_at'])
+                    return
+
                 parts = [f"Image received from {image_attachment.sender_name} via SMS."]
                 if image_attachment.message_text:
                     parts.append(f"Caption: \"{image_attachment.message_text}\".")
@@ -303,6 +359,11 @@ async def _process_caregiver_sms(
                     direction="outbound",
                     channel="sms",
                 )
+
+                # No document text to combine with — process the caption
+                # alone, deferred until here so this is still the first and
+                # only pipeline pass for this message.
+                finalize_pipeline(Body, person['name'], new_msg['sent_at'])
             asyncio.create_task(process_sms_image())
 
     logger.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
