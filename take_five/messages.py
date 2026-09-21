@@ -498,12 +498,15 @@ class ContextBuilder:
                         spec    = data.get('specialty', '')
                         role    = data.get('role', '')
                         phone   = data.get('phone', '')
+                        address = data.get('address', '')
                         primary = f"- **{name}**"
                         if cred:  primary += f" {cred}"
                         if spec:  primary += f" \u2014 {spec}"
                         if role:  primary += f" ({role})"
                         lines.append(primary)
-                        if phone: lines.append(f"  Phone: {phone}")
+                        if phone:   lines.append(f"  Phone: {phone}")
+                        if address: lines.append(f"  Address: {address}")
+                        if rec.get('notes'): lines.append(f"  Note: {rec['notes']}")
                         lines.append(f"  [record_id: {record_id}]")
                         continue
 
