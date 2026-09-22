@@ -66,6 +66,51 @@ def _resolve_subject_id(subject_name: str, seniors: list) -> Optional[str]:
     return None
 
 
+VITAL_MEASUREMENT_TYPES = {"blood_pressure", "heart_rate", "weight"}
+
+
+def _build_vital_record_data(vital_value: dict, confidence: Optional[float]) -> Optional[dict]:
+    """
+    Translate a detection prompt's vital_value object into the data JSONB
+    shape for a clinical_records row (resource_type='Observation').
+
+    Returns None for anything malformed — an unrecognized type or a value
+    that isn't actually numeric — so a bad model response degrades to "not
+    logged as a vital" rather than writing a garbage record. The signal
+    itself is still saved to clinical_signals either way (see caller); this
+    only gates the separate auto-write into clinical_records.
+    """
+    if not isinstance(vital_value, dict):
+        return None
+    vtype = vital_value.get("type")
+    if vtype not in VITAL_MEASUREMENT_TYPES:
+        return None
+
+    try:
+        if vtype == "blood_pressure":
+            data = {
+                "measurement_type": "blood_pressure",
+                "systolic": int(vital_value["systolic"]),
+                "diastolic": int(vital_value["diastolic"]),
+            }
+        elif vtype == "heart_rate":
+            data = {
+                "measurement_type": "heart_rate",
+                "bpm": int(vital_value["bpm"]),
+            }
+        else:  # weight
+            data = {
+                "measurement_type": "weight",
+                "value_lbs": float(vital_value["value_lbs"]),
+            }
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    data["confidence"] = confidence
+    data["auto_logged"] = True
+    return data
+
+
 def _strip_and_parse(raw: str) -> list:
     """Strip markdown fences, trailing commentary, then parse JSON."""
     # Strip code fences
@@ -163,6 +208,50 @@ async def detect_clinical_signals(
                 channel=channel,
                 request_corroboration=signal.get("corroboration_suggested", False),
             )
+
+            # Auto-log vitals (BP / HR / weight) straight into clinical_records
+            # as an unconfirmed Observation — no confirm-then-save round trip,
+            # per 2026-09-22 design discussion. confirmed_by is deliberately
+            # left None: these are model-parsed numbers nobody has vouched
+            # for, same distinction the schema already draws for medications
+            # (see _build_clinical_records()'s Source of Truth framing).
+            # Failures here are logged and swallowed — the signal itself is
+            # already safely written above regardless of what happens next.
+            vital_value = signal.get("vital_value")
+            if vital_value and subject_id:
+                try:
+                    if not repo.circle_has_full_clinical_access(circle_id):
+                        logger.info(
+                            f"[signals] Skipping vitals auto-log for message {message_id} — "
+                            f"circle {circle_id} lacks full clinical access"
+                        )
+                    else:
+                        record_data = _build_vital_record_data(vital_value, signal.get("confidence"))
+                        if record_data is None:
+                            logger.warning(
+                                f"[signals] Malformed vital_value on message {message_id}, "
+                                f"skipping auto-log: {vital_value!r}"
+                            )
+                        else:
+                            raw_excerpt = signal.get("raw_excerpt") or signal["signal_type"]
+                            record = repo.save_clinical_record(
+                                person_id=subject_id,
+                                resource_type="Observation",
+                                data=record_data,
+                                notes=f'Auto-detected from message: "{raw_excerpt}"',
+                                confirmed_by=None,
+                                source_message_id=message_id,
+                                circle_id=circle_id,
+                            )
+                            logger.info(
+                                f"[signals] Vital auto-logged — record_id: {record['id']}, "
+                                f"type: {record_data['measurement_type']}, subject: {subject_id}"
+                            )
+                except Exception as e:
+                    logger.error(
+                        f"[signals] Vital auto-log failed for message {message_id}: {e}",
+                        exc_info=True,
+                    )
 
     except Exception as e:
         logger.error(f"[signals] Detection failed for message {message_id}: {e}", exc_info=True)

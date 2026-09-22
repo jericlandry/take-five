@@ -57,6 +57,13 @@ Set corroboration_suggested to false when:
 - the signal comes from a professional caregiver's firsthand observation of a discrete event
 - the signal is a discrete, specific event (a fall happened, a medication was refused) even if reported secondhand — the event either happened or it didn't, corroboration won't change that
 
+VITALS:
+When a signal reports a blood pressure reading, heart rate, or body weight WITH AN ACTUAL NUMBER (not a vague description like "elevated" or "high" with no figure attached), include a vital_value field on that signal:
+- Blood pressure: {"type": "blood_pressure", "systolic": int, "diastolic": int}
+- Heart rate: {"type": "heart_rate", "bpm": int}
+- Weight: {"type": "weight", "value_lbs": number}
+Omit vital_value (or set it to null) for every other signal, and for any BP/HR/weight mention that has no actual number attached — e.g. "her BP was elevated" with no figure stays a normal symptom signal with vital_value: null. Never estimate or guess a number that wasn't stated.
+
 Return ONLY a valid JSON array. No preamble, no explanation, no markdown, no code fences. Do not wrap output in backticks of any kind. Do not reconsider or add commentary after the array. Raw JSON array only, nothing else. If no signals found, return [].
 
 SCHEMA PER SIGNAL:
@@ -67,5 +74,6 @@ SCHEMA PER SIGNAL:
   "raw_excerpt": string,
   "mention_style": "direct" | "oblique",
   "confidence": float,
-  "corroboration_suggested": boolean
+  "corroboration_suggested": boolean,
+  "vital_value": {"type": "blood_pressure", "systolic": int, "diastolic": int} | {"type": "heart_rate", "bpm": int} | {"type": "weight", "value_lbs": number} | null
 }

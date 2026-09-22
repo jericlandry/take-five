@@ -510,6 +510,32 @@ class ContextBuilder:
                         lines.append(f"  [record_id: {record_id}]")
                         continue
 
+                    if resource_type == 'Observation' and data.get('measurement_type') in ('blood_pressure', 'heart_rate', 'weight'):
+                        # Auto-logged vitals (see take_five/signals.py's vital_value
+                        # handling, 2026-09-22) — never human-confirmed, so this
+                        # branch surfaces confidence and an unconfirmed marker
+                        # rather than presenting these with the same flat
+                        # authority as a confirmed medication. See the
+                        # "Source of Truth" caveat in _build_human_message()
+                        # below for the matching instruction to the model.
+                        mtype = data['measurement_type']
+                        if mtype == 'blood_pressure':
+                            reading = f"BP {data.get('systolic', '?')}/{data.get('diastolic', '?')}"
+                        elif mtype == 'heart_rate':
+                            reading = f"HR {data.get('bpm', '?')} bpm"
+                        else:
+                            reading = f"Weight {data.get('value_lbs', '?')} lbs"
+
+                        confidence = data.get('confidence')
+                        conf_str = f"{confidence:.2f}" if isinstance(confidence, (int, float)) else "unknown"
+                        when = rec.get('created_at')
+                        when_str = when.strftime('%B %d, %Y') if hasattr(when, 'strftime') else str(when)
+
+                        lines.append(f"- **{reading}** — {when_str} — _auto-detected, unconfirmed, confidence {conf_str}_")
+                        if rec.get('notes'): lines.append(f"  Note: {rec['notes']}")
+                        lines.append(f"  [record_id: {record_id}]")
+                        continue
+
                     name  = data.get('medication_name') or data.get('condition') or data.get('symptom') or 'Unknown'
                     dose  = data.get('dosage', '')
                     instr = data.get('instructions', '')
@@ -659,6 +685,13 @@ The following clinical records have been verified and entered by the care team.
 They are the authoritative source for medications, diagnoses, and care team members.
 If the conversation mentions something that conflicts with these records, trust these records.
 Do not infer or update medication information from conversation alone.
+
+Exception: vitals (blood pressure, heart rate, weight) marked "auto-detected, unconfirmed"
+were parsed automatically and never confirmed by a person. Report them as readings on
+file, not as verified facts — e.g. "the last BP reading on file is 120/68, logged
+automatically" rather than stating the number with the same certainty as a confirmed
+medication. If confidence is low or a family member's own account conflicts with an
+auto-detected vital, say so rather than silently trusting the logged number.
 {clinical_records}
 ---
 ## Recent Messages
