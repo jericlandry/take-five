@@ -52,6 +52,7 @@ from email_reply_parser import EmailReplyParser
 from fastapi import Request
 from markdown_it import MarkdownIt
 
+from take_five.attachments import extract_email_file, handle_pdf_attachment
 from take_five.integrations.groupme import groupme_reply
 from take_five.pipeline import run_post_storage_pipeline
 from take_five.repository import repo
@@ -249,7 +250,9 @@ async def handle_inbound_email(request: Request) -> dict:
         )
         return {"status": "ok"}
 
-    if not body_text:
+    pdf_attachment = extract_email_file(form)
+
+    if not body_text and not pdf_attachment:
         logger.info(f"[sendgrid-email] Empty body (after cleanup) from {sender_email} to circle {circle_id} -- dropped")
         return {"status": "ok"}
 
@@ -264,31 +267,101 @@ async def handle_inbound_email(request: Request) -> dict:
         channel="email",
     )
 
-    # Same fire-and-forget pattern as every other inbound channel
-    # (GroupMe, SMS, reference backfill) -- embeddings + clinical signal
-    # detection run async, response to SendGrid doesn't wait on them.
-    asyncio.create_task(run_post_storage_pipeline(
-        message_id=str(row["id"]),
-        circle_id=str(circle_id),
-        body=body_text,
-        sender=person["name"],
-        sent_at=row["sent_at"],
-        channel="email",
-    ))
-
-    # Relay to GroupMe -- same treatment as an SMS caregiver update (see
-    # take_five/integrations/twilio.py's _process_caregiver_sms): cleaned
-    # text as written, no LLM paraphrasing, so an email update shows up
-    # live in the family's chat the same way a text or GroupMe post would,
-    # rather than silently waiting for the weekly digest.
-    bot_id = (circle.get("integration_config") or {}).get("groupme_bot_id")
-    groupme_ext_id = circle.get("external_id")
-    if bot_id and groupme_ext_id:
-        relay_text = f"{person['name']} (via Take Five): {body_text}"
-        asyncio.create_task(groupme_reply(bot_id, relay_text, groupme_ext_id))
+    if not pdf_attachment:
+        # Same fire-and-forget pattern as every other inbound channel
+        # (GroupMe, SMS, reference backfill) -- embeddings + clinical signal
+        # detection run async, response to SendGrid doesn't wait on them.
+        asyncio.create_task(run_post_storage_pipeline(
+            message_id=str(row["id"]),
+            circle_id=str(circle_id),
+            body=body_text,
+            sender=person["name"],
+            sent_at=row["sent_at"],
+            channel="email",
+        ))
+        _relay_to_groupme(circle, person, body_text)
+    else:
+        # PDF attached -- extraction (native text + vision fallback for
+        # scanned pages) can take a few seconds for a multi-page document,
+        # so this runs deferred rather than blocking SendGrid's response,
+        # the same pattern groupme.py's process_image() uses for image
+        # messages. The message row already exists (above) with just the
+        # email's typed body (if any); this appends the extracted PDF text
+        # to it once extraction finishes, then fires the pipeline exactly
+        # once on the final combined body -- never zero, never twice, the
+        # same invariant finalize_image_pipeline() maintains in groupme.py.
+        async def _process_pdf():
+            result = await handle_pdf_attachment(pdf_attachment)
+            if result and result.success:
+                enriched_body = (
+                    f"{body_text}\n\n[Document text]:\n{result.text}"
+                    if body_text else f"[Document text]:\n{result.text}"
+                )
+                updated = repo.update_message_body(
+                    message_id=str(row["id"]),
+                    body=enriched_body,
+                    raw_data={"pdf_extraction": {
+                        "filename": pdf_attachment.filename,
+                        "pages_total": result.pages_total,
+                        "pages_vision_fallback": result.pages_vision_fallback,
+                    }},
+                )
+                logger.info(
+                    f"[sendgrid-email] PDF attachment '{pdf_attachment.filename}' -- "
+                    f"appended {len(result.text)} chars to message {row['id']} "
+                    f"({result.pages_vision_fallback}/{result.pages_total} pages via vision fallback)"
+                )
+                asyncio.create_task(run_post_storage_pipeline(
+                    message_id=str(row["id"]),
+                    circle_id=str(circle_id),
+                    body=enriched_body,
+                    sender=person["name"],
+                    sent_at=updated["sent_at"],
+                    channel="email",
+                ))
+                _relay_to_groupme(circle, person, enriched_body)
+            else:
+                # Extraction failed outright (corrupt file, nothing
+                # extractable) -- no synchronous channel to notify the
+                # sender on for email (unlike SMS/GroupMe, there's no reply
+                # to post here), so this is log-and-move-on: the typed body
+                # (if any) still goes through the pipeline on its own
+                # rather than being silently lost because the attachment
+                # failed.
+                error = result.error if result else "attachment fetch failed"
+                logger.warning(
+                    f"[sendgrid-email] PDF extraction failed for message {row['id']} "
+                    f"('{pdf_attachment.filename}'): {error}"
+                )
+                if body_text:
+                    asyncio.create_task(run_post_storage_pipeline(
+                        message_id=str(row["id"]),
+                        circle_id=str(circle_id),
+                        body=body_text,
+                        sender=person["name"],
+                        sent_at=row["sent_at"],
+                        channel="email",
+                    ))
+                    _relay_to_groupme(circle, person, body_text)
+        asyncio.create_task(_process_pdf())
 
     logger.info(f"[sendgrid-email] Logged message from {person['name']} to circle {circle_id}")
     return {"status": "ok"}
+
+
+def _relay_to_groupme(circle: dict, person: dict, text: str) -> None:
+    """
+    Relay an inbound email update into the circle's GroupMe chat, same
+    treatment as an SMS caregiver update (see twilio.py's
+    _process_caregiver_sms). Factored out of handle_inbound_email since the
+    PDF-attachment path now needs this from three places (no attachment /
+    extraction success / extraction-failure fallback) instead of one.
+    """
+    bot_id = (circle.get("integration_config") or {}).get("groupme_bot_id")
+    groupme_ext_id = circle.get("external_id")
+    if bot_id and groupme_ext_id and text:
+        relay_text = f"{person['name']} (via Take Five): {text}"
+        asyncio.create_task(groupme_reply(bot_id, relay_text, groupme_ext_id))
 
 
 # --- Outbound sending ---------------------------------------------------

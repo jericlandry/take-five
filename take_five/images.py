@@ -186,35 +186,24 @@ async def fetch_image_as_base64(url: str, headers: dict = None, auth: Optional[t
     return image_data, media_type
 
 
-async def analyze_image(attachment: ImageAttachment) -> dict:
-    logger.info(f"[images] Fetching image from {attachment.url}")
-
-    # Twilio media URLs are protected and require Basic Auth with the account's
-    # SID/token — unlike GroupMe's i.groupme.com URLs, which are public.
-    auth = None
-    if attachment.channel == "sms":
-        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        if account_sid and auth_token:
-            auth = (account_sid, auth_token)
-        else:
-            logger.error(
-                "[images] TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set — "
-                "SMS image fetch will fail Twilio's auth check"
-            )
-
-    image_data, media_type = await fetch_image_as_base64(attachment.url, auth=auth)
-
-    logger.info(
-        f"[images] Sending to Claude vision ({VISION_MODEL}) — "
-        f"channel: {attachment.channel}, sender: {attachment.sender_name}"
-    )
+async def analyze_image_bytes(image_data: str, media_type: str, message_text: str = "") -> dict:
+    """
+    Core vision call: base64 image data + media type -> Claude's parsed
+    JSON classification/extraction, using VISION_PROMPT (the MEDICATION/
+    DOCUMENT/OTHER classifier). Fetch-agnostic — split out of analyze_image()
+    so it can be called with bytes that were never fetched from a URL at
+    all (e.g. a locally-rendered PDF page — see take_five/attachments.py,
+    which reuses this client/model plumbing but NOT this function, since a
+    PDF page is already known to be a document and needs plain transcription,
+    not MEDICATION/DOCUMENT/OTHER triage).
+    """
+    logger.info(f"[images] Sending to Claude vision ({VISION_MODEL})")
 
     user_content = []
-    if attachment.message_text:
+    if message_text:
         user_content.append({
             "type": "text",
-            "text": f'The sender wrote: "{attachment.message_text}"\n\nNow analyze the image:'
+            "text": f'The sender wrote: "{message_text}"\n\nNow analyze the image:'
         })
     user_content.append({
         "type": "image",
@@ -243,6 +232,32 @@ async def analyze_image(attachment: ImageAttachment) -> dict:
             "confidence": "low",
             "notes": str(e)
         }
+
+
+async def analyze_image(attachment: ImageAttachment) -> dict:
+    logger.info(f"[images] Fetching image from {attachment.url}")
+
+    # Twilio media URLs are protected and require Basic Auth with the account's
+    # SID/token — unlike GroupMe's i.groupme.com URLs, which are public.
+    auth = None
+    if attachment.channel == "sms":
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        if account_sid and auth_token:
+            auth = (account_sid, auth_token)
+        else:
+            logger.error(
+                "[images] TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set — "
+                "SMS image fetch will fail Twilio's auth check"
+            )
+
+    image_data, media_type = await fetch_image_as_base64(attachment.url, auth=auth)
+
+    logger.info(
+        f"[images] channel: {attachment.channel}, sender: {attachment.sender_name}"
+    )
+
+    return await analyze_image_bytes(image_data, media_type, attachment.message_text)
 
 
 async def handle_image_message(attachment: ImageAttachment) -> Optional[tuple[str, dict]]:

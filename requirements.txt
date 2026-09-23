@@ -59,6 +59,12 @@ twilio
 # SendGrid Inbound Parse (webhook signature verification)
 ecdsa
 
+# PDF attachment extraction (email/GroupMe/SMS) -- text extraction and
+# page-to-image rendering (vision OCR fallback) in one dependency, no
+# system binary (poppler/ImageMagick) required, unlike pdfplumber's own
+# to_image().
+PyMuPDF
+
 # Email quote/signature stripping for inbound care updates
 email_reply_parser
 
