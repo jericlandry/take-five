@@ -11,6 +11,7 @@ from typing import Optional
 
 from take_five.repository import repo
 from take_five.pipeline import run_post_storage_pipeline
+from take_five.attachments import extract_sms_file, handle_pdf_attachment, format_pdf_failure_mailto
 from take_five.images import extract_sms_image, handle_image_message
 from take_five.integrations.groupme import groupme_reply, upload_image_to_groupme
 
@@ -221,11 +222,13 @@ async def _process_caregiver_sms(
         whatever text ends up being this message's final content.
 
         Mirrors groupme.py's finalize_image_pipeline: for a plain-text SMS
-        (no media) this runs immediately below. For an MMS it's deferred
-        until image classification — and, for a DOCUMENT, OCR enrichment —
-        resolves inside process_sms_image(), so embeddings/signal detection
-        never run on stale caption-only text moments before a document's
-        extracted text gets appended to the body.
+        (no media, or media of an unrecognized type) this runs immediately
+        below. For an MMS image or PDF it's deferred until classification/
+        extraction -- and, for a DOCUMENT or PDF, OCR/extraction enrichment
+        -- resolves inside process_sms_image()/process_sms_pdf(), so
+        embeddings/signal detection never run on stale caption-only text
+        moments before a document's extracted text gets appended to the
+        body.
         """
         asyncio.create_task(run_post_storage_pipeline(
             message_id=str(new_msg['id']),
@@ -236,24 +239,51 @@ async def _process_caregiver_sms(
             channel="sms",
         ))
 
-    if not has_media:
+    # Detect attachment type up front (image vs PDF vs unrecognized) so the
+    # "fire the pipeline now or defer it" decision below and the GroupMe
+    # relay text can both branch on the same result -- mirrors
+    # handle_groupme_webhook's image_attachment/pdf_attachment precedence
+    # (image checked first; PDF only when there's no image).
+    sms_payload = {
+        "NumMedia": NumMedia,
+        "MediaUrl0": MediaUrl0,
+        "MediaContentType0": MediaContentType0,
+        "Body": Body, "From": From, "To": To,
+        "sender_name": person['name'], "MessageSid": "",
+    }
+    image_attachment = extract_sms_image(sms_payload) if has_media else None
+    pdf_attachment = extract_sms_file(sms_payload) if (has_media and not image_attachment) else None
+
+    if not image_attachment and not pdf_attachment:
         finalize_pipeline(Body, person['name'], new_msg['sent_at'])
 
     # Relay to GroupMe — raw text as written, no LLM paraphrasing. If there's an
     # MMS image, it's re-hosted on GroupMe's Image Service and attached to the
     # same message so it posts as one combined text+photo reply, same as if the
-    # sender had posted it in GroupMe directly.
+    # sender had posted it in GroupMe directly. A PDF isn't re-hosted as an
+    # image (GroupMe's image service would reject the content type) -- the
+    # relay text just notes a document was attached, same treatment as the
+    # email relay fix (see chat history).
     bot_id         = (circle.get('integration_config') or {}).get('groupme_bot_id')
     groupme_ext_id = circle.get('external_id')  # groupme:{group_id}
 
     if bot_id and groupme_ext_id:
         async def relay_to_groupme():
-            relay_text = (
-                f"{person['name']} (via Take Five): {Body}" if Body.strip()
-                else f"{person['name']} (via Take Five) shared a photo:"
-            )
+            if pdf_attachment:
+                note = "[shared a document]"
+                relay_text = (
+                    f"{person['name']} (via Take Five): {Body}\n\n{note}" if Body.strip()
+                    else f"{person['name']} (via Take Five) {note}"
+                )
+            elif has_media:
+                relay_text = (
+                    f"{person['name']} (via Take Five): {Body}" if Body.strip()
+                    else f"{person['name']} (via Take Five) shared a photo:"
+                )
+            else:
+                relay_text = f"{person['name']} (via Take Five): {Body}"
             picture_url = None
-            if has_media:
+            if image_attachment:
                 fetched = await fetch_twilio_media(MediaUrl0)
                 if fetched:
                     image_bytes, content_type = fetched
@@ -270,101 +300,132 @@ async def _process_caregiver_sms(
     # etc.), independent of the raw relay above. Mirrors handle_groupme_webhook's
     # process_image(): posts a reply when there is one (e.g. the medication
     # confirmation card) and always logs an agent_note with the vision result.
-    if has_media:
-        sms_payload = {
-            "NumMedia": NumMedia,
-            "MediaUrl0": MediaUrl0,
-            "MediaContentType0": MediaContentType0,
-            "Body": Body, "From": From, "To": To,
-            "sender_name": person['name'], "MessageSid": "",
-        }
-        image_attachment = extract_sms_image(sms_payload)
-        if image_attachment:
-            async def process_sms_image():
-                result = await handle_image_message(image_attachment)
-                if not result:
-                    # Vision call failed — still process the caption alone
-                    # rather than silently dropping it. Mirrors groupme.py's
-                    # process_image() on a vision failure.
-                    finalize_pipeline(Body, person['name'], new_msg['sent_at'])
-                    return
-                reply, vision_result = result
-                if reply:
-                    await groupme_reply(bot_id, reply, groupme_ext_id)
-
-                classification = vision_result.get("classification")
-
-                if classification == "DOCUMENT":
-                    extracted_text = (vision_result.get("extracted_text") or "").strip()
-                    if extracted_text:
-                        caption = image_attachment.message_text
-                        enriched_body = (
-                            f"{caption}\n\n[Document text]:\n{extracted_text}"
-                            if caption else
-                            f"[Document text]:\n{extracted_text}"
-                        )
-                        confidence = vision_result.get("confidence", "medium")
-                        updated = repo.update_message_body(
-                            message_id=str(new_msg['id']),
-                            body=enriched_body,
-                            raw_data={"ocr": {"detected": True, "confidence": confidence}},
-                        )
-                        logger.info(
-                            f"[sms] DOCUMENT — appended OCR text to message "
-                            f"{new_msg['id']} ({len(extracted_text)} chars, confidence: {confidence})"
-                        )
-                        # Now that caption + OCR text are combined, this is
-                        # the first and only time memory/signal detection
-                        # run for this message — same ordering as
-                        # groupme.py's DOCUMENT branch, and specifically
-                        # what makes the extracted text (e.g. an appointment
-                        # date) findable via ask_with_tools()'s Recent
-                        # Messages context afterward.
-                        finalize_pipeline(enriched_body, image_attachment.sender_name, updated['sent_at'])
-                        return
-                    logger.warning(
-                        f"[sms] DOCUMENT classified but no extracted_text — "
-                        f"message {new_msg['id']}"
-                    )
-                    finalize_pipeline(Body, person['name'], new_msg['sent_at'])
-                    return
-
-                parts = [f"Image received from {image_attachment.sender_name} via SMS."]
-                if image_attachment.message_text:
-                    parts.append(f"Caption: \"{image_attachment.message_text}\".")
-
-                if classification == "MEDICATION":
-                    extracted = vision_result.get("extracted") or {}
-                    name = extracted.get("medication_name")
-                    brand = extracted.get("brand_name")
-                    dosage = extracted.get("dosage", "")
-                    instructions = extracted.get("instructions", "")
-                    kind = "supplement" if extracted.get("is_supplement") else "medication"
-                    label = f"{name}{f' ({brand})' if brand else ''}"
-                    parts.append(f"Extracted: {label}, {dosage}, {kind}, {instructions}.")
-                else:
-                    description = vision_result.get("description", "")
-                    text_found = vision_result.get("text_found")
-                    if description:
-                        parts.append(description)
-                    if text_found:
-                        parts.append(f"Text found: {text_found}.")
-
-                repo.log_message(
-                    circle_ext_id=groupme_ext_id,
-                    person_ext_id=None,
-                    body=" ".join(parts),
-                    raw_data=vision_result,
-                    msg_type="agent_note",
-                    direction="outbound",
-                    channel="sms",
-                )
-
-                # No document text to combine with — process the caption
-                # alone, deferred until here so this is still the first and
-                # only pipeline pass for this message.
+    if image_attachment:
+        async def process_sms_image():
+            result = await handle_image_message(image_attachment)
+            if not result:
+                # Vision call failed — still process the caption alone
+                # rather than silently dropping it. Mirrors groupme.py's
+                # process_image() on a vision failure.
                 finalize_pipeline(Body, person['name'], new_msg['sent_at'])
-            asyncio.create_task(process_sms_image())
+                return
+            reply, vision_result = result
+            if reply:
+                await groupme_reply(bot_id, reply, groupme_ext_id)
+
+            classification = vision_result.get("classification")
+
+            if classification == "DOCUMENT":
+                extracted_text = (vision_result.get("extracted_text") or "").strip()
+                if extracted_text:
+                    caption = image_attachment.message_text
+                    enriched_body = (
+                        f"{caption}\n\n[Document text]:\n{extracted_text}"
+                        if caption else
+                        f"[Document text]:\n{extracted_text}"
+                    )
+                    confidence = vision_result.get("confidence", "medium")
+                    updated = repo.update_message_body(
+                        message_id=str(new_msg['id']),
+                        body=enriched_body,
+                        raw_data={"ocr": {"detected": True, "confidence": confidence}},
+                    )
+                    logger.info(
+                        f"[sms] DOCUMENT — appended OCR text to message "
+                        f"{new_msg['id']} ({len(extracted_text)} chars, confidence: {confidence})"
+                    )
+                    # Now that caption + OCR text are combined, this is
+                    # the first and only time memory/signal detection
+                    # run for this message — same ordering as
+                    # groupme.py's DOCUMENT branch, and specifically
+                    # what makes the extracted text (e.g. an appointment
+                    # date) findable via ask_with_tools()'s Recent
+                    # Messages context afterward.
+                    finalize_pipeline(enriched_body, image_attachment.sender_name, updated['sent_at'])
+                    return
+                logger.warning(
+                    f"[sms] DOCUMENT classified but no extracted_text — "
+                    f"message {new_msg['id']}"
+                )
+                finalize_pipeline(Body, person['name'], new_msg['sent_at'])
+                return
+
+            parts = [f"Image received from {image_attachment.sender_name} via SMS."]
+            if image_attachment.message_text:
+                parts.append(f"Caption: \"{image_attachment.message_text}\".")
+
+            if classification == "MEDICATION":
+                extracted = vision_result.get("extracted") or {}
+                name = extracted.get("medication_name")
+                brand = extracted.get("brand_name")
+                dosage = extracted.get("dosage", "")
+                instructions = extracted.get("instructions", "")
+                kind = "supplement" if extracted.get("is_supplement") else "medication"
+                label = f"{name}{f' ({brand})' if brand else ''}"
+                parts.append(f"Extracted: {label}, {dosage}, {kind}, {instructions}.")
+            else:
+                description = vision_result.get("description", "")
+                text_found = vision_result.get("text_found")
+                if description:
+                    parts.append(description)
+                if text_found:
+                    parts.append(f"Text found: {text_found}.")
+
+            repo.log_message(
+                circle_ext_id=groupme_ext_id,
+                person_ext_id=None,
+                body=" ".join(parts),
+                raw_data=vision_result,
+                msg_type="agent_note",
+                direction="outbound",
+                channel="sms",
+            )
+
+            # No document text to combine with — process the caption
+            # alone, deferred until here so this is still the first and
+            # only pipeline pass for this message.
+            finalize_pipeline(Body, person['name'], new_msg['sent_at'])
+        asyncio.create_task(process_sms_image())
+
+    elif pdf_attachment:
+        async def process_sms_pdf():
+            result = await handle_pdf_attachment(pdf_attachment)
+            if result and result.success:
+                enriched_body = (
+                    f"{Body}\n\n[Document text]:\n{result.text}"
+                    if Body.strip() else f"[Document text]:\n{result.text}"
+                )
+                updated = repo.update_message_body(
+                    message_id=str(new_msg['id']),
+                    body=enriched_body,
+                    raw_data={"pdf_extraction": {
+                        "filename": pdf_attachment.filename,
+                        "pages_total": result.pages_total,
+                        "pages_vision_fallback": result.pages_vision_fallback,
+                    }},
+                )
+                logger.info(
+                    f"[sms] PDF attachment -- appended {len(result.text)} chars to "
+                    f"message {new_msg['id']} ({result.pages_vision_fallback}/"
+                    f"{result.pages_total} pages via vision fallback)"
+                )
+                # No extra confirmation SMS on success -- the sender's own
+                # Messages app already shows their sent attachment natively
+                # (same reasoning as GroupMe's client), and the generic
+                # "Got it, thanks for the update" TwiML reply below already
+                # covers acknowledging the message itself.
+                finalize_pipeline(enriched_body, person['name'], updated['sent_at'])
+            else:
+                error = result.error if result else "attachment fetch failed"
+                logger.warning(f"[sms] PDF extraction failed for message {new_msg['id']}: {error}")
+                # Still fire the pipeline on the caption alone so it isn't
+                # lost, then tell the sender directly. This has to be a
+                # separate outbound SMS (send_sms), not a TwiML reply --
+                # the synchronous TwiML confirmation below already went out
+                # before this async task finishes.
+                finalize_pipeline(Body, person['name'], new_msg['sent_at'])
+                send_sms(From, format_pdf_failure_mailto(circle))
+        asyncio.create_task(process_sms_pdf())
 
     logger.info(f"Twilio SMS logged from {person['name']}: '{Body}'")
 

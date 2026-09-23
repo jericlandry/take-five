@@ -28,6 +28,7 @@ NotImplementedError the same way in the meantime.
 import base64
 import json as _json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 
@@ -187,7 +188,46 @@ def extract_groupme_file(payload: dict, access_token: str) -> Optional[PDFAttach
 
 
 def extract_sms_file(payload: dict) -> Optional[PDFAttachment]:
-    raise NotImplementedError("SMS PDF attachment extraction not yet implemented")
+    """
+    payload: dict with NumMedia, MediaUrl0, MediaContentType0 -- the same
+    Twilio inbound-MMS fields already used by images.py's extract_sms_image
+    (fetch_image_as_base64's SMS branch). Only checks the first media item
+    (index 0), matching that existing single-media-item convention rather
+    than introducing support for multiple attachments Twilio can in
+    principle send.
+
+    Unlike email/GroupMe, MMS attachment reliability for non-image files is
+    a real carrier-level unknown -- some carriers strip or reject a PDF
+    before it ever reaches Twilio, silently (see chat history's design
+    discussion). This function only detects what actually arrives; it
+    can't detect what a carrier dropped before that.
+    """
+    num_media = int(payload.get("NumMedia", 0) or 0)
+    if num_media == 0:
+        return None
+    content_type = (payload.get("MediaContentType0") or "").lower()
+    if "pdf" not in content_type:
+        return None
+    media_url = payload.get("MediaUrl0")
+    if not media_url:
+        return None
+
+    async def _fetch() -> bytes:
+        # Twilio media URLs require Basic Auth with the account SID/token --
+        # same mechanism as fetch_twilio_media/analyze_image's SMS branch,
+        # duplicated here (not imported from twilio.py) to avoid a circular
+        # import, same reasoning as _fetch_groupme_file above.
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        if not account_sid or not auth_token:
+            raise RuntimeError("TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set -- cannot fetch MMS media")
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(media_url, auth=(account_sid, auth_token))
+            response.raise_for_status()
+            return response.content
+
+    logger.info(f"[attachments] PDF MMS attachment found: content_type={content_type}")
+    return PDFAttachment(fetch=_fetch, filename=None, channel="sms")
 
 
 # ---------------------------------------------------------------------------
