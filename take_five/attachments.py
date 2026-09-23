@@ -31,6 +31,7 @@ import logging
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 
+import httpx
 import pymupdf as fitz  # "import fitz" is PyMuPDF's deprecated alias -- see chat history
 
 from take_five.images import ANTHROPIC_CLIENT
@@ -132,8 +133,57 @@ def extract_email_file(form) -> Optional[PDFAttachment]:
     return None
 
 
-def extract_groupme_file(payload: dict, admin_person_id: Optional[str] = None) -> Optional[PDFAttachment]:
-    raise NotImplementedError("GroupMe PDF attachment extraction not yet implemented")
+async def _fetch_groupme_file(group_id: str, file_id: str, access_token: str) -> bytes:
+    url = f"https://file.groupme.com/v1/{group_id}/files/{file_id}"
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(url, headers={"X-Access-Token": access_token})
+        response.raise_for_status()
+        return response.content
+
+
+def extract_groupme_file(payload: dict, access_token: str) -> Optional[PDFAttachment]:
+    """
+    payload: the GroupMe webhook payload (same dict handle_groupme_webhook
+    already has). Looks for an attachment of type == "file" (not "image" --
+    see images.py's extract_groupme_image, which only handles that type).
+    Confirmed against real traffic (2026-09-23 curl test): a PDF shared in
+    GroupMe arrives as {'file_id': ..., 'type': 'file'}, with NO filename
+    anywhere in the webhook payload -- GroupMe's file service doesn't
+    appear to surface one without a separate metadata call, which this
+    doesn't attempt yet (worth checking whether the download response
+    carries a Content-Disposition header, next time this is exercised for
+    real). PDFAttachment.filename is left None for this channel;
+    confirmation/failure messages fall back to generic wording ("a
+    document") rather than a real filename until/unless that's added.
+
+    GroupMe's "file" type covers any non-image attachment, not just PDFs --
+    there's no content-type in the payload to pre-filter on. This
+    optimistically attempts PDF extraction on every file attachment and
+    lets extract_pdf_text's own fitz.open() failure handle a non-PDF
+    cleanly (PDFExtractionResult.success=False), rather than trying to
+    sniff the type ahead of time.
+
+    access_token: resolved by the caller via
+    take_five.integrations.groupme.resolve_groupme_token(admin_person_id)
+    -- attachments.py has no DB/circle access of its own, same separation
+    images.py keeps between fetch auth (channel-specific) and the actual
+    vision/extraction work (channel-agnostic).
+    """
+    attachments = payload.get("attachments", [])
+    file_att = next((a for a in attachments if a.get("type") == "file"), None)
+    if not file_att:
+        return None
+
+    file_id = file_att.get("file_id")
+    group_id = str(payload.get("group_id", ""))
+    if not file_id or not group_id:
+        return None
+
+    async def _fetch() -> bytes:
+        return await _fetch_groupme_file(group_id, file_id, access_token)
+
+    logger.info(f"[attachments] PDF file attachment found in GroupMe message: file_id={file_id}")
+    return PDFAttachment(fetch=_fetch, filename=None, channel="groupme")
 
 
 def extract_sms_file(payload: dict) -> Optional[PDFAttachment]:
@@ -238,13 +288,10 @@ async def handle_pdf_attachment(attachment: PDFAttachment) -> Optional[PDFExtrac
 
 
 # ---------------------------------------------------------------------------
-# Shared confirmation / failure copy (delivery stays per-channel)
+# Shared failure copy (delivery stays per-channel; success is silent on
+# GroupMe -- see groupme.py's process_pdf -- since the client already shows
+# the file card natively)
 # ---------------------------------------------------------------------------
-
-def format_pdf_confirmation(filename: Optional[str]) -> str:
-    name = filename or "the file"
-    return f"Got it -- added {name} to the file."
-
 
 def format_pdf_failure_mailto(circle: dict) -> str:
     """

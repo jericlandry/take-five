@@ -319,16 +319,16 @@ async def handle_inbound_email(request: Request) -> dict:
                     sent_at=updated["sent_at"],
                     channel="email",
                 ))
-                # Relay only the human's own words, not the full extracted
-                # transcript -- the transcript's job is to be searchable via
-                # the knowledge base (embeddings/@T5), not to be read as a
-                # chat message. If they attached a PDF with no message text
-                # at all, relay a placeholder rather than nothing, so the
-                # circle sees *something* arrived instead of silence.
-                _relay_to_groupme(
-                    circle, person,
-                    body_text or f"[shared a document: {pdf_attachment.filename}]",
-                )
+                # Relay the human's own words plus a short attachment
+                # note -- not the full extracted transcript (that's the
+                # knowledge base's job, via embeddings/@T5). The note fires
+                # regardless of whether body_text is empty: without it, a
+                # sender who typed something alongside the PDF would have
+                # their attachment vanish from the chat entirely, giving the
+                # circle no reason to ever ask about it.
+                attachment_note = f"[attached: {pdf_attachment.filename}]" if pdf_attachment.filename else "[attached a document]"
+                relay_text = f"{body_text}\n\n{attachment_note}" if body_text else attachment_note
+                _relay_to_groupme(circle, person, relay_text)
             else:
                 # Extraction failed outright (corrupt file, nothing
                 # extractable) -- no synchronous channel to notify the

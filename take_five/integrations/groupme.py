@@ -14,6 +14,7 @@ from take_five.messages import (
     parse_prep_request,
     resolve_prep_seniors,
 )
+from take_five.attachments import extract_groupme_file, handle_pdf_attachment, format_pdf_failure_mailto
 from take_five.images import extract_groupme_image, handle_image_message
 
 logger = logging.getLogger(__name__)
@@ -282,7 +283,22 @@ async def handle_groupme_webhook(data: dict):
 
         image_attachment = extract_groupme_image(data)
 
-        if not image_attachment:
+        # PDF file attachment -- checked only when there's no image, mirroring
+        # extract_groupme_image's own precedence. `circle` here is the same
+        # value resolved earlier in this function (top of the try block) for
+        # the person/membership upsert -- reused rather than re-fetched, since
+        # resolving the GroupMe token needs its integration_config now, before
+        # the "Resolve circle once" re-fetch below.
+        pdf_attachment = None
+        if not image_attachment and circle:
+            admin_person_id = (circle.get('integration_config') or {}).get('groupme_admin_person_id')
+            try:
+                pdf_access_token = resolve_groupme_token(admin_person_id)
+                pdf_attachment = extract_groupme_file(data, pdf_access_token)
+            except ValueError as e:
+                logger.error(f"[groupme] Could not resolve token for PDF attachment check: {e}")
+
+        if not image_attachment and not pdf_attachment:
             asyncio.create_task(run_post_storage_pipeline(
                 message_id=str(new_msg['id']),
                 circle_id=str(new_msg['circle_id']),
@@ -294,7 +310,9 @@ async def handle_groupme_webhook(data: dict):
         # else: nothing fires yet. For an image, memory and signal detection
         # are deferred together until vision classification resolves (and,
         # for DOCUMENT, until caption + OCR text are combined) — see
-        # finalize_image_pipeline() below, called exactly once on the final body.
+        # finalize_image_pipeline() below, called exactly once on the final
+        # body. A PDF attachment defers the same way -- see process_pdf()
+        # below.
 
         # Resolve circle once — used by both image and ask branches
         circle    = repo.get_circle_by_external_id(circle_ext_id)
@@ -420,6 +438,72 @@ async def handle_groupme_webhook(data: dict):
                 # only pass for this message.
                 finalize_image_pipeline(text, person_name, new_msg['sent_at'])
             asyncio.create_task(process_image())
+
+        elif pdf_attachment:
+            async def process_pdf():
+                result = await handle_pdf_attachment(pdf_attachment)
+                if result and result.success:
+                    enriched_body = (
+                        f"{text}\n\n[Document text]:\n{result.text}"
+                        if text else f"[Document text]:\n{result.text}"
+                    )
+                    updated = repo.update_message_body(
+                        message_id=str(new_msg['id']),
+                        body=enriched_body,
+                        raw_data={"pdf_extraction": {
+                            "filename": pdf_attachment.filename,
+                            "pages_total": result.pages_total,
+                            "pages_vision_fallback": result.pages_vision_fallback,
+                        }},
+                    )
+                    logger.info(
+                        f"[groupme] PDF attachment -- appended {len(result.text)} chars to "
+                        f"message {new_msg['id']} ({result.pages_vision_fallback}/"
+                        f"{result.pages_total} pages via vision fallback)"
+                    )
+                    asyncio.create_task(run_memory(
+                        message_id=str(new_msg['id']),
+                        circle_id=str(new_msg['circle_id']),
+                        body=enriched_body,
+                        sender=person_name,
+                        sent_at=updated['sent_at'],
+                    ))
+                    asyncio.create_task(run_signal_detection(
+                        message_id=str(new_msg['id']),
+                        circle_id=str(new_msg['circle_id']),
+                        body=enriched_body,
+                        channel="groupme",
+                    ))
+                    # No bot reply on success -- GroupMe's own client already
+                    # shows the sender's message with the file card (name,
+                    # size, download affordance) natively, visible to the
+                    # whole circle. A confirmation reply would just repeat
+                    # what everyone can already see. See chat history
+                    # (2026-09-23 screenshot).
+                else:
+                    error = result.error if result else "attachment fetch failed"
+                    logger.warning(f"[groupme] PDF extraction failed for message {new_msg['id']}: {error}")
+                    # Real, detectable failure (not the invisible-carrier-
+                    # strip case SMS has, per earlier design discussion) --
+                    # still fire the pipeline on the caption alone so it
+                    # isn't lost, then tell the sender directly with the
+                    # email fallback rather than leaving them guessing.
+                    asyncio.create_task(run_memory(
+                        message_id=str(new_msg['id']),
+                        circle_id=str(new_msg['circle_id']),
+                        body=text,
+                        sender=person_name,
+                        sent_at=new_msg['sent_at'],
+                    ))
+                    asyncio.create_task(run_signal_detection(
+                        message_id=str(new_msg['id']),
+                        circle_id=str(new_msg['circle_id']),
+                        body=text,
+                        channel="groupme",
+                    ))
+                    if circle:
+                        await groupme_reply(bot_id, format_pdf_failure_mailto(circle), circle_ext_id)
+            asyncio.create_task(process_pdf())
 
         # 4. T5 ask flow — ask_with_tools handles both Q&A and medication saves
         t5_match = re.search(r'@T5', text, re.IGNORECASE)
