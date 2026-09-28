@@ -52,6 +52,7 @@ def generate_weekly_digest(
         roster_context=ctx.get_roster(),
         current_date=date.today().strftime("%A, %B %d, %Y"),
         calendar_context=build_calendar_context(start_date, end_date),
+        care_calendar=ctx.get_calendar(),
         response_format=RESPONSE_FORMATS.get(response_format, RESPONSE_FORMATS["markdown"]),
     )
 

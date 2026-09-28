@@ -353,12 +353,22 @@ class TakeFiveRepository:
         )
 
     def update_care_circle(self, circle_id: str, updates: dict) -> Dict:
+        # integration_config is shallow-MERGED into the existing blob (||), not
+        # replaced: several independent integrations share it (GroupMe keys,
+        # calendar), and a writer that only knows about its own keys -- e.g.
+        # groupme setup_groupme_circle(), which builds a fresh dict -- must not
+        # wipe the others. Consequence: this can add or overwrite top-level
+        # keys but never remove one; removals need a dedicated method (see
+        # remove_circle_calendar()).
         query = """
             UPDATE care_circles SET
                 name               = COALESCE(%(name)s, name),
                 status             = COALESCE(%(status)s, status),
                 external_id        = COALESCE(%(external_id)s, external_id),
-                integration_config = COALESCE(%(integration_config)s, integration_config)
+                integration_config = CASE
+                    WHEN %(integration_config)s::jsonb IS NULL THEN integration_config
+                    ELSE COALESCE(integration_config, '{}'::jsonb) || %(integration_config)s::jsonb
+                END
             WHERE id = %(id)s
             RETURNING *;
         """
@@ -1455,6 +1465,102 @@ class TakeFiveRepository:
             ) AS all_have_access;
         """, {'circle_id': str(circle_id)})
         return bool(row and row.get('all_have_access'))
+
+    def get_circle_calendar_config(self, circle_id: str) -> Dict:
+        """
+        Which shared Google Calendars this circle reads, and the timezone to
+        read them in. Calendar IDs live in care_circles.integration_config:
+
+            {"calendar": {"provider": "google", "calendar_ids": ["..."]}}
+
+        (merged into the existing blob with jsonb ||, never replaced, so the
+        GroupMe keys alongside it survive).
+
+        Timezone comes from the circle's first senior (people.timezone),
+        falling back to America/Chicago -- "this week" and appointment times
+        should be the senior's local time, not the server's UTC.
+
+        Returns {"calendar_ids": [...], "timezone": str}; calendar_ids is []
+        when none is configured. Does NOT check visibility -- callers gate on
+        circle_has_full_clinical_access() separately.
+        """
+        row = self._execute("""
+            SELECT cc.integration_config->'calendar'->'calendar_ids' AS calendar_ids,
+                   (SELECT p.timezone
+                      FROM circle_memberships cm
+                      JOIN people p ON p.id = cm.person_id
+                     WHERE cm.circle_id = cc.id
+                       AND cm.role = 'senior'
+                       AND p.timezone IS NOT NULL
+                     ORDER BY p.name
+                     LIMIT 1) AS timezone
+              FROM care_circles cc
+             WHERE cc.id = %(circle_id)s;
+        """, {'circle_id': str(circle_id)})
+
+        ids = row.get('calendar_ids') if row else None
+        calendar_ids = [i for i in ids if isinstance(i, str) and i] if isinstance(ids, list) else []
+        return {
+            'calendar_ids': calendar_ids,
+            'timezone': (row.get('timezone') if row else None) or 'America/Chicago',
+        }
+
+    def add_circle_calendar(self, circle_id: str, calendar_id: str) -> None:
+        """
+        Append a calendar ID to the circle's integration_config.calendar.
+        Merges with || so every other key (groupme_bot_id etc.) survives.
+        Idempotent: an ID already present is left as-is, not duplicated.
+        """
+        self._execute("""
+            UPDATE care_circles
+               SET integration_config = COALESCE(integration_config, '{}'::jsonb)
+                   || jsonb_build_object('calendar', jsonb_build_object(
+                        'provider', 'google',
+                        'calendar_ids',
+                          CASE WHEN COALESCE(integration_config->'calendar'->'calendar_ids', '[]'::jsonb) ? %(calendar_id)s
+                               THEN integration_config->'calendar'->'calendar_ids'
+                               ELSE COALESCE(integration_config->'calendar'->'calendar_ids', '[]'::jsonb)
+                                    || to_jsonb(%(calendar_id)s::text)
+                          END))
+             WHERE id = %(circle_id)s;
+        """, {'circle_id': str(circle_id), 'calendar_id': calendar_id}, fetch=None)
+
+    def remove_circle_calendar(self, circle_id: str, calendar_id: str) -> None:
+        """
+        Remove one calendar ID from integration_config.calendar.calendar_ids,
+        preserving the order of the rest. Leaves every other key untouched;
+        a no-op if the circle has no calendar config or the ID isn't present.
+        """
+        self._execute("""
+            UPDATE care_circles
+               SET integration_config = jsonb_set(
+                     integration_config, '{calendar,calendar_ids}',
+                     COALESCE((
+                       SELECT jsonb_agg(t.x ORDER BY t.i)
+                         FROM jsonb_array_elements(integration_config->'calendar'->'calendar_ids')
+                              WITH ORDINALITY AS t(x, i)
+                        WHERE t.x <> to_jsonb(%(calendar_id)s::text)
+                     ), '[]'::jsonb))
+             WHERE id = %(circle_id)s
+               AND integration_config ? 'calendar';
+        """, {'circle_id': str(circle_id), 'calendar_id': calendar_id}, fetch=None)
+
+    def get_circle_members_without_clinical_access(self, circle_id: str) -> List[str]:
+        """
+        Names of current circle members lacking people.clinical_access -- the
+        people who keep circle_has_full_clinical_access() false. Used by the
+        admin calendar settings to explain *why* the calendar is hidden in a
+        circle, rather than it silently not appearing.
+        """
+        rows = self._execute("""
+            SELECT p.name
+              FROM circle_memberships cm
+              JOIN people p ON p.id = cm.person_id
+             WHERE cm.circle_id = %(circle_id)s
+               AND p.clinical_access = false
+             ORDER BY p.name;
+        """, {'circle_id': str(circle_id)}, fetch='all')
+        return [r['name'] for r in (rows or [])]
 
     def get_clinical_records_for_circle(
         self,

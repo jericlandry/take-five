@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ from take_five.auth import (
 from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply, get_groupme_user_id
 from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat
 from take_five.integrations.npi import search_npi
+from take_five.integrations.google_calendar import get_events, get_service_account_email
 from take_five.integrations.twilio import handle_sms, send_sms
 from take_five.integrations.sendgrid_email import handle_inbound_email, circle_inbound_address
 from take_five.messages import ask_with_tools, generate_prep_packet
@@ -636,6 +638,91 @@ async def app_groupme_setup(
         return {"status": "ok", "result": result}
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Care calendar (read-only Google Calendar) -- admin-only settings
+# ---------------------------------------------------------------------------
+# A family shares a Google Calendar with Take Five's service account, then
+# pastes its Calendar ID here. Visibility in the circle is decided at read
+# time by circle_has_full_clinical_access() (see ContextBuilder._build_calendar);
+# these endpoints only manage which calendars a circle reads and explain the
+# gate. Responses never include event titles or details: an admin managing
+# the connection isn't necessarily someone with clinical access.
+
+def _circle_calendar_payload(circle_id: str) -> dict:
+    config = repo.get_circle_calendar_config(circle_id)
+    blocked_by = repo.get_circle_members_without_clinical_access(circle_id)
+    return {
+        "service_account_email": get_service_account_email(),
+        "calendar_ids": config["calendar_ids"],
+        "visible_in_circle": not blocked_by,
+        "members_without_clinical_access": blocked_by,
+    }
+
+
+@open_router.get("/app/circles/{circle_id}/calendar")
+async def app_get_circle_calendar(
+    circle_id: str,
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
+):
+    """Calendar connection settings for a circle. Admin-only."""
+    return _circle_calendar_payload(circle_id)
+
+
+@open_router.post("/app/circles/{circle_id}/calendar")
+async def app_add_circle_calendar(
+    circle_id: str,
+    calendar_id: str = Body(..., embed=True),
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
+):
+    """
+    Connect a shared Google Calendar to a circle. Admin-only. Test-reads
+    the next 30 days before saving, so a calendar that isn't shared (or a
+    mistyped ID) is rejected here with a fixable message, rather than saved
+    and silently failing every ask() and digest afterward.
+    """
+    calendar_id = (calendar_id or "").strip()
+    if not calendar_id or len(calendar_id) > 255 or any(ch.isspace() for ch in calendar_id):
+        raise HTTPException(status_code=400, detail="That doesn't look like a Calendar ID.")
+
+    now = datetime.now(timezone.utc)
+    events = await get_events([calendar_id], now, now + timedelta(days=30))
+    if events is None:
+        email = get_service_account_email() or "Take Five's calendar address"
+        raise HTTPException(status_code=400, detail=(
+            f"Take Five couldn't read that calendar. Check that it's shared with {email} "
+            f"with 'See all event details', and that the Calendar ID is copied exactly."
+        ))
+
+    repo.add_circle_calendar(circle_id, calendar_id)
+    logger.info(f"[calendar] Connected calendar to circle_id={circle_id} by person_id={person['person_id']}")
+
+    payload = _circle_calendar_payload(circle_id)
+    payload["upcoming_event_count"] = len(events)
+    # Shared as free/busy only: events come back with no titles.
+    if events and all(e["title"] == "(untitled)" for e in events):
+        payload["warning"] = (
+            "Connected, but event titles are hidden. Change the share setting to "
+            "'See all event details' so Take Five can see what each event is."
+        )
+    return payload
+
+
+@open_router.delete("/app/circles/{circle_id}/calendar")
+async def app_remove_circle_calendar(
+    circle_id: str,
+    calendar_id: str = Query(...),
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
+):
+    """
+    Disconnect a calendar from a circle. Admin-only. Take Five stops reading
+    it immediately; the Google-side share is untouched (the family can
+    remove the service account from the calendar's sharing if they want).
+    """
+    repo.remove_circle_calendar(circle_id, calendar_id.strip())
+    logger.info(f"[calendar] Disconnected calendar from circle_id={circle_id} by person_id={person['person_id']}")
+    return _circle_calendar_payload(circle_id)
 
 
 @open_router.post("/app/circles/{circle_id}/people/{person_id}/chat")

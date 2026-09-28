@@ -1,8 +1,10 @@
+import asyncio
 import os
 import re
 import json
 import logging
 from datetime import datetime, date, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
@@ -12,6 +14,7 @@ from take_five.repository import repo
 from take_five.memory import get_embedding
 from take_five.utils import get_prompt, RESPONSE_FORMATS, CHANNEL_CONSTRAINTS
 from take_five.models import TOOL_USE_MODEL, PREP_PACKET_MODEL, PARSE_MODEL
+from take_five.integrations.google_calendar import fetch_events
 
 logger = logging.getLogger(__name__)
 
@@ -302,15 +305,142 @@ RECENT_MESSAGES_WINDOW_DAYS = 14
 DIGEST_EXCLUDED_MESSAGE_TYPES = ['digest', 'prep_packet', 'external_reference']
 
 
+# ---------------------------------------------------------------------------
+# Care Calendar context (shared Google Calendar, read-only)
+# ---------------------------------------------------------------------------
+# Windows for the "Care Calendar" section. ask(): a two-week lookback ("when
+# was the cardiology visit?") plus a month ahead. Digest: the next 7 days,
+# matching its COMING UP section. Not to be confused with utils'
+# build_calendar_context(), which is the day-name -> date lookup table.
+CALENDAR_LOOKBACK_DAYS = 14
+CALENDAR_LOOKAHEAD_DAYS = 30
+DIGEST_CALENDAR_LOOKAHEAD_DAYS = 7
+
+# ask() only. Same reasoning as _build_clinical_records()'s restricted note:
+# an absent section would let T5 tell someone "nothing is scheduled" when
+# the truth is that it can't see the calendar from here.
+CALENDAR_RESTRICTED_NOTE = (
+    "## Care Calendar\n"
+    "_The family's care calendar is not accessible from this circle._\n\n"
+    "If asked about appointments or scheduled visits, do NOT say nothing is "
+    "scheduled -- events may exist but aren't visible here. Say calendar "
+    "details aren't available in this circle and, if it seems relevant, "
+    "suggest checking with the family's main circle.\n"
+)
+
+CALENDAR_UNAVAILABLE_NOTE = (
+    "## Care Calendar\n"
+    "_The family's care calendar could not be read just now._\n\n"
+    "If asked about appointments or scheduled visits, do NOT say nothing is "
+    "scheduled. Say the calendar couldn't be checked right now, and answer "
+    "from the conversation if it covers the question.\n"
+)
+
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _fmt_day(d: date) -> str:
+    return f"{d:%A, %B} {d.day}"
+
+
+def _fmt_time(dt: datetime) -> str:
+    return f"{dt.hour % 12 or 12}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
+
+
+def _clean_notes(text, limit: int = 200) -> str:
+    # Calendar descriptions can carry HTML and long pasted text; keep a short
+    # plain-text excerpt so something like "Bring medication list" survives.
+    if not text:
+        return ""
+    text = " ".join(_HTML_TAG_RE.sub(" ", text).split())
+    return text if len(text) <= limit else text[:limit].rstrip() + "..."
+
+
+def _format_calendar_event(e: dict, show_notes: bool = True) -> str:
+    if e["all_day"]:
+        when = _fmt_day(e["start"])
+        if e["end"] != e["start"]:
+            when += f" to {_fmt_day(e['end'])}"
+        when += " (all day)"
+    else:
+        start, end = e["start"], e["end"]
+        when = f"{_fmt_day(start.date())}, {_fmt_time(start)} to "
+        when += _fmt_time(end) if end.date() == start.date() else f"{_fmt_day(end.date())}, {_fmt_time(end)}"
+
+    line = f"- {when}: {e['title']}"
+    if e.get("location"):
+        line += f" (at {e['location']})"
+    notes = _clean_notes(e.get("description")) if show_notes else ""
+    if notes:
+        line += f". Notes: {notes}"
+    return line
+
+
+def _format_calendar_section(events: list, start: datetime, end: datetime, tz_name: str) -> str:
+    """
+    Deterministic rendering of calendar events (formatting is not left to
+    the LLM). Split into already-happened vs upcoming relative to now in the
+    senior's timezone, so the model doesn't have to work out tense itself.
+    """
+    tz = ZoneInfo(tz_name)
+    now = datetime.now(tz)
+    lines = [
+        "## Care Calendar",
+        "Events from the family's shared care calendar. This is the source of "
+        "truth for scheduled appointments and visits. Times are local "
+        f"({tz_name}).",
+    ]
+    if not events:
+        window = f"{_fmt_day(start.astimezone(tz).date())} to {_fmt_day(end.astimezone(tz).date())}"
+        lines += ["", f"_Nothing on the care calendar from {window}._"]
+        return "\n".join(lines) + "\n"
+
+    # Recurring events repeat the same description on every occurrence; show
+    # it once per series (first occurrence in the window) to cut noise and
+    # tokens. Each occurrence still gets its own dated line. Compared by
+    # text, not just series: a single edited occurrence ("this Wednesday
+    # only: arriving at 10") keeps its series id but has different notes,
+    # and those must still show.
+    shown_notes = {}   # series_id -> set of note texts already shown
+    past, upcoming = [], []
+    for e in events:
+        series = e.get("series_id")
+        notes = _clean_notes(e.get("description"))
+        seen = shown_notes.setdefault(series, set()) if series else None
+        show_notes = seen is None or notes not in seen
+        if seen is not None:
+            seen.add(notes)
+        is_past = e["end"] < now.date() if e["all_day"] else e["start"] < now
+        (past if is_past else upcoming).append(_format_calendar_event(e, show_notes))
+
+    if past:
+        lines += ["", "Already happened:"] + past
+    lines += ["", "Upcoming:"] + (upcoming or ["- Nothing upcoming in this window."])
+    return "\n".join(lines) + "\n"
+
+
 class ContextBuilder:
     def __init__(self, circle_id: str, question: str):
         self.repo = repo
         self.circle_id = circle_id
         self.question = question
+        # Default for every construction path (including direct
+        # ContextBuilder(...) use elsewhere); only create() and
+        # create_for_digest() populate it.
+        self._calendar = ""
 
     @classmethod
     async def create(cls, circle_id: str, question: str) -> "ContextBuilder":
         instance = cls(circle_id, question)
+        # Calendar read (sync Google client + a pooled DB connection) runs in a
+        # worker thread concurrently with the embedding and context below,
+        # and is awaited at the end, so it adds little or no latency.
+        now = datetime.now(timezone.utc)
+        calendar_task = asyncio.create_task(asyncio.to_thread(
+            instance._build_calendar,
+            now - timedelta(days=CALENDAR_LOOKBACK_DAYS),
+            now + timedelta(days=CALENDAR_LOOKAHEAD_DAYS),
+        ))
         embedding = await get_embedding(question, is_query=True)
         # Resolved once here and passed into both _build_recent_messages()
         # and _build_semantic() below — they previously each independently
@@ -325,6 +455,7 @@ class ContextBuilder:
             readable_ids=readable_ids,
         )
         instance._semantic        = instance._build_semantic(embedding, readable_ids=readable_ids)
+        instance._calendar        = await calendar_task
         return instance
 
     @classmethod
@@ -342,6 +473,12 @@ class ContextBuilder:
             start_date, end_date, exclude_types=DIGEST_EXCLUDED_MESSAGE_TYPES
         )
         instance._semantic        = ""
+        # Anchored to now, not end_date: COMING UP means the week ahead of
+        # when the digest is posted.
+        now = datetime.now(timezone.utc)
+        instance._calendar        = instance._build_calendar(
+            now, now + timedelta(days=DIGEST_CALENDAR_LOOKAHEAD_DAYS), for_digest=True,
+        )
         return instance
 
     @classmethod
@@ -372,6 +509,8 @@ class ContextBuilder:
         instance._roster          = instance._build_roster()
         instance._circle_context  = instance._load_circle_context()
         instance._clinical        = ""
+        # Care calendar stays empty (__init__ default) for the same reason as
+        # clinical records above: out of scope for the outer digest by design.
         source_ids                = instance.repo.get_outer_digest_source_circle_ids(circle_id)
         instance._recent          = instance._build_recent_messages(
             start_date, end_date, readable_ids=source_ids,
@@ -642,6 +781,38 @@ class ContextBuilder:
 
         return "\n".join(lines)
 
+    def _build_calendar(self, start: datetime, end: datetime, for_digest: bool = False) -> str:
+        """
+        Care Calendar context from the circle's shared Google Calendar(s).
+        Gated exactly like clinical records -- calendar events are treated as
+        clinical content (appointments). Four states:
+
+          no calendar configured -> "" (section omitted)
+          circle fails the gate  -> ask(): CALENDAR_RESTRICTED_NOTE
+                                    digest: "" (a family post shouldn't explain it)
+          Google read failed     -> ask(): CALENDAR_UNAVAILABLE_NOTE
+                                    digest: "" (COMING UP falls back to conversation)
+          otherwise              -> deterministic event list
+
+        Sync on purpose: create_for_digest() (cron) calls it directly, and
+        create() runs it via asyncio.to_thread(). Config or gate lookup
+        failures fail closed and silent.
+        """
+        try:
+            config = self.repo.get_circle_calendar_config(self.circle_id)
+            if not config["calendar_ids"]:
+                return ""
+            if not self.repo.circle_has_full_clinical_access(self.circle_id):
+                return "" if for_digest else CALENDAR_RESTRICTED_NOTE
+        except Exception:
+            logger.exception(f"[calendar] Config/gate lookup failed for circle_id={self.circle_id}")
+            return ""
+
+        events = fetch_events(config["calendar_ids"], start, end, config["timezone"])
+        if events is None:
+            return "" if for_digest else CALENDAR_UNAVAILABLE_NOTE
+        return _format_calendar_section(events, start, end, config["timezone"])
+
     def _load_circle_context(self) -> str:
         context_file = f"context/{self.circle_id}.md"
         if os.path.exists(context_file):
@@ -654,6 +825,7 @@ class ContextBuilder:
     def get_clinical_records(self) -> str: return self._clinical
     def get_recent_messages(self) -> str:  return self._recent
     def get_semantic(self) -> str:         return self._semantic
+    def get_calendar(self) -> str:         return self._calendar
 
 
 # ---------------------------------------------------------------------------
@@ -671,7 +843,11 @@ def _build_human_message(
     semantic_chunks: str,
     response_format: str,
     question: str,
+    care_calendar: str = "",
 ) -> str:
+    # Section only appears when there's something to say (events, or a
+    # restricted/unavailable note); circles without a calendar get nothing.
+    calendar_block = f"\n{care_calendar.rstrip()}\n---" if care_calendar else ""
     return f"""Today is {today}.
 ---
 ## Circle Context
@@ -693,7 +869,7 @@ automatically" rather than stating the number with the same certainty as a confi
 medication. If confidence is low or a family member's own account conflicts with an
 auto-detected vital, say so rather than silently trusting the logged number.
 {clinical_records}
----
+---{calendar_block}
 ## Recent Messages
 {recent_messages}
 ---
@@ -737,6 +913,7 @@ async def ask_with_tools(
         circle_context   = ctx.get_circle_context(),
         roster           = ctx.get_roster(),
         clinical_records = ctx.get_clinical_records(),
+        care_calendar    = ctx.get_calendar(),
         recent_messages  = ctx.get_recent_messages(),
         semantic_chunks  = ctx.get_semantic(),
         response_format  = combined_format,

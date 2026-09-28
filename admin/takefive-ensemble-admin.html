@@ -543,6 +543,12 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <button class="btn btn-ghost btn-sm" id="btn-groupme-setup" onclick="setupGroupMe()" style="display:none;">
           Set up GroupMe
         </button>
+        <span class="integration-tag connected" id="calendar-connected-tag" style="display:none;">
+          <span class="integration-dot"></span>Calendar connected
+        </span>
+        <button class="btn btn-ghost btn-sm" id="btn-calendar" onclick="openCalendarModal()" style="display:none;">
+          Calendar
+        </button>
         <button class="btn btn-primary btn-sm" id="btn-add-circle-member" onclick="openAddCircleMemberModal()" style="display:none;">
           <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
           Add member
@@ -824,6 +830,39 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <button class="btn btn-ghost" onclick="closeModal('modal-edit-circle-member')">Cancel</button>
         <button class="btn btn-primary" id="btn-update-circle-member" onclick="updateCircleMemberRole()">Save</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Care Calendar (admin only) -->
+<div class="modal-backdrop" id="modal-calendar">
+  <div class="modal" style="width:560px;">
+    <div class="modal-title">Care calendar</div>
+    <div class="form-hint" style="margin-bottom:1rem;">Take Five can read a shared Google Calendar to answer questions about appointments and include what's coming up in the weekly update. It only reads the calendar and never changes it.</div>
+    <div class="form-group">
+      <label class="form-label">1. Share the calendar with Take Five</label>
+      <div class="form-hint">In Google Calendar, open the calendar's <strong>Settings and sharing</strong>. Under <strong>Share with specific people or groups</strong>, add this address and choose <strong>See all event details</strong>.</div>
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;">
+        <code id="cal-sa-email" style="flex:1;font-size:12px;padding:0.45rem 0.6rem;background:var(--g200);border-radius:6px;word-break:break-all;">Loading…</code>
+        <button class="btn btn-ghost btn-sm" onclick="copyCalendarEmail()">Copy</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">2. Paste the Calendar ID</label>
+      <div class="form-hint">It's under <strong>Integrate calendar</strong> on the same settings page, and usually ends in @group.calendar.google.com.</div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <input class="form-input" id="cal-new-id" type="text" placeholder="…@group.calendar.google.com" style="flex:1;"/>
+        <button class="btn btn-primary btn-sm" id="btn-cal-connect" onclick="connectCalendar()">Connect</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Connected calendars</label>
+      <div id="cal-list"></div>
+    </div>
+    <div class="form-hint" id="cal-visibility"></div>
+    <div class="modal-footer">
+      <span></span>
+      <button class="btn btn-ghost" onclick="closeModal('modal-calendar')">Done</button>
     </div>
   </div>
 </div>
@@ -2148,6 +2187,7 @@ async function renderSettings() {
   document.getElementById('settings-status').value = ens.status || 'trial';
   document.getElementById('integrations-list').innerHTML = state.circles.map(c => {
     const gm  = c.integration_config?.groupme_bot_id;
+    const calCount = (c.integration_config?.calendar?.calendar_ids || []).length;
     return `<div style="padding:0.6rem 0;border-bottom:1px solid var(--g200);">
       <div style="font-size:13px;font-weight:700;color:var(--t800);margin-bottom:0.4rem;">${c.name}</div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.35rem;">
@@ -2157,6 +2197,10 @@ async function renderSettings() {
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="font-size:12px;color:var(--g600);">SMS: shared platform number</div>
         <span class="integration-tag connected"><span class="integration-dot"></span>Connected</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.35rem;">
+        <div style="font-size:12px;color:var(--g600);">Google Calendar: ${calCount ? `${calCount} calendar${calCount === 1 ? '' : 's'}` : 'not connected'}</div>
+        <span class="integration-tag ${calCount ? 'connected' : ''}"><span class="integration-dot"></span>${calCount ? 'Connected' : 'Not connected'}</span>
       </div>
     </div>`;
   }).join('') || '<div style="font-size:13px;color:var(--g400);">No circles yet.</div>';
@@ -3279,6 +3323,9 @@ async function openCircleDetail(circleId, circleName) {
   const hasGroupMe = !!(circle?.integration_config?.groupme_group_id);
   document.getElementById('btn-groupme-setup').style.display = isAdmin && !hasGroupMe ? '' : 'none';
   document.getElementById('groupme-connected-tag').style.display = hasGroupMe ? '' : 'none';
+  const hasCalendar = (circle?.integration_config?.calendar?.calendar_ids || []).length > 0;
+  document.getElementById('btn-calendar').style.display = isAdmin ? '' : 'none';
+  document.getElementById('calendar-connected-tag').style.display = hasCalendar ? '' : 'none';
   // References is an admin-only action, same gate as add-member and
   // medications — the content it logs (facility correspondence, clinical
   // documents) is decision-adjacent, not something to expose read-only
@@ -3995,6 +4042,105 @@ async function setupGroupMe() {
     toast('GroupMe setup failed: ' + e.message, true);
     btn.disabled = false;
     btn.textContent = 'Set up GroupMe';
+  }
+}
+
+// ─── CARE CALENDAR (read-only Google Calendar) ───
+// Admin-only. A family shares a Google Calendar with Take Five's service
+// account, then pastes its Calendar ID here; the server test-reads it before
+// saving. Whether it actually shows up in a circle is gated on every member
+// having clinical access (same rule as medications) -- the modal says so
+// rather than leaving the admin to wonder why it isn't appearing. The server
+// never returns event details here, only IDs and counts.
+function calEsc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+async function openCalendarModal() {
+  document.getElementById('cal-new-id').value = '';
+  document.getElementById('cal-list').innerHTML = '<div class="form-hint">Loading…</div>';
+  document.getElementById('cal-visibility').textContent = '';
+  openModal('modal-calendar');
+  try {
+    const res = await apiFetch(`/app/circles/${circleState.currentCircleId}/calendar`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Could not load calendar settings');
+    renderCalendarConfig(data);
+  } catch (e) {
+    document.getElementById('cal-list').innerHTML = `<div class="form-hint">Couldn't load calendar settings: ${calEsc(e.message)}</div>`;
+  }
+}
+
+function renderCalendarConfig(data) {
+  document.getElementById('cal-sa-email').textContent = data.service_account_email || 'Not configured on the server';
+  const ids = data.calendar_ids || [];
+  document.getElementById('cal-list').innerHTML = ids.length
+    ? ids.map(id => `<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--g200);">
+        <span style="font-family:monospace;font-size:12px;word-break:break-all;">${calEsc(id)}</span>
+        <button class="btn btn-ghost btn-sm" data-id="${calEsc(id)}" onclick="removeCalendar(this.dataset.id)">Remove</button>
+      </div>`).join('')
+    : '<div class="form-hint">No calendar connected yet.</div>';
+
+  const vis = document.getElementById('cal-visibility');
+  const blocked = data.members_without_clinical_access || [];
+  if (!ids.length) {
+    vis.textContent = '';
+  } else if (data.visible_in_circle) {
+    vis.textContent = 'Visible in this circle: everyone here has access to health information.';
+  } else {
+    vis.textContent = `Hidden in this circle: ${blocked.join(', ')} ${blocked.length === 1 ? "doesn't" : "don't"} have access to health information. Calendar details only appear in circles where everyone does.`;
+  }
+
+  // Keep local state and the header tag in sync without a full reload.
+  const circle = state.circles.find(c => c.id === circleState.currentCircleId);
+  if (circle) {
+    circle.integration_config = circle.integration_config || {};
+    circle.integration_config.calendar = { provider: 'google', calendar_ids: ids };
+  }
+  document.getElementById('calendar-connected-tag').style.display = ids.length ? '' : 'none';
+}
+
+async function copyCalendarEmail() {
+  const email = document.getElementById('cal-sa-email').textContent;
+  try { await navigator.clipboard.writeText(email); toast('Address copied'); }
+  catch { toast('Copy failed. Select the address and copy it manually.', true); }
+}
+
+async function connectCalendar() {
+  const input = document.getElementById('cal-new-id');
+  const calendarId = input.value.trim();
+  if (!calendarId) { toast('Paste a Calendar ID first', true); return; }
+  const btn = document.getElementById('btn-cal-connect');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const res = await apiFetch(`/app/circles/${circleState.currentCircleId}/calendar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calendar_id: calendarId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Connection failed');
+    input.value = '';
+    renderCalendarConfig(data);
+    if (data.warning) toast(data.warning, true);
+    else toast(`Calendar connected. ${data.upcoming_event_count} event${data.upcoming_event_count === 1 ? '' : 's'} in the next 30 days.`);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Connect';
+  }
+}
+
+async function removeCalendar(calendarId) {
+  if (!confirm('Disconnect this calendar? Take Five will stop reading it. The calendar itself is not changed.')) return;
+  try {
+    const res = await apiFetch(`/app/circles/${circleState.currentCircleId}/calendar?calendar_id=${encodeURIComponent(calendarId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Could not disconnect');
+    renderCalendarConfig(data);
+    toast('Calendar disconnected');
+  } catch (e) {
+    toast(e.message, true);
   }
 }
 

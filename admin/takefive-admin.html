@@ -899,7 +899,13 @@ async function openEditCircle(circleId) {
   document.getElementById('edit-circle-status').value = circle.status || 'active';
   document.getElementById('edit-circle-ext-id').value = circle.external_id || '';
   const wrap = document.getElementById('edit-circle-config-rows'); wrap.innerHTML = '';
-  Object.entries(circle.integration_config || {}).forEach(([k, v]) => addConfigRow(k, v));
+  // Structured values (e.g. calendar: {calendar_ids: [...]}) can't round-trip
+  // through flat text rows -- they'd be saved back as "[object Object]".
+  // Skipped here; the server merges integration_config, so keys this editor
+  // doesn't send are preserved. Calendars are managed in the family admin.
+  Object.entries(circle.integration_config || {}).forEach(([k, v]) => {
+    if (v === null || typeof v !== 'object') addConfigRow(k, v);
+  });
   openModal('modal-edit-circle');
 }
 
@@ -940,7 +946,11 @@ async function openCircleDetail(circleId) {
   document.getElementById('cd-circle-status').value = circle.status || 'active';
   document.getElementById('cd-circle-ext-id').value = circle.external_id || '';
   const cdRows = document.getElementById('cd-config-rows'); cdRows.innerHTML = '';
-  Object.entries(circle.integration_config || {}).forEach(([k, v]) => addCdConfigRow(k, v));
+  Object.entries(circle.integration_config || {}).forEach(([k, v]) => {
+    // Same as openEditCircle(): structured values (calendar) are skipped and
+    // preserved server-side by the integration_config merge.
+    if (v === null || typeof v !== 'object') addCdConfigRow(k, v);
+  });
   switchCircleTab('roster');
   showPage('circle-detail');
   document.getElementById('nav-circles').classList.add('active');

@@ -68,6 +68,10 @@ PyMuPDF
 # Email quote/signature stripping for inbound care updates
 email_reply_parser
 
+# Google Calendar (read-only, via service account shared on the calendar)
+google-api-python-client
+google-auth
+
 # Markdown -> HTML for outbound emails (was previously only a transitive
 # dependency via rich -- pinned explicitly now that sendgrid_email.py
 # imports it directly, so it can't silently disappear if something else's

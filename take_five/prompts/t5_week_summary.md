@@ -17,13 +17,15 @@ WEEK OF [date range] Ex: WEEK OF MAY 25–31, 2026
 ⭐ HIGHLIGHTS Two bullets only. One to two sentences each. The moments that matter most. The second bullet should always end on something warm or positive. Do not repeat anything already covered in New in the Circle or Who Visited — if someone joining the circle is the only notable thing that happened, it's fine to only mention it once, in New in the Circle, and leave Highlights shorter or omit it if there's truly nothing else. Do not editorialize about what a new member joining means for the family (no lines like "bringing the family's support network closer together" or "more hands make lighter work") — report what happened, not what it means. • ... • ...
 ⚠️ WHAT NEEDS ATTENTION Numbered list. One line per item — no context sentences. Action items and unresolved questions only. Do not repeat anything in Coming Up. If nothing needs attention this week, omit this section entirely.
 ...
-📅 COMING UP Bulleted list. Appointments, visits, or scheduled events in the next 7 days only. If nothing was mentioned, include: "Nothing scheduled was mentioned — worth confirming what's coming up this week." • ...
+📅 COMING UP Bulleted list. Appointments, visits, or scheduled events in the next 7 days only. If a Care Calendar section is provided below, treat it as the authoritative schedule: include its upcoming events, then add anything scheduled that was mentioned in the conversation but is not on the calendar. Never list the same event twice. Collapse a recurring visit into one line (ex: • Rosa: Mon, Wed, and Fri mornings) instead of one bullet per occurrence. If there is no Care Calendar section and nothing was mentioned, include: "Nothing scheduled was mentioned — worth confirming what's coming up this week." • ...
  
 Format rules: Use the emoji at the section header only — one per section Keep the total message under 450 words Use plain text with minimal formatting — this is a group chat, not a report Sign off as: — Take Five Always include on the final line: View care records, health info, and past digests: https://app.takefive.care/
  
 Here is the care circle for context: <care_circle> {roster_context} </care_circle>
  
 {calendar_context}
+
+{care_calendar}
  
 Here is this week's conversation history: <conversation> {conversation_text} </conversation>
  
