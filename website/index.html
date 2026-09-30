@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Take Five · Care coordination for families</title>
+<meta name="description" content="An AI care agent that lives in your family's group chat — answering questions, tracking medications, and sending a weekly digest so everyone caring for an aging parent stays in the loop. No new app.">
+<meta name="theme-color" content="#085041">
+<link rel="icon" type="image/png" href="/takefive_logo.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Take Five">
+<meta property="og:title" content="Take Five · Care coordination for families">
+<meta property="og:description" content="Take five. We've got the rest. An AI care agent that keeps the whole family on the same page, right in the group chat you already use.">
+<meta property="og:url" content="https://takefive.care/">
+<meta property="og:image" content="https://takefive.care/takefive_logo.png">
+<meta name="twitter:card" content="summary">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-M9QJJVBSFV"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -12,24 +22,24 @@
   gtag('config', 'G-M9QJJVBSFV');
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Carlito:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --teal-900: #04342C; --teal-800: #085041; --teal-600: #0F6E56;
-    --teal-500: #1D9E75; --teal-300: #5DCAA5; --teal-100: #9FE1CB;
-    --teal-50: #E1F5EE; --amber: #FAC775; --amber-dk: #633806;
-    --cream: #F9F6F0; --white: #FFFFFF; --gray-200: #E8E5DF;
+    --teal-500: #1D9E75; --teal-300: #5DCAA5; --teal-100: #C9D6C9;
+    --teal-50: #E1F5EE; --amber: #FAC775; --amber-dk: #603401;
+    --cream: #FBF9F4; --white: #FFFFFF; --gray-200: #E2DFD3;
     --gray-400: #B0ADA6; --gray-600: #6B6763; --text: #1A1A18;
   }
   html { scroll-behavior: smooth; }
-  body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--cream); color: var(--text); overflow-x: hidden; }
+  body { font-family: 'Carlito', Calibri, sans-serif; font-weight: 300; background: var(--cream); color: var(--text); overflow-x: hidden; }
 
   /* SIDE NAV */
   .side-nav { position: fixed; top: 0; left: 0; bottom: 0; width: 220px; z-index: 100; background: var(--teal-900); display: flex; flex-direction: column; padding: 1.5rem 0; border-right: 1px solid rgba(93,202,165,0.15); }
   .side-nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; padding: 0 1.5rem 1.75rem; }
   .side-nav-logo { width: 28px; height: 28px; flex-shrink: 0; }
-  .side-nav-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--teal-100); letter-spacing: -0.02em; }
+  .side-nav-name { font-family: 'PT Serif', serif; font-size: 1.1rem; font-weight: 700; color: var(--teal-100); letter-spacing: -0.02em; }
   .side-nav-links { list-style: none; display: flex; flex-direction: column; gap: 2px; padding: 0 0.75rem; }
   .side-nav-links a { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.75rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; color: var(--teal-100); text-decoration: none; transition: background 0.15s, color 0.15s; }
   .side-nav-links a svg { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -48,11 +58,11 @@
   .eyebrow::before { content: ''; display: block; width: 32px; height: 1px; background: var(--teal-300); }
   .eyebrow.light { color: var(--teal-500); }
   .eyebrow.light::before { background: var(--teal-500); }
-  .hero-headline { font-family: 'Playfair Display', serif; font-size: clamp(3rem, 5vw, 4.5rem); font-weight: 400; line-height: 1.1; color: var(--white); margin-bottom: 1rem; letter-spacing: -0.02em; }
+  .hero-headline { font-family: 'PT Serif', serif; font-size: clamp(3rem, 5vw, 4.5rem); font-weight: 400; line-height: 1.1; color: var(--white); margin-bottom: 1rem; letter-spacing: -0.02em; }
   .hero-headline em { font-style: italic; color: var(--teal-300); }
   .hero-sub { font-size: 1.1rem; font-weight: 300; line-height: 1.7; color: var(--teal-100); max-width: 460px; margin-bottom: 2.5rem; }
   .actions { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
-  .btn { display: inline-block; padding: 0.9rem 2rem; border-radius: 100px; font-family: 'Lato', sans-serif; font-size: 0.9rem; font-weight: 700; text-decoration: none; cursor: pointer; border: none; transition: background 0.2s, transform 0.15s; }
+  .btn { display: inline-block; padding: 0.9rem 2rem; border-radius: 100px; font-family: 'Carlito', Calibri, sans-serif; font-size: 0.9rem; font-weight: 700; text-decoration: none; cursor: pointer; border: none; transition: background 0.2s, transform 0.15s; }
   .btn-primary { background: var(--teal-300); color: var(--teal-900); }
   .btn-primary:hover { background: var(--white); transform: translateY(-1px); }
   .btn-ghost { background: transparent; color: var(--teal-100); padding: 0; font-weight: 400; letter-spacing: 0.04em; }
@@ -63,14 +73,14 @@
   .care-circle svg { width: 100%; height: 100%; }
 
   /* PROOF BAR */
-  .proof-bar { background: var(--teal-900); padding: 1.25rem 5rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; border-top: 1px solid rgba(93,202,165,0.15); }
+  .proof-bar { background: var(--teal-50); padding: 1.25rem 5rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; border-top: none; }
   .proof-item { display: flex; align-items: center; gap: 0.75rem; }
-  .proof-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal-300); flex-shrink: 0; }
-  .proof-text { font-size: 0.85rem; font-weight: 300; color: var(--teal-100); }
+  .proof-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal-500); flex-shrink: 0; }
+  .proof-text { font-size: 0.85rem; font-weight: 400; color: var(--teal-800); }
 
   /* GENERAL SECTION */
   section { padding: 6rem 5rem; }
-  .sec-title { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 400; line-height: 1.2; color: var(--teal-800); margin-bottom: 1.25rem; letter-spacing: -0.02em; }
+  .sec-title { font-family: 'PT Serif', serif; font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 400; line-height: 1.2; color: var(--teal-900); margin-bottom: 1.25rem; letter-spacing: -0.02em; }
   .sec-title em { font-style: italic; color: var(--teal-500); }
   .sec-title.light { color: var(--white); }
   .sec-title.light em { color: var(--teal-300); }
@@ -81,11 +91,11 @@
   .pad-xl { padding: 7rem 5rem; }
   .what-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin: 2rem 0 3.5rem; }
   .what-step { border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.5rem; background: var(--white); }
-  .what-step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--teal-500); color: var(--white); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 0.9rem; margin-bottom: 1rem; }
-  .what-step-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.4rem; }
+  .what-step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--teal-500); color: var(--white); display: flex; align-items: center; justify-content: center; font-family: 'PT Serif', serif; font-size: 0.9rem; margin-bottom: 1rem; }
+  .what-step-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-900); margin-bottom: 0.4rem; }
   .what-step-body { font-size: 0.85rem; line-height: 1.55; color: var(--gray-600); }
   .demo-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
-  .demo-tab { padding: 0.6rem 1.25rem; border-radius: 100px; border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-600); font-family: 'Lato', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .demo-tab { padding: 0.6rem 1.25rem; border-radius: 100px; border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-600); font-family: 'Carlito', Calibri, sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
   .demo-tab.active { background: var(--teal-500); border-color: var(--teal-500); color: var(--white); }
   .demo-panel { display: none; }
   .demo-panel.active { display: block; }
@@ -99,19 +109,19 @@
   .science::before { content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%; background: var(--teal-600); opacity: 0.12; top: -200px; right: -100px; }
   .science-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2.5rem 0; position: relative; z-index: 2; }
   .stat { background: rgba(255,255,255,0.06); border: 1px solid rgba(93,202,165,0.2); border-radius: 16px; padding: 1.5rem; }
-  .stat-num { font-family: 'Playfair Display', serif; font-size: 2.8rem; font-weight: 700; color: var(--teal-300); line-height: 1; margin-bottom: 0.5rem; }
+  .stat-num { font-family: 'PT Serif', serif; font-size: 2.8rem; font-weight: 700; color: var(--teal-300); line-height: 1; margin-bottom: 0.5rem; }
   .stat-label { font-size: 0.88rem; line-height: 1.5; color: var(--teal-100); }
   .sci-quote { background: rgba(255,255,255,0.05); border-left: 3px solid var(--teal-300); padding: 1.5rem 2rem; border-radius: 0 12px 12px 0; max-width: 800px; position: relative; z-index: 2; }
-  .sci-quote p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.05rem; line-height: 1.7; color: var(--white); }
-  .sci-quote cite { display: block; margin-top: 0.6rem; font-family: 'Lato', sans-serif; font-size: 0.8rem; font-style: normal; color: var(--teal-300); }
+  .sci-quote p { font-family: 'PT Serif', serif; font-style: italic; font-size: 1.05rem; line-height: 1.7; color: var(--white); }
+  .sci-quote cite { display: block; margin-top: 0.6rem; font-family: 'Carlito', Calibri, sans-serif; font-size: 0.8rem; font-style: normal; color: var(--teal-300); }
 
   /* ORIGIN */
   .origin { background: var(--white); display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
   .pull-quote { background: var(--teal-50); border-left: 3px solid var(--teal-500); padding: 2rem 2.5rem; border-radius: 0 12px 12px 0; margin-top: 2rem; }
-  .pull-quote p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.1rem; line-height: 1.7; color: var(--teal-800); }
-  .pull-quote cite { display: block; margin-top: 0.75rem; font-family: 'Lato', sans-serif; font-size: 0.85rem; color: var(--teal-500); font-style: normal; }
+  .pull-quote p { font-family: 'PT Serif', serif; font-style: italic; font-size: 1.1rem; line-height: 1.7; color: var(--teal-800); }
+  .pull-quote cite { display: block; margin-top: 0.75rem; font-family: 'Carlito', Calibri, sans-serif; font-size: 0.85rem; color: var(--teal-500); font-style: normal; }
   .siblings { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
-  .sibling { width: 64px; height: 64px; border-radius: 50%; background: var(--teal-50); border: 2px solid var(--teal-100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--teal-800); transition: transform 0.2s; }
+  .sibling { width: 64px; height: 64px; border-radius: 50%; background: var(--teal-50); border: 2px solid var(--teal-100); display: flex; align-items: center; justify-content: center; font-family: 'PT Serif', serif; font-size: 1.1rem; color: var(--teal-800); transition: transform 0.2s; }
   .sibling.founder { background: var(--teal-500); border-color: var(--teal-300); color: var(--white); }
   .sibling:hover { transform: translateY(-3px); }
 
@@ -121,8 +131,8 @@
   .cards-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; text-align: left; margin-top: 0; }
   .prob-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.75rem; border-top: 3px solid var(--teal-500); transition: transform 0.2s; }
   .prob-card:hover { transform: translateY(-4px); }
-  .prob-num { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 700; color: var(--teal-50); line-height: 1; margin-bottom: 0.75rem; }
-  .prob-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.5rem; }
+  .prob-num { font-family: 'PT Serif', serif; font-size: 2.5rem; font-weight: 700; color: var(--teal-50); line-height: 1; margin-bottom: 0.75rem; }
+  .prob-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-900); margin-bottom: 0.5rem; }
   .prob-body { font-size: 0.9rem; line-height: 1.6; color: var(--gray-600); }
 
   /* HOW */
@@ -131,7 +141,7 @@
   .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 3.5rem; position: relative; z-index: 2; }
   .step { background: rgba(255,255,255,0.06); border: 1px solid rgba(93,202,165,0.2); border-radius: 16px; padding: 2rem; transition: background 0.2s; }
   .step:hover { background: rgba(255,255,255,0.1); }
-  .step-num { width: 36px; height: 36px; border-radius: 50%; background: var(--teal-500); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--white); margin-bottom: 1.25rem; }
+  .step-num { width: 36px; height: 36px; border-radius: 50%; background: var(--teal-500); display: flex; align-items: center; justify-content: center; font-family: 'PT Serif', serif; font-size: 1rem; color: var(--white); margin-bottom: 1.25rem; }
   .step-title { font-size: 1rem; font-weight: 700; color: var(--white); margin-bottom: 0.6rem; }
   .step-body { font-size: 0.9rem; line-height: 1.65; color: var(--teal-100); }
 
@@ -154,18 +164,20 @@
   .digest-divider { height: 1px; background: rgba(93,202,165,0.1); margin: 1rem 0; }
 
   /* FEATURES */
-  .features { background: var(--white); }
-  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 3rem; }
-  .feat { border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.75rem; position: relative; overflow: hidden; transition: border-color 0.2s, transform 0.2s; }
+  .features { background: var(--cream); }
+  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 1.25rem; }
+  .feat-grid.soon-grid { grid-template-columns: repeat(4, 1fr); }
+  .feat-group-title { font-family: 'PT Serif', serif; font-size: 1.5rem; font-weight: 400; color: var(--teal-900); margin-top: 3.5rem; }
+  .feat { background: var(--white); border: 1px solid var(--gray-200); border-radius: 16px; padding: 1.75rem; position: relative; overflow: hidden; transition: border-color 0.2s, transform 0.2s; }
   .feat:hover { border-color: var(--teal-300); transform: translateY(-3px); }
   .feat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--teal-500); transform: scaleX(0); transform-origin: left; transition: transform 0.3s; }
   .feat:hover::before, .feat.sig::before { transform: scaleX(1); }
   .feat.sig { border-color: var(--teal-300); border-width: 1.5px; }
   .feat-badge { display: inline-block; background: var(--teal-50); color: var(--teal-800); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 100px; margin-bottom: 0.75rem; }
-  .feat-badge.soon { background: var(--gray-200); color: var(--gray-600); }
+  .feat-badge.soon { background: var(--gray-200); color: #6E6B64; }
   .feat-icon { width: 44px; height: 44px; background: var(--teal-50); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
   .feat-icon svg { width: 20px; height: 20px; }
-  .feat-title { font-size: 1rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.5rem; }
+  .feat-title { font-size: 1rem; font-weight: 700; color: var(--teal-900); margin-bottom: 0.5rem; }
   .feat-body { font-size: 0.88rem; line-height: 1.65; color: var(--gray-600); }
 
   /* LIFE LOG */
@@ -175,7 +187,7 @@
   .ll-item:hover { transform: translateX(4px); }
   .ll-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--teal-50); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .ll-icon svg { width: 18px; height: 18px; }
-  .ll-title { font-size: 0.9rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.2rem; }
+  .ll-title { font-size: 0.9rem; font-weight: 700; color: var(--teal-900); margin-bottom: 0.2rem; }
   .ll-body { font-size: 0.85rem; line-height: 1.5; color: var(--gray-600); }
   .feed { background: var(--teal-800); border-radius: 16px; padding: 2rem; }
   .feed-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--teal-300); margin-bottom: 1.25rem; }
@@ -190,28 +202,28 @@
   .story-sec::before { content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%; background: var(--teal-700); opacity: 0.1; bottom: -300px; right: -150px; }
   .story-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; position: relative; z-index: 2; }
   .story-qs { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 2rem; }
-  .story-q { background: rgba(255,255,255,0.06); border: 1px solid rgba(93,202,165,0.2); border-radius: 10px; padding: 1rem 1.25rem; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.95rem; line-height: 1.5; color: var(--white); transition: background 0.2s; }
+  .story-q { background: rgba(255,255,255,0.06); border: 1px solid rgba(93,202,165,0.2); border-radius: 10px; padding: 1rem 1.25rem; font-family: 'PT Serif', serif; font-style: italic; font-size: 0.95rem; line-height: 1.5; color: var(--white); transition: background 0.2s; }
   .story-q:hover { background: rgba(255,255,255,0.1); }
   .story-q::before { content: '"'; color: var(--teal-300); }
   .story-q::after { content: '"'; color: var(--teal-300); }
   .story-book { background: rgba(255,255,255,0.05); border: 1px solid rgba(93,202,165,0.3); border-radius: 16px; padding: 2rem; }
-  .story-book-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--teal-300); margin-bottom: 0.3rem; font-style: italic; }
+  .story-book-title { font-family: 'PT Serif', serif; font-size: 1.25rem; color: var(--teal-300); margin-bottom: 0.3rem; font-style: italic; }
   .story-book-sub { font-size: 0.8rem; color: var(--teal-100); margin-bottom: 1.5rem; }
   .story-ch { padding: 0.9rem 0; border-bottom: 1px solid rgba(93,202,165,0.1); display: flex; align-items: center; justify-content: space-between; }
   .story-ch:last-of-type { border-bottom: none; }
   .story-ch-name { font-size: 0.9rem; color: var(--white); }
   .story-ch-count { font-size: 0.8rem; color: var(--teal-300); }
-  .story-insight { margin-top: 1.5rem; background: rgba(93,202,165,0.1); border-radius: 10px; padding: 1rem 1.25rem; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.95rem; line-height: 1.6; color: var(--teal-100); }
+  .story-insight { margin-top: 1.5rem; background: rgba(93,202,165,0.1); border-radius: 10px; padding: 1rem 1.25rem; font-family: 'PT Serif', serif; font-style: italic; font-size: 0.95rem; line-height: 1.6; color: var(--teal-100); }
 
   /* DIGNITY */
-  .dignity { background: var(--teal-50); }
+  .dignity { background: var(--cream); }
   .dignity-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; margin-top: 3rem; }
-  .dig-quote { font-family: 'Playfair Display', serif; font-size: clamp(1.75rem, 2.5vw, 2.25rem); font-style: italic; font-weight: 400; line-height: 1.4; color: var(--teal-800); border-left: 3px solid var(--teal-300); padding-left: 2rem; }
-  .dig-cite { display: block; margin-top: 1rem; font-family: 'Lato', sans-serif; font-style: normal; font-size: 0.9rem; color: var(--teal-500); padding-left: 2rem; }
+  .dig-quote { font-family: 'PT Serif', serif; font-size: clamp(1.75rem, 2.5vw, 2.25rem); font-style: italic; font-weight: 400; line-height: 1.4; color: var(--teal-800); border-left: 3px solid var(--teal-300); padding-left: 2rem; }
+  .dig-cite { display: block; margin-top: 1rem; font-family: 'Carlito', Calibri, sans-serif; font-style: normal; font-size: 0.9rem; color: var(--teal-500); padding-left: 2rem; }
   .pillars { display: flex; flex-direction: column; gap: 1.25rem; }
   .pillar { display: flex; gap: 1rem; align-items: flex-start; }
   .pillar-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal-500); margin-top: 0.4rem; flex-shrink: 0; }
-  .pillar-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-800); margin-bottom: 0.2rem; }
+  .pillar-title { font-size: 0.95rem; font-weight: 700; color: var(--teal-900); margin-bottom: 0.2rem; }
   .pillar-body { font-size: 0.88rem; line-height: 1.6; color: var(--gray-600); }
 
   /* PRICING */
@@ -227,7 +239,7 @@
   .price-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--teal-300); color: var(--teal-900); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3rem 0.9rem; border-radius: 100px; white-space: nowrap; }
   .price-tier { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--teal-500); margin-bottom: 0.5rem; }
   .price-card.feat .price-tier { color: var(--teal-300); }
-  .price-num { font-family: 'Playfair Display', serif; font-size: 2.25rem; font-weight: 700; color: var(--teal-800); line-height: 1; margin-bottom: 0.25rem; }
+  .price-num { font-family: 'PT Serif', serif; font-size: 2.25rem; font-weight: 700; color: var(--teal-800); line-height: 1; margin-bottom: 0.25rem; }
   .price-card.feat .price-num { color: var(--white); }
   .price-unit { font-size: 0.85rem; color: var(--gray-400); margin-bottom: 1.25rem; }
   .price-card.feat .price-unit { color: var(--teal-100); }
@@ -242,41 +254,43 @@
   /* CTA */
   .cta { background: var(--teal-800); text-align: center; padding: 7rem 5rem; position: relative; overflow: hidden; }
   .cta::before { content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%; background: var(--teal-600); opacity: 0.2; bottom: -300px; left: 50%; transform: translateX(-50%); }
-  .cta-title { font-family: 'Playfair Display', serif; font-size: clamp(2.5rem, 4vw, 3.5rem); font-weight: 400; color: var(--white); line-height: 1.2; margin-bottom: 1.25rem; position: relative; z-index: 2; }
+  .cta-title { font-family: 'PT Serif', serif; font-size: clamp(2.5rem, 4vw, 3.5rem); font-weight: 400; color: var(--white); line-height: 1.2; margin-bottom: 1.25rem; position: relative; z-index: 2; }
   .cta-title em { font-style: italic; color: var(--teal-300); }
   .cta-sub { font-size: 1.1rem; color: var(--teal-100); margin-bottom: 2.5rem; position: relative; z-index: 2; }
   .cta-form { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; position: relative; z-index: 2; }
-  .cta-input { padding: 0.9rem 1.5rem; border-radius: 100px; border: 1px solid rgba(93,202,165,0.3); background: rgba(255,255,255,0.08); color: var(--white); font-family: 'Lato', sans-serif; font-size: 0.95rem; width: 300px; outline: none; transition: border-color 0.2s; }
+  .cta-input { padding: 0.9rem 1.5rem; border-radius: 100px; border: 1px solid rgba(93,202,165,0.3); background: rgba(255,255,255,0.08); color: var(--white); font-family: 'Carlito', Calibri, sans-serif; font-size: 0.95rem; width: 300px; outline: none; transition: border-color 0.2s; }
   .cta-input::placeholder { color: var(--teal-100); opacity: 0.6; }
   .cta-input:focus { border-color: var(--teal-300); }
-  .cta-btn { padding: 0.9rem 2rem; border-radius: 100px; border: none; background: var(--teal-300); color: var(--teal-900); font-family: 'Lato', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.15s; }
+  .cta-btn { padding: 0.9rem 2rem; border-radius: 100px; border: none; background: var(--teal-300); color: var(--teal-900); font-family: 'Carlito', Calibri, sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.15s; }
   .cta-btn:hover { background: var(--white); transform: translateY(-1px); }
   .cta-note { margin-top: 1rem; font-size: 0.8rem; color: var(--teal-100); opacity: 0.6; position: relative; z-index: 2; }
 
   /* LEAD FORM */
   .lead-card { background: var(--teal-800); border-radius: 20px; padding: 2.5rem; max-width: 480px; margin: 2.5rem 0 0; }
   .lead-tabs { display: flex; gap: 8px; background: rgba(255,255,255,0.08); border-radius: 100px; padding: 4px; margin-bottom: 1.5rem; }
-  .lead-tab { flex: 1; min-width: 0; border: none; border-radius: 100px; padding: 0.6rem 0.5rem; font-family: 'Lato', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; background-color: transparent; color: var(--teal-100); transition: background-color 0.2s, color 0.2s; }
+  .lead-tab { flex: 1; min-width: 0; border: none; border-radius: 100px; padding: 0.6rem 0.5rem; font-family: 'Carlito', Calibri, sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; background-color: transparent; color: var(--teal-100); transition: background-color 0.2s, color 0.2s; }
   .lead-tab.active { background-color: var(--teal-300); color: var(--teal-900); }
   .lead-form { display: flex; flex-direction: column; gap: 0.75rem; }
-  .lead-field { box-sizing: border-box; line-height: 1.4; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(93,202,165,0.45); background-color: rgba(255,255,255,0.16); color: var(--white); font-family: 'Lato', sans-serif; font-size: 0.9rem; outline: none; width: 100%; }
+  .lead-field { box-sizing: border-box; line-height: 1.4; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(93,202,165,0.45); background-color: rgba(255,255,255,0.16); color: var(--white); font-family: 'Carlito', Calibri, sans-serif; font-size: 0.9rem; outline: none; width: 100%; }
   .lead-field::placeholder { color: rgba(255,255,255,0.8); opacity: 1; }
   .lead-dd-wrap { position: relative; }
-  .lead-dd-btn { width: 100%; text-align: left; box-sizing: border-box; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(93,202,165,0.45); background-color: rgba(255,255,255,0.16); color: rgba(255,255,255,0.8); font-family: 'Lato', sans-serif; font-size: 0.9rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .lead-dd-btn { width: 100%; text-align: left; box-sizing: border-box; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(93,202,165,0.45); background-color: rgba(255,255,255,0.16); color: rgba(255,255,255,0.8); font-family: 'Carlito', Calibri, sans-serif; font-size: 0.9rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
   .lead-dd-btn.selected { color: var(--white); }
   .lead-dd-list { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--white); border-radius: 10px; overflow: hidden; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
   .lead-dd-list.open { display: block; }
   .lead-dd-opt { padding: 0.7rem 1rem; color: var(--teal-900); font-size: 0.88rem; cursor: pointer; }
   .lead-dd-opt:hover { background-color: var(--teal-50); }
-  .lead-submit { margin-top: 0.5rem; padding: 0.9rem; border: none; border-radius: 100px; background-color: var(--teal-300); color: var(--teal-900); font-family: 'Lato', sans-serif; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: background-color 0.2s; }
+  .lead-submit { margin-top: 0.5rem; padding: 0.9rem; border: none; border-radius: 100px; background-color: var(--teal-300); color: var(--teal-900); font-family: 'Carlito', Calibri, sans-serif; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: background-color 0.2s; }
   .lead-submit:hover { background-color: var(--white); }
   .lead-note { text-align: center; font-size: 0.8rem; color: var(--gray-400); margin-top: 0.9rem; }
   .lead-success { display: none; text-align: center; padding: 2rem 1rem; }
   .lead-success.show { display: block; }
+  .lead-check { display: flex; align-items: flex-start; gap: 0.6rem; margin-top: 0.85rem; font-size: 0.88rem; line-height: 1.5; color: var(--teal-100); cursor: pointer; }
+  .lead-check input { margin-top: 0.2rem; accent-color: var(--teal-300); width: 16px; height: 16px; flex-shrink: 0; }
 
   /* FOOTER */
   footer { background: var(--teal-900); padding: 3rem 5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; border-top: 1px solid rgba(93,202,165,0.1); }
-  .footer-brand { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--teal-300); }
+  .footer-brand { font-family: 'PT Serif', serif; font-size: 1.25rem; color: var(--teal-300); }
   .footer-tagline { font-size: 0.85rem; font-style: italic; color: var(--teal-100); opacity: 0.7; }
   .footer-links { display: flex; gap: 1.5rem; list-style: none; }
   .footer-links a { font-size: 0.82rem; color: var(--teal-100); opacity: 0.6; text-decoration: none; transition: opacity 0.2s; }
@@ -290,6 +304,7 @@
     .side-nav-brand { display: flex; padding: 0 0.5rem; flex-shrink: 0; }
     .side-nav-name { display: none; }
     .side-nav-links { flex-direction: row; flex: 1; padding: 0; gap: 0; }
+    .side-nav-links li.desktop-only { display: none; }
     .side-nav-links a { flex: 1; flex-direction: column; gap: 0.2rem; padding: 0.5rem 0.25rem; font-size: 0.62rem; text-align: center; border-radius: 8px; white-space: nowrap; }
     section, .story-sec, .pad-xl { padding: 4rem 1.75rem; }
     .hero { grid-template-columns: 1fr; padding: 6rem 1.75rem 3rem; }
@@ -299,7 +314,7 @@
     .origin, .dignity, .lifelog, .split-grid, .lifelog-grid { grid-template-columns: 1fr; gap: 2.5rem; }
     .digest-inner { grid-template-columns: 1fr; gap: 2.5rem; }
     .story-inner { grid-template-columns: 1fr; gap: 2.5rem; }
-    .cards-4, .steps, .feat-grid, .what-steps { grid-template-columns: 1fr 1fr; }
+    .cards-4, .steps, .feat-grid, .feat-grid.soon-grid, .what-steps { grid-template-columns: 1fr 1fr; }
     .science-grid { grid-template-columns: 1fr 1fr; }
     .price-cards { grid-template-columns: 1fr; max-width: 420px; }
     .cta { padding: 4rem 1.75rem; }
@@ -307,7 +322,7 @@
     footer { padding: 2rem 1.75rem; flex-direction: column; align-items: flex-start; }
   }
   @media (max-width: 600px) {
-    .cards-4, .steps, .feat-grid, .science-grid, .what-steps { grid-template-columns: 1fr; }
+    .cards-4, .steps, .feat-grid, .feat-grid.soon-grid, .science-grid, .what-steps { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -335,6 +350,8 @@
     <li><a href="#why"><svg viewBox="0 0 16 16"><path d="M8 2a4 4 0 00-4 4c0 2 1 3 2 4l.5 2h3l.5-2c1-1 2-2 2-4a4 4 0 00-4-4z"/><path d="M6.5 14h3"/></svg>Why it matters</a></li>
     <li><a href="#features"><svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>How it works</a></li>
     <li><a href="#action"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M6.5 5.5l4 2.5-4 2.5z"/></svg>See it in action</a></li>
+    <li class="desktop-only"><a href="#circle"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><circle cx="8" cy="8" r="2.5"/></svg>Who it's for</a></li>
+    <li class="desktop-only"><a href="#origin"><svg viewBox="0 0 16 16"><path d="M8 14s-5.5-3.3-5.5-7A3 3 0 018 5a3 3 0 015.5 2c0 3.7-5.5 7-5.5 7z"/></svg>Our story</a></li>
     <li><a href="#pilot" class="cta"><svg viewBox="0 0 16 16"><path d="M8 1l1.5 4.5H14l-3.5 2.5L11.5 12 8 9.5 4.5 12l1-4L2 5.5h4.5z"/></svg>Now in pilot</a></li>
   </ul>
 </nav>
@@ -346,7 +363,7 @@
   <div class="hero-content">
     <p class="eyebrow">takefive.care</p>
     <h1 class="hero-headline">Take five.<br><em>We've got<br>the rest.</em></h1>
-    <p class="hero-sub">An AI care agent that lives in your family's group chat — answering questions, tracking medications, surfacing what matters, and sending a weekly digest that keeps everyone genuinely in the loop. No new app. No new habits. Just a phone number.</p>
+    <p class="hero-sub">An AI care agent that lives in your family's group chat — answering questions, tracking medications, surfacing what matters, and sending a weekly digest that keeps everyone genuinely in the loop. No new app. No new habits. Family stays in the group chat they already use; caregivers just text a number.</p>
     <div class="actions">
       <a href="#pilot" class="btn btn-primary">Now in pilot</a>
       <a href="#why" class="btn btn-ghost">See the science</a>
@@ -364,20 +381,20 @@
           <line x1="62" y1="134" x2="190" y2="175"/>
         </g>
         <circle cx="190" cy="48" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
-        <text x="190" y="42" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Adult</text>
-        <text x="190" y="56" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">child</text>
+        <text x="190" y="42" font-family="'PT Serif', serif" font-size="11" fill="#C9D6C9" text-anchor="middle">Adult</text>
+        <text x="190" y="56" font-family="'PT Serif', serif" font-size="11" fill="#C9D6C9" text-anchor="middle">child</text>
         <circle cx="318" cy="134" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
-        <text x="318" y="138" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Sibling</text>
+        <text x="318" y="138" font-family="'PT Serif', serif" font-size="11" fill="#C9D6C9" text-anchor="middle">Sibling</text>
         <circle cx="272" cy="285" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
-        <text x="272" y="279" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Home</text>
-        <text x="272" y="293" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">aide</text>
+        <text x="272" y="279" font-family="'PT Serif', serif" font-size="11" fill="#C9D6C9" text-anchor="middle">Home</text>
+        <text x="272" y="293" font-family="'PT Serif', serif" font-size="11" fill="#C9D6C9" text-anchor="middle">aide</text>
         <circle cx="108" cy="285" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
-        <text x="108" y="289" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Neighbor</text>
+        <text x="108" y="289" font-family="'PT Serif', serif" font-size="11" fill="#C9D6C9" text-anchor="middle">Neighbor</text>
         <circle cx="62" cy="134" r="38" fill="#085041" stroke="rgba(93,202,165,0.4)" stroke-width="1"/>
-        <text x="62" y="138" font-family="serif" font-size="11" fill="#9FE1CB" text-anchor="middle">Nurse</text>
+        <text x="62" y="138" font-family="'PT Serif', serif" font-size="11" fill="#C9D6C9" text-anchor="middle">Nurse</text>
         <circle cx="190" cy="175" r="46" fill="#1D9E75" stroke="#5DCAA5" stroke-width="2"/>
-        <text x="190" y="170" font-family="serif" font-style="italic" font-size="14" fill="white" text-anchor="middle">Home</text>
-        <text x="190" y="188" font-family="serif" font-style="italic" font-size="13" fill="rgba(255,255,255,0.8)" text-anchor="middle">Mom &amp; Dad</text>
+        <text x="190" y="170" font-family="'PT Serif', serif" font-style="italic" font-size="14" fill="white" text-anchor="middle">Home</text>
+        <text x="190" y="188" font-family="'PT Serif', serif" font-style="italic" font-size="13" fill="rgba(255,255,255,0.8)" text-anchor="middle">Mom &amp; Dad</text>
         <circle cx="190" cy="175" r="58" stroke="rgba(93,202,165,0.15)" stroke-width="1" fill="none"/>
         <circle cx="190" cy="175" r="72" stroke="rgba(93,202,165,0.08)" stroke-width="1" fill="none"/>
       </svg>
@@ -388,10 +405,10 @@
 <!-- PROOF BAR -->
 <div class="proof-bar">
   <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Coordination · connection · story</span></div>
-  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Works in your preferred chat app</span></div>
+  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Works in the group chat you already use</span></div>
   <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Built by a family that lived it</span></div>
   <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Backed by the science of connection</span></div>
-  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Now in pilot · by invitation</span></div>
+  <div class="proof-item"><div class="proof-dot"></div><span class="proof-text">Now in pilot with a small group of families</span></div>
 </div>
 
 <!-- WHY -->
@@ -434,57 +451,7 @@
     </blockquote>
 
     <p style="font-size:1.1rem;line-height:1.85;color:var(--teal-100);margin-bottom:1.5rem;max-width:680px;">This is where care actually breaks down — not in the doctor's office, but between visits. In the group chat, at the end of a longer message, almost as an afterthought. The observation nobody logged. The symptom that came up once and disappeared.</p>
-    <p style="font-family:'Playfair Display',serif;font-size:1.35rem;font-style:italic;font-weight:400;color:var(--white);line-height:1.6;max-width:680px;">Nothing your family shares gets lost.<br>Take Five finds what matters and makes sure it gets to the right people.</p>
-  </div>
-</section>
-
-<!-- ORIGIN -->
-<section class="origin">
-  <div>
-    <p class="eyebrow light">The origin story</p>
-    <h2 class="sec-title">Five siblings.<br>Two parents.<br><em>One system.</em></h2>
-    <p class="sec-body">Take Five was born from lived experience, not a market analysis. As five siblings coordinating care for aging parents, we lived the coordination chaos firsthand. The scattered texts, the missed handoffs, the one person carrying too much.</p>
-    <div class="siblings">
-      <div class="sibling">#1</div><div class="sibling">#2</div>
-      <div class="sibling founder">#3</div>
-      <div class="sibling">#4</div><div class="sibling">#5</div>
-    </div>
-  </div>
-  <div>
-    <blockquote class="pull-quote">
-      <p>"We built what we needed. We named it after what made it matter — the five of us, showing up."</p>
-      <cite>— Eric Landry, Founder &amp; #3</cite>
-    </blockquote>
-    <p class="sec-body" style="margin-top:2rem;">Every family has their number — the people who showed up when it mattered. Take Five is built for all of them.</p>
-  </div>
-</section>
-
-<!-- DIGNITY -->
-<section class="dignity" id="dignity">
-  <p class="eyebrow">Built on dignity</p>
-  <h2 class="sec-title">They are at the<br><em>center of this.</em></h2>
-  <div class="dignity-inner">
-    <div>
-      <blockquote class="dig-quote">Dignity is the difference between being cared for and being managed.<cite class="dig-cite">— Eric Landry, Founder</cite></blockquote>
-    </div>
-    <div>
-      <div class="pillars">
-        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Agency, not surveillance</div><p class="pillar-body">The senior controls what family sees. Their preferences guide care. Their voice is in every major decision.</p></div></div>
-        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Connection as healthcare</div><p class="pillar-body">Social connection is clinically proven to reduce dementia risk, heart disease, and premature mortality. Take Five treats it as a health intervention, not a nice-to-have.</p></div></div>
-        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Accessible to everyone</div><p class="pillar-body">Text messaging first — no app to download, no training, no barrier. Works for the 78-year-old aide who only texts and the 45-year-old daughter who uses everything.</p></div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- TESTIMONIAL -->
-<section style="background:var(--cream);padding:6rem 5rem;text-align:center;" id="testimonial">
-  <div style="max-width:760px;margin:0 auto;">
-    <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal-500);margin-bottom:2rem;">The narrative-clinical bridge</p>
-    <blockquote style="font-family:'Playfair Display',serif;font-size:clamp(1.4rem,2.2vw,1.9rem);font-style:italic;font-weight:400;line-height:1.55;color:var(--teal-800);">
-      “Families speak in stories, observations, and concerns, while healthcare providers think in patterns and clinical relevance. Watching Take Five bridge those two worlds without losing the family’s voice was impressive.”
-    </blockquote>
-    <p style="margin-top:1.5rem;font-family:'Lato',sans-serif;font-size:0.9rem;color:var(--teal-500);">— Licensed Nursing Facility Administrator · Vice Chair, a statewide long-term care association</p>
+    <p style="font-family:'PT Serif',serif;font-size:1.35rem;font-style:italic;font-weight:400;color:var(--white);line-height:1.6;max-width:680px;">What your family shares doesn't get buried.<br>Take Five finds what matters and makes sure it gets to the right people.</p>
   </div>
 </section>
 
@@ -497,36 +464,47 @@
   <div class="what-steps">
     <div class="what-step"><div class="what-step-num">1</div><div class="what-step-title">Set up your care circle</div><p class="what-step-body">Invite family, professional caregivers, and anyone in your parent's support network. Each person gets role-appropriate visibility.</p></div>
     <div class="what-step"><div class="what-step-num">2</div><div class="what-step-title">Professional caregivers check in by text (SMS)</div><p class="what-step-body">Your home aide or agency nurse texts a Take Five number after each visit — naturally, like any text. They never join the family chat. The family always knows what happened.</p></div>
-    <div class="what-step"><div class="what-step-num">3</div><div class="what-step-title">The agent holds it all</div><p class="what-step-body">Take Five parses every update, maintains the care log and life log, assigns tasks, and surfaces what matters before it becomes a crisis.</p></div>
-    <div class="what-step"><div class="what-step-num">4</div><div class="what-step-title">Family gets a weekly digest</div><p class="what-step-body">Every week: what happened, patterns worth noting, what needs a decision — without anyone having to write a summary by hand.</p></div>
-    <div class="what-step"><div class="what-step-num">5</div><div class="what-step-title">The Story grows over time</div><p class="what-step-body">Each week the agent asks one gentle question. The answers build into a memoir — her life, in her own words, preserved forever.</p></div>
-    <div class="what-step"><div class="what-step-num">6</div><div class="what-step-title">Hard decisions, made together</div><p class="what-step-body">When the hardest question comes, the agent gives your whole family the same data, the same guidance, and a way to decide together with dignity.</p></div>
+    <div class="what-step"><div class="what-step-num">3</div><div class="what-step-title">Your parent checks in too</div><p class="what-step-body">Every week they get a warm, personal email from Take Five. They just hit reply. No chat to join, no app to learn.</p></div>
+    <div class="what-step"><div class="what-step-num">4</div><div class="what-step-title">The agent holds it all</div><p class="what-step-body">Take Five reads every update, keeps the care log and life log current, and surfaces what matters early, so the family can act sooner.</p></div>
+    <div class="what-step"><div class="what-step-num">5</div><div class="what-step-title">Family gets a weekly digest</div><p class="what-step-body">Every week: what happened, patterns worth noting, what needs a decision — without anyone having to write a summary by hand.</p></div>
+    <div class="what-step"><div class="what-step-num">6</div><div class="what-step-title">Walk into appointments ready</div><p class="what-step-body">Before each doctor visit, Take Five pulls together what the family has noticed since the last one, including who noticed it and when.</p></div>
   </div>
 
+  <h3 class="feat-group-title">What's in the care circle</h3>
   <div class="feat-grid">
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h12M4 10h8M4 14h5"/><rect x="2" y="3" width="16" height="14" rx="2"/></svg></div><div class="feat-title">Weekly family digest</div><p class="feat-body">One warm weekly summary of what happened, what she's reading, what needs attention. The sibling in Denver stays genuinely close without anyone having to write it by hand.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3l2.5 5 5.5.8-4 3.9.9 5.5L10 16l-4.9 2.2.9-5.5L2 8.8l5.5-.8z"/></svg></div><div class="feat-title">Proactive alerts</div><p class="feat-body">Missed check-ins, medication gaps, and pattern changes surface before they become crises — not after.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M6 3h8M4 7h12M5 11l1 6h8l1-6"/><path d="M8 11v6M12 11v6"/></svg></div><div class="feat-title">Medication tracking</div><p class="feat-body">A structured medication list with name, dose, AM/PM/evening schedule, prescriber, and purpose, stored and kept current. Ask T5 what Dad's on and get an instant answer from the care record.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M6 3h8M4 7h12M5 11l1 6h8l1-6"/><path d="M8 11v6M12 11v6"/></svg></div><div class="feat-title">Medication tracking</div><p class="feat-body">A structured medication list with name, dose, AM/PM/evening schedule, prescriber, and purpose, stored and kept current. Ask Take Five (T5) what Dad's on and get an instant answer from the care record.</p></div>
     <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 2a4 4 0 100 8 4 4 0 000-8z"/><path d="M4 18c0-3 2.7-5 6-5s6 2 6 5"/><path d="M14 8h4M16 6v4"/></svg></div><div class="feat-title">Care team registry</div><p class="feat-body">Every doctor, specialist, and provider — name, specialty, phone, and notes — in one place the whole family can access. No more "who is Mom's cardiologist again?"</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M3 8h14M7 2v4M13 2v4"/></svg></div><div class="feat-title">Shared care calendar</div><p class="feat-body">Visits, appointments, and aide schedules in one Google Calendar the whole family can see — and T5 knows it too. Ask "what's on this week?" and get the answer right in the chat.</p></div>
     <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4zM4 8h12M8 8v8"/></svg></div><div class="feat-title">Life Log</div><p class="feat-body">Books read, shows watched, walks taken. A living record of a life still being lived — because staying engaged is staying healthy.</p></div>
     <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M1 8h2l2-5 3 10 2-7 2 2h3"/></svg></div><div class="feat-title">Activity feed & digest archive</div><p class="feat-body">Every check-in, update, and care note in a running feed, plus every weekly digest saved and searchable. The full care history is always there when you need it.</p></div>
-    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z"/><path d="M10 7v4l2.5 2"/></svg></div><div class="feat-title">Safety & health signal tracker</div><p class="feat-body">T5 reads every message for safety and health signals — falls, recurring symptoms, behavioral changes — and quietly follows up to confirm what it catches, so nothing slips through unconfirmed.</p></div>
+    <div class="feat"><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z"/><path d="M10 7v4l2.5 2"/></svg></div><div class="feat-title">Safety signals &amp; alerts</div><p class="feat-body">T5 reads every update for safety and health signals — falls, recurring symptoms, missed check-ins, medication gaps — and quietly follows up to confirm what it catches, so the family can act early.</p></div>
+  </div>
+
+  <h3 class="feat-group-title">On the way</h3>
+  <div class="feat-grid soon-grid">
     <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="3"/><circle cx="14" cy="7" r="3"/><path d="M2 17c0-3 2-4.5 5-4.5s3.5 1.5 5 1.5 3.5-1.5 5-1.5 5 1.5 5 4.5"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Caregiver load & sibling fairness</div><p class="feat-body">See who's actually showing up — visits, check-ins, tasks — across the whole family, so the load is visible instead of invisible, and no one carries more than they realize alone.</p></div>
     <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4z"/><path d="M8 4v12M4 8h4"/><path d="M12 10h4M12 13h3"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Document registry</div><p class="feat-body">Where's the will? Who has power of attorney? A shared registry of important documents — where they live, who to call — so the whole family knows before they need to know.</p></div>
-    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M3 5h14v10H3z"/><path d="M3 5l7 6 7-6"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Call transcript ingestion</div><p class="feat-body">Upload a transcript from the weekly family call and T5 pulls out what matters — decisions made, health observations, follow-up items — so nothing important stays buried in whoever took notes.</p></div>
+    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M4 3h9l3 3v11H4z"/><path d="M7 9h6M7 12h6M7 15h3"/></svg></div><div class="feat-title" style="color:var(--gray-600);">The Story</div><p class="feat-body">One gentle question a week, building into a memoir — their life, in their own words, preserved for the family.</p></div>
+    <div class="feat"><div class="feat-badge soon">Coming soon</div><div class="feat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="#B0ADA6" stroke-width="1.5" stroke-linecap="round"><path d="M10 3v14M6 17h8M4 7h12"/><path d="M4 7l-2 5a2.5 2.5 0 004 0zM16 7l-2 5a2.5 2.5 0 004 0z"/></svg></div><div class="feat-title" style="color:var(--gray-600);">Decision support</div><p class="feat-body">When the hardest questions come — more help at home, or a move — the whole family works from the same history, the same data, and the same picture.</p></div>
   </div>
 
-  <h3 id="action" style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:400;color:var(--teal-800);margin:3.5rem 0 0.5rem;">See it <em style="color:var(--teal-500);font-style:italic;">in action.</em></h3>
-  <p class="sec-body" style="margin-bottom:0;">Four features, one place to see how they actually work.</p>
+</section>
+
+<!-- SEE IT IN ACTION -->
+<section style="background:var(--white);" id="action">
+  <p class="eyebrow light">See it in action</p>
+  <h2 class="sec-title">The whole circle,<br><em>on the same page.</em></h2>
+  <p class="sec-body" style="margin-bottom:0;">Five features, one place to see how they actually work.</p>
 
   <div class="demo-tabs">
-    <button type="button" class="demo-tab active" id="demo-tab-ask" onclick="whatSwitchDemo('ask')">Ask T5</button>
-    <button type="button" class="demo-tab" id="demo-tab-digest" onclick="whatSwitchDemo('digest')">Weekly digest</button>
-    <button type="button" class="demo-tab" id="demo-tab-lifelog" onclick="whatSwitchDemo('lifelog')">Life Log</button>
+    <button type="button" class="demo-tab active" id="demo-tab-digest" onclick="whatSwitchDemo('digest')">Weekly digest</button>
+    <button type="button" class="demo-tab" id="demo-tab-ask" onclick="whatSwitchDemo('ask')">Ask T5</button>
     <button type="button" class="demo-tab" id="demo-tab-appt" onclick="whatSwitchDemo('appt')">Appointment prep</button>
+    <button type="button" class="demo-tab" id="demo-tab-voice" onclick="whatSwitchDemo('voice')">Their voice</button>
+    <button type="button" class="demo-tab" id="demo-tab-lifelog" onclick="whatSwitchDemo('lifelog')">Life Log</button>
   </div>
 
-  <div class="demo-panel active" id="demo-panel-ask">
+  <div class="demo-panel" id="demo-panel-ask">
     <div class="demo-card dark">
       <div class="split-grid">
         <div>
@@ -536,19 +514,27 @@
           <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:2rem;">
             <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
               <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
-              <div style="font-size:0.95rem;color:var(--white);font-family:'Playfair Display',serif;font-style:italic;">"What medications is Mom on?"</div>
+              <div style="font-size:0.95rem;color:var(--white);font-family:'PT Serif',serif;font-style:italic;">"What's on the calendar this week?"</div>
             </div>
             <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(93,202,165,0.3);border-radius:10px;padding:1rem 1.25rem;">
               <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">T5 answers</div>
-              <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">She's currently on 6 medications. Amlodipine 5mg (AM) for blood pressure, Dayvigo 5mg at bedtime for sleep, and 4 others. Want the full list?</div>
+              <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">Dad's annual checkup with Dr. Alvarez is Wednesday at 10:30, and Kate is taking him. Janet's visits are Monday, Wednesday, and Friday — Friday's isn't confirmed yet.</div>
             </div>
             <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
               <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
-              <div style="font-size:0.95rem;color:var(--white);font-family:'Playfair Display',serif;font-style:italic;">"When did the aide last come?"</div>
+              <div style="font-size:0.95rem;color:var(--white);font-family:'PT Serif',serif;font-style:italic;">"When did Dad last see Dr. Alvarez?"</div>
             </div>
             <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(93,202,165,0.3);border-radius:10px;padding:1rem 1.25rem;">
               <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">T5 answers</div>
-              <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">Rosa checked in yesterday at 9:14am. Good visit — Mom finished her book, ate well, all meds taken. Thursday's visit hasn't been confirmed yet.</div>
+              <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">August 12. His annual checkup is this Wednesday. Want me to pull together what's come up since then?</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;">
+              <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">You ask</div>
+              <div style="font-size:0.95rem;color:var(--white);font-family:'PT Serif',serif;font-style:italic;">"When did the aide last come?"</div>
+            </div>
+            <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(93,202,165,0.3);border-radius:10px;padding:1rem 1.25rem;">
+              <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">T5 answers</div>
+              <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">Janet checked in yesterday at 9:14am. Good visit — Mom finished her book, Dad ate well, and all meds were taken. Her next visit is Wednesday.</div>
             </div>
           </div>
         </div>
@@ -580,7 +566,7 @@
               <div style="width:8px;height:8px;border-radius:50%;background:var(--teal-300);margin-top:5px;flex-shrink:0;"></div>
               <div>
                 <div style="font-size:0.95rem;font-weight:700;color:var(--white);margin-bottom:0.2rem;">Appointments & decisions</div>
-                <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Upcoming visits, past appointments, and the decisions made along the way — preserved in context.</div>
+                <div style="font-size:0.88rem;line-height:1.6;color:var(--teal-100);">Upcoming and past appointments pulled straight from the family calendar, plus the decisions made along the way.</div>
               </div>
             </div>
           </div>
@@ -589,45 +575,45 @@
     </div>
   </div>
 
-  <div class="demo-panel" id="demo-panel-digest">
+  <div class="demo-panel active" id="demo-panel-digest">
     <div class="demo-card light">
       <div class="digest-inner">
         <div>
           <p class="eyebrow light">The weekly digest</p>
           <h2 class="sec-title">One warm summary.<br><em>The whole family,<br>on the same page.</em></h2>
-          <p class="sec-body" style="margin-bottom:1.5rem;">Every week T5 synthesizes everything shared in the care circle: what happened, how they're doing, what they've been into, and what needs a decision. The sibling in Denver who wants to help but hasn't felt in the loop reads it over coffee and finally does.</p>
+          <p class="sec-body" style="margin-bottom:1.5rem;">Every week T5 synthesizes everything shared in the care circle: what happened, how they're doing, what they've been into, and what needs a decision. Mike, two states away, wants to help but hasn't always felt in the loop. He reads it over coffee and finally is.</p>
           <p class="sec-body">The digest isn't just a recap. It's where the pattern-recognition lives: the reading streak, the uptick in good days, the fall that got mentioned twice. All of it held together in one place your whole family can trust.</p>
         </div>
         <div>
           <div class="digest-card" style="background:var(--teal-800);border:1px solid rgba(93,202,165,0.2);">
             <div class="digest-card-header" style="background:rgba(93,202,165,0.1);border-bottom:1px solid rgba(93,202,165,0.15);">
               <span class="digest-card-label">Weekly digest · example</span>
-              <span class="digest-card-date">Week of June 1–7, 2026</span>
+              <span class="digest-card-date">Week of October 4–10, 2026</span>
             </div>
             <div class="digest-card-body">
               <div class="digest-section">
                 <div class="digest-section-head">Who visited</div>
-                <p class="digest-text">Mark — Monday. Sarah — Friday and Saturday. Next visit planned for Wednesday the 10th.</p>
+                <p class="digest-text">Kate — Tuesday and Saturday. Janet — Monday, Wednesday, and Friday. Mike called Sunday. Kate is going with Frank to his checkup on the 14th.</p>
               </div>
               <div class="digest-divider"></div>
               <div class="digest-section">
                 <div class="digest-section-head">How they're doing</div>
-                <p class="digest-text">Dad — good spirits and engaged, but two falls reported recently and neck pain continues. Mom — variable week. <em>Good mood Friday, harder Saturday</em> — hearing aid wasn't charged, which caused sensory overload.</p>
+                <p class="digest-text">Frank — good spirits, walking in the city park three times this week. Mentioned feeling lightheaded when standing up quickly. Barbara — steady week. <em>Knee a little stiff Thursday</em>, but she says it's nothing.</p>
               </div>
               <div class="digest-divider"></div>
               <div class="digest-section">
                 <div class="digest-section-head">Highlights</div>
-                <p class="digest-text">Dad went down a rabbit hole researching eggplant after dinner — <em>turns out it's called aubergine.</em> The whiteboard is in motion; Mom responded positively. Sarah went to mass with them Saturday and restocked meds for the next 30 days.</p>
+                <p class="digest-text">Frank and Barbara spent Thursday at the pond feeding the ducks — <em>"until they got pushy," in Frank's words.</em> Barbara finished another mystery novel. Mike's Sunday call ran long; both said it was the best part of their week.</p>
               </div>
               <div class="digest-divider"></div>
               <div class="digest-section">
                 <div class="digest-section-head amber">What needs attention</div>
-                <p class="digest-text amber">Two recent falls — one outside, one in the kitchen where the fire department was called. No injuries noted but both worth confirming. <em>Dr. Patel appointment June 9 needs confirmation</em> — wasn't on the calendar as of Tuesday. Neck pain should be raised at that visit.</p>
+                <p class="digest-text amber">Kate noticed Frank unsteady on the back porch stairs — worth raising at his checkup. <em>Lisinopril dose doesn't match</em> between the pharmacy label and the medication list; confirm before the 14th. Janet's Friday visit isn't confirmed yet.</p>
               </div>
               <div class="digest-divider"></div>
               <div class="digest-section">
                 <div class="digest-section-head">Coming up</div>
-                <p class="digest-text">Dr. Patel — Tuesday, June 9 · Family visit — Wednesday, June 10</p>
+                <p class="digest-text">Frank's annual checkup with Dr. Alvarez — Wednesday, Oct 14 · Kate going along</p>
               </div>
             </div>
           </div>
@@ -653,10 +639,10 @@
         <div>
           <div class="feed">
             <div class="feed-label">Today's care circle feed</div>
-            <div class="feed-item"><div class="feed-time">Rosa · 9:14am</div><div class="feed-text">Good morning. She finished her mystery novel — <em>seemed really satisfied.</em> Started the next one already. Good appetite, all meds taken.</div></div>
-            <div class="feed-item"><div class="feed-time">Take Five · 11:00am</div><div class="feed-text"><em>Milestone:</em> Mom has finished 8 books since joining Take Five — averaging one every 3 weeks.</div></div>
-            <div class="feed-item"><div class="feed-time">Rosa · 2:30pm</div><div class="feed-text">Afternoon walk — made it to the corner and back. She talked about the garden the whole way. <em>Good energy today.</em></div></div>
-            <div class="feed-item"><div class="feed-time">Take Five · this Sunday</div><div class="feed-text"><em>Weekly digest:</em> Great week. Book finished, walk completed, good mood. One item needs attention — Thursday aide visit unconfirmed.</div></div>
+            <div class="feed-item"><div class="feed-time">Janet · 9:14am</div><div class="feed-text">Good morning. Barbara finished her mystery novel — <em>seemed really satisfied.</em> Started the next one already. Good appetite, all meds taken.</div></div>
+            <div class="feed-item"><div class="feed-time">Take Five · 11:00am</div><div class="feed-text"><em>Milestone:</em> Barbara has finished 8 books since joining Take Five — averaging one every 3 weeks.</div></div>
+            <div class="feed-item"><div class="feed-time">Janet · 2:30pm</div><div class="feed-text">Afternoon walk with Frank — made it around the pond and back. Barbara talked about the garden the whole way. <em>Good energy today.</em></div></div>
+            <div class="feed-item"><div class="feed-time">Take Five · this Sunday</div><div class="feed-text"><em>Weekly digest:</em> Great week. Book finished, walk completed, good mood. One item needs attention — Friday aide visit unconfirmed.</div></div>
           </div>
         </div>
       </div>
@@ -669,24 +655,54 @@
         <div>
           <p class="eyebrow light">Appointment prep</p>
           <h2 class="sec-title">Walk into every<br>appointment <em>ready.</em></h2>
-          <p class="sec-body">Before the doctor visit, T5 assembles a summary from the care record: recent mood patterns, medication changes, symptoms mentioned in check-ins, questions the family has been asking. Everything the doctor needs to know, and nothing you'll scramble to remember in the waiting room.</p>
-          <p class="sec-body" style="margin-top:1rem;">Appointment prep packets are generated automatically and sent to the family before each scheduled visit. No prep required.</p>
+          <p class="sec-body">Before each doctor visit, T5 pulls together everything the family has noticed since the last appointment — with who noticed it and when — plus any medication questions. Everything worth raising, and nothing you'll scramble to remember in the waiting room.</p>
+          <p class="sec-body" style="margin-top:1rem;">Packets are generated automatically before each scheduled visit. Anyone in the circle can add a question by replying in the chat.</p>
         </div>
         <div style="background:var(--teal-50);border-radius:16px;padding:2rem;">
-          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--teal-500);margin-bottom:1.25rem;">Appointment prep · Dr. Yiou · April 7</div>
+          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--teal-500);margin-bottom:1.25rem;">Appointment prep · Frank Colby · Dr. Alvarez · Oct 14</div>
+          <div style="font-size:0.82rem;color:var(--gray-600);margin:-0.75rem 0 1.25rem;">Annual checkup · covering since last visit on August 12</div>
           <div style="display:flex;flex-direction:column;gap:1rem;">
             <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
-              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Since last visit</div>
-              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Sleep has been inconsistent — 4 mentions of restless nights across caregiver check-ins. Dayvigo started March 23. Mood generally positive; one difficult day noted March 29.</div>
+              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">📝 Raise with Dr. Alvarez</div>
+              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">☐ Unsteady on the back porch stairs; held the rail with both hands <em style="color:var(--teal-600);">(Kate, Sep 28)</em><br>☐ Lightheaded when standing up quickly, twice this month <em style="color:var(--teal-600);">(Janet, Sep 15 &amp; Sep 26)</em><br>☐ Says his left hand has been "clumsy" buttoning shirts <em style="color:var(--teal-600);">(Frank, by email, Oct 1)</em><br>☐ Sleeping later than usual, up around 10am most days <em style="color:var(--teal-600);">(Mike, Sep 22)</em></div>
             </div>
             <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
-              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Medication changes</div>
-              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Dayvigo 5mg added at bedtime. Temazepam use flagged for review. All other medications unchanged.</div>
+              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">😊 Mood &amp; patterns</div>
+              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Walking in the city park three times a week, often with Barbara <em style="color:var(--teal-600);">(Frank, by email, Oct 1)</em><br>In good spirits on the Sunday call <em style="color:var(--teal-600);">(Mike, Oct 4)</em></div>
             </div>
             <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:10px;padding:1rem 1.1rem;">
-              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">Questions from the family</div>
-              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">Is the anxiety improving? What should we watch for with the new sleep medication? When are labs due?</div>
+              <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal-500);margin-bottom:0.4rem;">💊 Medications to confirm</div>
+              <div style="font-size:0.88rem;line-height:1.6;color:var(--gray-600);">☐ Lisinopril: pharmacy label says 10 mg, medication list says 20 mg<br><span style="font-size:0.8rem;color:var(--gray-400);">On file: Lisinopril 10 mg once daily (AM) · Vitamin D3 1000 IU once daily</span></div>
             </div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--gray-600);margin-top:1rem;">Generated by Take Five · Oct 9 · To add a question, reply <em>@T5 add to prep [your question]</em></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="demo-panel" id="demo-panel-voice">
+    <div class="demo-card tint">
+      <div class="split-grid" style="align-items:start;">
+        <div>
+          <p class="eyebrow light">Their voice</p>
+          <h2 class="sec-title">Part of the conversation.<br><em>Not just the subject of it.</em></h2>
+          <p class="sec-body">Frank and Barbara aren't in the family chat, and they don't need to be. Every week Take Five sends them a warm, personal email about what's been going on in their lives. They just hit reply.</p>
+          <p class="sec-body" style="margin-top:1rem;">Their updates, in their own words, flow into the care record, the weekly digest, and appointment prep alongside everyone else's.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1rem;">
+          <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:14px;overflow:hidden;">
+            <div style="padding:0.9rem 1.25rem;border-bottom:1px solid var(--gray-200);font-size:0.8rem;color:var(--gray-600);line-height:1.6;"><strong style="color:var(--teal-800);">From:</strong> Take Five<br><strong style="color:var(--teal-800);">To:</strong> Frank Colby<br><strong style="color:var(--teal-800);">Subject:</strong> Checking in this week</div>
+            <div style="padding:1.25rem;font-size:0.9rem;line-height:1.7;color:var(--text);">
+              <p style="margin-bottom:0.8rem;">Hi Frank, hope the week is treating you well so far.</p>
+              <p style="margin-bottom:0.8rem;">I heard you've been getting out for walks in the city park lately. That's wonderful. Do you have a favorite loop, or do you like to wander? I'm curious whether you stop by the pond.</p>
+              <p style="margin-bottom:0.8rem;">How are you and Barbara doing this week?</p>
+              <p style="margin-bottom:0.8rem;">Just reply to this email with any updates. I'd love to hear from you both.</p>
+              <p style="color:var(--teal-500);font-weight:700;">Take Five</p>
+            </div>
+          </div>
+          <div style="background:var(--teal-800);border-radius:14px;padding:1.25rem;margin-left:2rem;">
+            <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.6rem;">Frank replied</div>
+            <p style="font-size:0.9rem;line-height:1.7;color:var(--white);">Went three times this week. Barbara came along Thursday and we sat by the pond and fed the ducks until they got pushy. Her knee's been a little stiff but she says it's nothing. I'll let the kids know if that changes.</p>
           </div>
         </div>
       </div>
@@ -694,11 +710,101 @@
   </div>
 </section>
 
+<!-- TESTIMONIAL -->
+<section style="background:var(--teal-800);padding:6rem 5rem;text-align:center;" id="testimonial">
+  <div style="max-width:760px;margin:0 auto;">
+    <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal-300);margin-bottom:2rem;">From a long-term care leader</p>
+    <blockquote style="font-family:'PT Serif',serif;font-size:clamp(1.4rem,2.2vw,1.9rem);font-style:italic;font-weight:400;line-height:1.55;color:var(--white);">
+      “Families speak in stories, observations, and concerns, while healthcare providers think in patterns and clinical relevance. Watching Take Five bridge those two worlds without losing the family’s voice was impressive.”
+    </blockquote>
+    <p style="margin-top:1.5rem;font-family:'Carlito', Calibri,sans-serif;font-size:0.9rem;color:var(--teal-100);">— Licensed Nursing Facility Administrator · Vice Chair, a statewide long-term care association</p>
+  </div>
+</section>
+
+<!-- EXTENDED CIRCLE -->
+<section style="background:var(--teal-50);" id="circle">
+  <div class="split-grid">
+    <div>
+      <p class="eyebrow light">For everyone who loves her</p>
+      <h2 class="sec-title">You don't have to be<br><em>in charge to be part of this.</em></h2>
+      <p class="sec-body">Maybe you're a brother-in-law who checks in on weekends. A sister-in-law who lives three states away. A neighbor who's known her for twenty years. You don't need to be running things to belong in the circle — and looking at how the family stays coordinated isn't stepping in on anyone else's role. It's just staying close.</p>
+      <div class="pillars" style="margin-top:2rem;">
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Agency, not surveillance</div><p class="pillar-body">This isn't about watching anyone, or being watched. It's a shared, honest picture — nothing more.</p></div></div>
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">You see what's relevant to you</div><p class="pillar-body">Every person in the circle gets a view that fits their role. Extended family and friends get their own weekly digest: how she's doing and what she's been up to, without the medical details. No one sees more than their role calls for.</p></div></div>
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Nothing assumed, nothing owed</div><p class="pillar-body">There's room for whatever you're able to give — a weekly call, a Sunday visit, or just staying in the loop. All of it counts.</p></div></div>
+      </div>
+      <a href="#features" class="btn btn-ghost" style="color:var(--teal-500);margin-top:2rem;">See how it works</a>
+    </div>
+    <div style="display:flex;justify-content:center;">
+      <svg viewBox="0 0 400 400" style="width:100%;max-width:400px;height:auto;" role="img" aria-label="A care circle: Barbara and Frank at the center, their children Kate and Mike in the inner ring, and a friend, a sister-in-law, a neighbor, and a brother-in-law in the extended ring.">
+        <circle cx="200" cy="200" r="170" fill="none" stroke="#5DCAA5" stroke-width="1" stroke-dasharray="4 6"/>
+        <circle cx="200" cy="200" r="105" fill="rgba(255,255,255,0.6)" stroke="#5DCAA5" stroke-width="1.25"/>
+        <circle cx="200" cy="200" r="50" fill="#1D9E75" stroke="#5DCAA5" stroke-width="2"/>
+        <text x="200" y="196" font-family="'PT Serif', serif" font-style="italic" font-size="15" fill="#FFFFFF" text-anchor="middle">Barbara</text>
+        <text x="200" y="214" font-family="'PT Serif', serif" font-style="italic" font-size="13" fill="rgba(255,255,255,0.85)" text-anchor="middle">&amp; Frank</text>
+        <circle cx="109" cy="148" r="28" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.25"/>
+        <text x="109" y="152" font-family="'Carlito', Calibri, sans-serif" font-size="12" font-weight="700" fill="#085041" text-anchor="middle">Kate</text>
+        <circle cx="291" cy="148" r="28" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.25"/>
+        <text x="291" y="152" font-family="'Carlito', Calibri, sans-serif" font-size="12" font-weight="700" fill="#085041" text-anchor="middle">Mike</text>
+        <circle cx="200" cy="30" r="28" fill="#FFFFFF" stroke="#5DCAA5" stroke-width="1.25"/>
+        <text x="200" y="34" font-family="'Carlito', Calibri, sans-serif" font-size="11" fill="#6B6763" text-anchor="middle">Friend</text>
+        <circle cx="370" cy="200" r="28" fill="#FFFFFF" stroke="#5DCAA5" stroke-width="1.25"/>
+        <text x="370" y="197" font-family="'Carlito', Calibri, sans-serif" font-size="10" fill="#6B6763" text-anchor="middle">Sister-</text>
+        <text x="370" y="209" font-family="'Carlito', Calibri, sans-serif" font-size="10" fill="#6B6763" text-anchor="middle">in-law</text>
+        <circle cx="200" cy="370" r="28" fill="#FFFFFF" stroke="#5DCAA5" stroke-width="1.25"/>
+        <text x="200" y="374" font-family="'Carlito', Calibri, sans-serif" font-size="11" fill="#6B6763" text-anchor="middle">Neighbor</text>
+        <circle cx="30" cy="200" r="28" fill="#FFFFFF" stroke="#5DCAA5" stroke-width="1.25"/>
+        <text x="30" y="197" font-family="'Carlito', Calibri, sans-serif" font-size="10" fill="#6B6763" text-anchor="middle">Brother-</text>
+        <text x="30" y="209" font-family="'Carlito', Calibri, sans-serif" font-size="10" fill="#6B6763" text-anchor="middle">in-law</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ORIGIN -->
+<section class="origin" id="origin">
+  <div>
+    <p class="eyebrow light">The origin story</p>
+    <h2 class="sec-title">Five siblings.<br>Two parents.<br><em>One system.</em></h2>
+    <p class="sec-body">Take Five was born from lived experience, not a market analysis. As five siblings coordinating care for aging parents, we lived the coordination chaos firsthand. The scattered texts, the missed handoffs, the one person carrying too much.</p>
+    <div class="siblings">
+      <div class="sibling">#1</div><div class="sibling">#2</div>
+      <div class="sibling founder">#3</div>
+      <div class="sibling">#4</div><div class="sibling">#5</div>
+    </div>
+  </div>
+  <div>
+    <blockquote class="pull-quote">
+      <p>"We built what we needed. We named it after what made it matter — the five of us, showing up."</p>
+      <cite>— Eric Landry, Founder &amp; #3</cite>
+    </blockquote>
+    <p class="sec-body" style="margin-top:2rem;">Every family has their number — the people who showed up when it mattered. Take Five is built for all of them.</p>
+  </div>
+</section>
+
+<!-- DIGNITY -->
+<section class="dignity" id="dignity">
+  <p class="eyebrow light">Built on dignity</p>
+  <h2 class="sec-title">They are at the<br><em>center of this.</em></h2>
+  <div class="dignity-inner">
+    <div>
+      <blockquote class="dig-quote">Dignity is the difference between being cared for and being managed.<cite class="dig-cite">— Eric Landry, Founder</cite></blockquote>
+    </div>
+    <div>
+      <div class="pillars">
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Their voice, not just ours</div><p class="pillar-body">Every week, they get a warm personal email from Take Five and can reply with their own updates, in their own words. No chat to join, no app to learn. They're part of the conversation, not just the subject of it.</p></div></div>
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Connection as healthcare</div><p class="pillar-body">Social connection is clinically proven to reduce dementia risk, heart disease, and premature mortality. Take Five treats it as a health intervention, not a nice-to-have.</p></div></div>
+        <div class="pillar"><div class="pillar-dot"></div><div><div class="pillar-title">Accessible to everyone</div><p class="pillar-body">Text messaging first — no app to download, no training, no barrier. Works for the 78-year-old aide who only texts and the 45-year-old daughter who uses everything.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- PILOT -->
-<section style="background:var(--cream);padding:6rem 5rem;min-height:100vh;display:flex;flex-direction:column;justify-content:center;" id="pilot">
-  <p class="eyebrow">Now in pilot</p>
-  <h2 class="sec-title" style="margin-bottom:1.25rem;">Invitation only,<br><em>for now.</em></h2>
-  <p class="sec-body" style="max-width:520px;">Take Five is currently in active pilot testing with a small number of families. Tell us a bit about your situation below and we'll reach out as we open up the pilot.</p>
+<section style="background:var(--teal-50);padding:6rem 5rem;min-height:100vh;display:flex;flex-direction:column;justify-content:center;" id="pilot">
+  <p class="eyebrow light">Now in pilot</p>
+  <h2 class="sec-title" style="margin-bottom:1.25rem;">Starting small,<br><em>on purpose.</em></h2>
+  <p class="sec-body" style="max-width:520px;">We're working closely with a handful of families so we get this right. Tell us about yours. We're adding circles as we can, and we'd love to hear from you either way.</p>
 
   <div class="lead-card">
     <div class="lead-tabs">
@@ -732,22 +838,22 @@
             <div class="lead-dd-opt" onclick="leadPickDD('lead-dd2','Recently moved to assisted living or memory care')">Recently moved to assisted living or memory care</div>
           </div>
         </div>
+        <label class="lead-check"><input type="checkbox" id="lead-pilot" name="pilot_interest"> I'd like to be considered for the pilot</label>
       </div>
       <div id="lead-fields-agency" style="display:none;">
         <input class="lead-field" placeholder="Organization name" name="org_name">
       </div>
       <textarea class="lead-field" id="lead-notes" name="notes" rows="2" placeholder="Anything else you'd like us to know? (e.g. your relationship to them, or what's been hardest)"></textarea>
-      <button type="submit" class="lead-submit">Join the waitlist</button>
-      <p id="lead-error" style="display:none;color:#F28B82;font-size:0.8rem;text-align:center;margin-top:0.25rem;">Something went wrong — please try again, or email us directly.</p>
+      <button type="submit" class="lead-submit">Keep me posted</button>
+      <p id="lead-error" style="display:none;color:#F28B82;font-size:0.8rem;text-align:center;margin-top:0.25rem;">Something went wrong — please try again in a moment.</p>
     </form>
     <div class="lead-success" id="lead-success">
-      <p style="font-family:'Playfair Display',serif;font-size:1.2rem;font-style:italic;color:var(--white);margin-bottom:0.5rem;">Thanks for reaching out.</p>
-      <p style="font-size:0.9rem;color:var(--teal-100);">We'll be in touch as we open up the pilot.</p>
+      <p style="font-family:'PT Serif',serif;font-size:1.2rem;font-style:italic;color:var(--white);margin-bottom:0.5rem;">Thanks for reaching out.</p>
+      <p style="font-size:0.9rem;color:var(--teal-100);">We'll keep you posted, and reach out personally if it looks like a fit.</p>
     </div>
-    <p class="lead-note">No credit card. No commitment. Just a spot in line.</p>
+    <p class="lead-note">No credit card. No commitment.</p>
   </div>
 
-  <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--gray-400);">Prefer email? <a href="mailto:jericlandry@gmail.com" style="color:var(--teal-500);">Reach out directly</a>.</p>
 </section>
 
 <!-- FOOTER -->
@@ -757,10 +863,10 @@
     <div class="footer-tagline">For everyone who showed up.</div>
   </div>
   <ul class="footer-links">
-    <li><a href="#">About</a></li><li><a href="#why">The why</a></li>
-    <li><a href="#">Privacy</a></li><li><a href="mailto:jericlandry@gmail.com">Contact</a></li>
+    <li><a href="#why">The why</a></li>
+    <li><a href="privacy.html">Privacy</a></li><li><a href="terms.html">Terms</a></li>
   </ul>
-  <div style="font-size:0.8rem;color:rgba(159,225,203,0.4);">© 2026 Take Five · takefive.care</div>
+  <div style="font-size:0.8rem;color:rgba(201,214,201,0.4);">© 2026 Take Five · takefive.care</div>
 </footer>
 
 <script>
@@ -777,10 +883,12 @@ function leadSwitchTrack(track){
     famTab.classList.add('active'); agTab.classList.remove('active');
     famFields.style.display='block'; agFields.style.display='none';
     notes.placeholder="Anything else you'd like us to know? (e.g. your relationship to them, or what's been hardest)";
+    document.querySelector('.lead-submit').textContent="Keep me posted";
   } else {
     agTab.classList.add('active'); famTab.classList.remove('active');
     agFields.style.display='block'; famFields.style.display='none';
     notes.placeholder="Anything else you'd like us to know? (e.g. your role, number of clients)";
+    document.querySelector('.lead-submit').textContent="Let's talk";
   }
 }
 function leadCloseAllDD(){
@@ -824,6 +932,8 @@ async function leadSubmit(e){
     var livingBtn = document.getElementById('lead-dd2-btn');
     if(peopleBtn.classList.contains('selected')){ details.people_involved = document.getElementById('lead-dd1-label').textContent; }
     if(livingBtn.classList.contains('selected')){ details.living_situation = document.getElementById('lead-dd2-label').textContent; }
+    var pilotBox = document.getElementById('lead-pilot');
+    if(pilotBox && pilotBox.checked){ details.pilot_interest = true; }
   } else {
     var orgField = form.elements['org_name'];
     var orgName = orgField ? orgField.value.trim() : '';
@@ -869,8 +979,8 @@ function whatSwitchDemo(name){
   if(typeof gtag === 'function'){
     gtag('event', 'demo_tab_click', { demo_tab: name });
   }
-  var tabs = {ask:'demo-tab-ask', digest:'demo-tab-digest', lifelog:'demo-tab-lifelog', appt:'demo-tab-appt'};
-  var panels = {ask:'demo-panel-ask', digest:'demo-panel-digest', lifelog:'demo-panel-lifelog', appt:'demo-panel-appt'};
+  var tabs = {ask:'demo-tab-ask', digest:'demo-tab-digest', lifelog:'demo-tab-lifelog', appt:'demo-tab-appt', voice:'demo-tab-voice'};
+  var panels = {ask:'demo-panel-ask', digest:'demo-panel-digest', lifelog:'demo-panel-lifelog', appt:'demo-panel-appt', voice:'demo-panel-voice'};
   Object.keys(tabs).forEach(function(key){
     document.getElementById(tabs[key]).classList.toggle('active', key===name);
     document.getElementById(panels[key]).classList.toggle('active', key===name);
