@@ -461,6 +461,32 @@
   <h2 class="sec-title">Simple to use.<br><em>Built for how families actually work.</em></h2>
   <p class="sec-body">No apps. No training. No friction — just a phone number and a calm, intelligent presence holding everything together.</p>
 
+  <div style="display:flex;align-items:center;justify-content:center;gap:1.5rem;flex-wrap:wrap;margin:2.5rem 0 1.25rem;padding:2rem 2.5rem;background:var(--teal-50);border-radius:16px;">
+    <div style="display:flex;flex-direction:column;gap:0.9rem;">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--white);border:1px solid var(--gray-200);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="14" height="9" rx="2"/><path d="M7 13l-2 3v-3"/></svg></div>
+        <span style="font-size:0.88rem;font-weight:700;color:var(--teal-900);">A message in the family group chat</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--white);border:1px solid var(--gray-200);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="6" y="2" width="8" height="16" rx="2"/><path d="M9 16h2"/></svg></div>
+        <span style="font-size:0.88rem;font-weight:700;color:var(--teal-900);">An aide's text after a visit</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--white);border:1px solid var(--gray-200);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M3 5l7 6 7-6"/></svg></div>
+        <span style="font-size:0.88rem;font-weight:700;color:var(--teal-900);">A reply to their weekly email</span>
+      </div>
+    </div>
+    <svg width="40" height="24" viewBox="0 0 40 24" style="flex-shrink:0;"><path d="M2 12h34M28 4l8 8-8 8" stroke="#5DCAA5" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div style="display:flex;align-items:center;gap:0.9rem;background:var(--teal-800);border-radius:12px;padding:1rem 1.5rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(93,202,165,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5DCAA5" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h12v12H4z"/><path d="M7 8h6M7 11h6M7 14h3"/></svg></div>
+      <div>
+        <div style="font-size:0.95rem;font-weight:700;color:var(--white);">One care record</div>
+        <div style="font-size:0.78rem;color:var(--teal-100);">Searchable, summarized, always current</div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center;font-size:0.95rem;color:var(--gray-600);margin:0 0 3rem;max-width:600px;margin-left:auto;margin-right:auto;">However it comes in, it becomes the same record — the one T5 reads, searches, and summarizes.</p>
+
   <div class="what-steps">
     <div class="what-step"><div class="what-step-num">1</div><div class="what-step-title">Set up your care circle</div><p class="what-step-body">Invite family, professional caregivers, and anyone in your parent's support network. Each person gets role-appropriate visibility.</p></div>
     <div class="what-step"><div class="what-step-num">2</div><div class="what-step-title">Professional caregivers check in by text (SMS)</div><p class="what-step-body">Your home aide or agency nurse texts a Take Five number after each visit — naturally, like any text. They never join the family chat. The family always knows what happened.</p></div>
@@ -499,6 +525,7 @@
   <div class="demo-tabs">
     <button type="button" class="demo-tab active" id="demo-tab-digest" onclick="whatSwitchDemo('digest')">Weekly digest</button>
     <button type="button" class="demo-tab" id="demo-tab-ask" onclick="whatSwitchDemo('ask')">Ask T5</button>
+    <button type="button" class="demo-tab" id="demo-tab-signal" onclick="whatSwitchDemo('signal')">Signal detection</button>
     <button type="button" class="demo-tab" id="demo-tab-appt" onclick="whatSwitchDemo('appt')">Appointment prep</button>
     <button type="button" class="demo-tab" id="demo-tab-voice" onclick="whatSwitchDemo('voice')">Their voice</button>
     <button type="button" class="demo-tab" id="demo-tab-lifelog" onclick="whatSwitchDemo('lifelog')">Life Log</button>
@@ -616,6 +643,33 @@
                 <p class="digest-text">Frank's annual checkup with Dr. Alvarez — Wednesday, Oct 14 · Kate going along</p>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-panel" id="demo-panel-signal">
+    <div class="demo-card dark">
+      <div class="split-grid">
+        <div>
+          <p class="eyebrow">Signal detection</p>
+          <h2 class="sec-title light">Caught early.<br><em>Before it becomes a crisis.</em></h2>
+          <p class="sec-body light">T5 reads every update for safety and health signals, not just logistics: falls, recurring symptoms, missed check-ins, medication gaps. When something's worth a second look, it quietly confirms what it caught, so the family finds out early instead of after the fact.</p>
+          <p class="sec-body light" style="margin-top:1rem;">Nothing gets buried. A detail mentioned once, almost in passing, still gets carried forward, into the next digest, the next appointment prep, wherever it's needed.</p>
+        </div>
+        <div>
+          <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(93,202,165,0.2);border-radius:10px;padding:1rem 1.25rem;margin-bottom:0.75rem;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal-300);margin-bottom:0.4rem;">Kate texts</div>
+            <div style="font-size:0.88rem;color:var(--white);line-height:1.6;">Noticed Frank's ankle looked a little swollen again after his walk today. Gave him his usual dose on schedule. Nothing urgent but wanted to flag it.</div>
+          </div>
+          <div style="background:rgba(250,199,117,0.12);border:1px solid rgba(250,199,117,0.35);border-radius:10px;padding:1rem 1.25rem;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--amber);margin-bottom:0.4rem;">T5 flags it</div>
+            <div style="font-size:0.88rem;color:var(--teal-100);line-height:1.65;">Got it, noted. This is the second time swelling's come up this week — I'll make sure it's on the list for Frank's appointment with Dr. Alvarez.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.6rem;margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(93,202,165,0.15);">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#5DCAA5" stroke-width="1.5" stroke-linecap="round"><path d="M4 10h12M10 4l6 6-6 6"/></svg>
+            <span style="font-size:0.82rem;color:var(--teal-100);">Carried straight into the appointment prep packet — no one has to remember to mention it.</span>
           </div>
         </div>
       </div>
@@ -979,8 +1033,8 @@ function whatSwitchDemo(name){
   if(typeof gtag === 'function'){
     gtag('event', 'demo_tab_click', { demo_tab: name });
   }
-  var tabs = {ask:'demo-tab-ask', digest:'demo-tab-digest', lifelog:'demo-tab-lifelog', appt:'demo-tab-appt', voice:'demo-tab-voice'};
-  var panels = {ask:'demo-panel-ask', digest:'demo-panel-digest', lifelog:'demo-panel-lifelog', appt:'demo-panel-appt', voice:'demo-panel-voice'};
+  var tabs = {ask:'demo-tab-ask', signal:'demo-tab-signal', digest:'demo-tab-digest', lifelog:'demo-tab-lifelog', appt:'demo-tab-appt', voice:'demo-tab-voice'};
+  var panels = {ask:'demo-panel-ask', signal:'demo-panel-signal', digest:'demo-panel-digest', lifelog:'demo-panel-lifelog', appt:'demo-panel-appt', voice:'demo-panel-voice'};
   Object.keys(tabs).forEach(function(key){
     document.getElementById(tabs[key]).classList.toggle('active', key===name);
     document.getElementById(panels[key]).classList.toggle('active', key===name);

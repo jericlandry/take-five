@@ -60,40 +60,40 @@ MESSAGES = [
     (JANET_HAYES_ID,
      "Frank ate a full breakfast and lunch today, good appetite. Blood pressure meds "
      "taken on schedule. He mentioned wanting to finish his Grisham novel this week.",
-     "2026-09-09T09:40:00-05:00"),
+     "2026-09-24T09:40:00-05:00"),
 
     (KATE_COLBY_ID,
      "Thanks Janet! I'll bring him the next one in the series when I visit Saturday.",
-     "2026-09-09T18:12:00-05:00"),
+     "2026-09-24T18:12:00-05:00"),
 
     (JANET_HAYES_ID,
      "Barbara had a good day, watched her stories after lunch and took a short walk "
      "in the backyard. Mood was upbeat.",
-     "2026-09-11T13:05:00-05:00"),
+     "2026-09-26T13:05:00-05:00"),
 
     (JANET_HAYES_ID,
      "Noticed Frank's ankle looked a little swollen again after his walk today. Gave "
      "him his usual dose on schedule. Nothing urgent but wanted to flag it.",
-     "2026-09-12T15:50:00-05:00"),
+     "2026-09-27T15:50:00-05:00"),
 
     (KATE_COLBY_ID,
-     "Talked to Dr. Yiou's office, Dad's appointment is confirmed for next Thursday.",
-     "2026-09-13T11:20:00-05:00"),
+     "Talked to Dr. Alvarez's office, Dad's annual checkup is confirmed for October 14th.",
+     "2026-09-28T11:20:00-05:00"),
 
     (JANET_HAYES_ID,
      "Barbara finished the puzzle she'd been working on all week! She was really "
      "proud of herself.",
-     "2026-09-13T16:30:00-05:00"),
+     "2026-09-28T16:30:00-05:00"),
 
     (JANET_HAYES_ID,
      "Quiet day today, both resting most of the afternoon. Aide visit went smoothly, "
      "no concerns.",
-     "2026-09-14T14:15:00-05:00"),
+     "2026-09-29T14:15:00-05:00"),
 
     (JANET_HAYES_ID,
      "Frank's swelling looks better today. Back to his usual energy, walked out to "
      "the mailbox on his own this morning.",
-     "2026-09-15T10:05:00-05:00"),
+     "2026-09-30T10:05:00-05:00"),
 ]
 
 
