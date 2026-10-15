@@ -26,6 +26,12 @@ ANTHROPIC_CLIENT = anthropic.Anthropic()
 
 VISION_PROMPT = get_prompt("vision_prompt")
 
+# Dense documents (facility activity calendars, discharge papers) transcribe
+# to far more than a prescription label. 1024 truncated a one-week calendar.
+VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "4096"))
+
+TRUNCATION_NOTE = "\n[Transcription cut off here; the rest of the document was not read.]"
+
 
 @dataclass
 class ImageAttachment:
@@ -212,26 +218,71 @@ async def analyze_image_bytes(image_data: str, media_type: str, message_text: st
 
     response = ANTHROPIC_CLIENT.messages.create(
         model=VISION_MODEL,
-        max_tokens=1024,
+        max_tokens=VISION_MAX_TOKENS,
         system=VISION_PROMPT,
         messages=[{"role": "user", "content": user_content}]
     )
 
     raw_text = response.content[0].text.strip()
+    truncated = response.stop_reason == "max_tokens"
     logger.info(f"[images] Raw vision response: {raw_text}")
+    if truncated:
+        logger.warning(
+            f"[images] Vision response TRUNCATED at max_tokens={VISION_MAX_TOKENS} "
+            f"({len(raw_text)} chars)"
+        )
 
     try:
         return json.loads(raw_text)
     except json.JSONDecodeError as e:
         logger.error(f"[images] Failed to parse vision response as JSON: {e}")
+        if truncated:
+            salvaged = _salvage_truncated_document(raw_text)
+            if salvaged:
+                logger.info(
+                    f"[images] Salvaged truncated DOCUMENT — "
+                    f"{len(salvaged.get('extracted_text') or '')} chars of text kept"
+                )
+                return salvaged
         return {
             "classification": "ERROR",
-            "description": "Could not parse vision response",
+            "description": (
+                "Vision response was cut off before it finished" if truncated
+                else "Could not parse vision response"
+            ),
             "raw": raw_text,
             "extracted": None,
             "confidence": "low",
             "notes": str(e)
         }
+
+
+def _salvage_truncated_document(raw_text: str) -> Optional[dict]:
+    """
+    Recover a DOCUMENT result whose JSON was cut off mid-transcription.
+
+    Only DOCUMENT is salvaged: a partial transcription is still useful context
+    for ask(), whereas a partial MEDICATION extraction feeds a write flow and
+    should fail loudly instead. Tries closing the open string/object; if none
+    parse, returns None and the caller falls back to ERROR.
+    """
+    text = raw_text
+    # A cut can land mid-escape (e.g. after a lone backslash); drop it.
+    if text.endswith("\\") and not text.endswith("\\\\"):
+        text = text[:-1]
+
+    for suffix in ('"}', '"\n}', "}", '"]}'):
+        try:
+            parsed = json.loads(text + suffix)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(parsed, dict) or parsed.get("classification") != "DOCUMENT":
+            return None
+        parsed["extracted_text"] = (parsed.get("extracted_text") or "") + TRUNCATION_NOTE
+        parsed["confidence"] = "low"
+        parsed["truncated"] = True
+        return parsed
+    return None
 
 
 async def analyze_image(attachment: ImageAttachment) -> dict:
