@@ -76,6 +76,34 @@ TOPIC_STOPWORDS: frozenset = frozenset({
 })
 
 
+class _HealthyPool(ThreadedConnectionPool):
+    """
+    ThreadedConnectionPool that never hands out a connection psycopg2 already
+    knows is closed. Idle pooled connections get closed server-side during
+    quiet stretches; the stock pool returns them anyway and the caller's first
+    query fails with 'connection already closed'. On 2026-10-12 that silently
+    dropped two GroupMe webhook messages (one was Keith's Dr. Yu card).
+
+    Covers every getconn() caller, including the multi-statement transaction
+    methods. It can't detect a socket that died without psycopg2 noticing;
+    _execute()'s retry and the TCP keepalives in db_config handle that case.
+    """
+    def getconn(self, key=None):
+        for _ in range(self.maxconn + 1):
+            conn = super().getconn(key)
+            if not conn.closed:
+                return conn
+            logger.warning("[db] Discarding closed pooled connection")
+            super().putconn(conn, key, close=True)
+        return super().getconn(key)
+
+
+# psycopg2 errors that mean the connection itself is gone, not that the query
+# was bad. Only retried when the connection is actually marked closed afterward,
+# since OperationalError also covers deadlocks and timeouts on a live connection.
+_CONNECTION_ERRORS = (psycopg2.InterfaceError, psycopg2.OperationalError)
+
+
 class TakeFiveRepository:
     def __init__(self):
         self.db_config = {
@@ -83,7 +111,13 @@ class TakeFiveRepository:
             'user':     os.getenv('DB_USER'),
             'password': os.getenv('DB_PASSWORD'),
             'host':     'dpg-d78po2h5pdvs73b7l7rg-a.virginia-postgres.render.com',
-            'port':     5432
+            'port':     5432,
+            # TCP keepalives so idle pooled connections aren't silently dropped
+            # by the server or network between messages.
+            'keepalives':          1,
+            'keepalives_idle':     60,
+            'keepalives_interval': 10,
+            'keepalives_count':    5,
         }
         # Connection pool — previously every _execute() call (and every
         # save_clinical_record/patch_clinical_record/invite_person_to_ensemble
@@ -103,7 +137,7 @@ class TakeFiveRepository:
         # minconn/maxconn are a starting guess sized for a small app on a
         # modest Render Postgres plan — revisit against Postgres's own
         # max_connections if concurrent load grows.
-        self._pool = ThreadedConnectionPool(
+        self._pool = _HealthyPool(
             minconn=2, maxconn=10, cursor_factory=RealDictCursor, **self.db_config
         )
 
@@ -113,16 +147,30 @@ class TakeFiveRepository:
         # rolls back on exception) exactly as before — it just no longer
         # closes the connection, since putconn() in the finally block returns
         # it to the pool for reuse instead.
-        conn = self._pool.getconn()
-        try:
-            with conn:
-                with conn.cursor() as cur:
-                    cur.execute(query, params)
-                    if fetch == 'one': return cur.fetchone()
-                    if fetch == 'all': return cur.fetchall()
-                    return None
-        finally:
-            self._pool.putconn(conn)
+        #
+        # Retry on a fresh connection if the borrowed one turns out to be dead
+        # (closed server-side while idle in the pool). After a quiet stretch
+        # every idle connection is usually dead, so keep going until one works
+        # rather than retrying only once. A connection that died while idle
+        # fails before the statement reaches the server, so retrying a write
+        # doesn't apply it twice.
+        max_attempts = self._pool.maxconn + 1
+        for attempt in range(1, max_attempts + 1):
+            conn = self._pool.getconn()
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(query, params)
+                        if fetch == 'one': return cur.fetchone()
+                        if fetch == 'all': return cur.fetchall()
+                        return None
+            except _CONNECTION_ERRORS as e:
+                if conn.closed and attempt < max_attempts:
+                    logger.warning(f"[db] Dead pooled connection, retrying on a fresh one: {e}")
+                    continue
+                raise
+            finally:
+                self._pool.putconn(conn, close=bool(conn.closed))
 
     # --- PEOPLE ---
 

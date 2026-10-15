@@ -690,7 +690,8 @@ async def handle_groupme_webhook(data: dict):
         logger.info(f"Message stored. Internal ID: {new_msg['id']}")
 
     except Exception as e:
-        logger.error(f"Failed to sync or log message: {e}")
+        # Full payload at ERROR so a dropped message can be found and replayed.
+        logger.error(f"Failed to sync or log message: {e} | payload: {data}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
     logger.info("Webhook processed successfully")
