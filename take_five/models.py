@@ -41,6 +41,11 @@ PARSE_MODEL = _model("PARSE_MODEL", "claude-haiku-4-5-20251001")
 # Weekly digest generation (summaries.py)
 DIGEST_MODEL = _model("DIGEST_MODEL", "claude-sonnet-4-6")
 
+# Outer-circle digest privacy review -- rewrites anything private before
+# the keyword gate runs (summaries.py review_outer_digest). A judgment
+# call about what is private, so a stronger model than the digest itself.
+PRIVACY_REVIEW_MODEL = _model("PRIVACY_REVIEW_MODEL", "claude-sonnet-5")
+
 # Message chunk context summaries, for embedding (memory.py) — was already
 # env-var-overridable before this file existed; moved here for consistency
 # with everything else rather than keeping its own separate os.getenv call.

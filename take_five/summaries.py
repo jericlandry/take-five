@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import date, datetime, timedelta
 import logging
@@ -10,7 +11,7 @@ from take_five.engagement.life_log import extract_life_log_topic
 from take_five.messages import ContextBuilder
 from take_five.repository import repo, TOPIC_CATEGORIES
 from take_five.utils import get_prompt, RESPONSE_FORMATS, build_calendar_context
-from take_five.models import DIGEST_MODEL
+from take_five.models import DIGEST_MODEL, PRIVACY_REVIEW_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,15 @@ digest_llm = ChatAnthropic(model=DIGEST_MODEL, max_tokens=1024)
 
 OUTER_DIGEST_PROMPT = get_prompt("t5_week_summary_outer")
 outer_digest_llm = ChatAnthropic(model=DIGEST_MODEL, max_tokens=1024)
+
+# Single source of truth for what the outer circle may not see -- injected
+# into BOTH the outer digest prompt and the privacy reviewer prompt, so the
+# generator and the reviewer can never drift apart on the rules.
+OUTER_PRIVACY_RULES = get_prompt("t5_outer_privacy_rules")
+PRIVACY_REVIEW_PROMPT = get_prompt("t5_outer_privacy_review")
+# 4096, not 2048: the reviewer echoes the whole digest back plus a changes
+# list, and a truncated reply loses the closing </revised_digest> tag.
+privacy_review_llm = ChatAnthropic(model=PRIVACY_REVIEW_MODEL, max_tokens=4096)
 
 SENIOR_DIGEST_PROMPT = get_prompt("t5_week_summary_senior")
 # Shorter max_tokens than the family digest -- this is meant to read like a
@@ -190,6 +200,29 @@ _DIGNITY_SENSITIVE_KEYWORDS = [
 # good digest.
 _STEM_KEYWORDS = {'incontinen', 'depress', 'suicid'}
 
+# Two-tier gate (2026-10-15). The Landry F&F digest was blocked on
+# 2026-10-11 for "dentist appointment" and, on replay, also for "appreciate
+# hearing" -- both harmless. These are everyday words that are only
+# SOMETIMES sensitive, so they are left to review_outer_digest()'s
+# sentence-level judgment and excluded from the hard gate. Everything else
+# in the keyword lists (medication names, diagnoses, dementia, continence,
+# vitals pattern, etc.) still hard-blocks regardless of what the reviewer
+# did -- the reviewer is the same kind of model as the generator, so it
+# reduces leaks but is not trusted alone. TOPIC_CATEGORIES is untouched;
+# these words are still correct for topic analytics.
+# Values are post-_sanitize_keyword (e.g. 'dr.' -> 'dr').
+_GATE_SOFT_TERMS = {
+    # Medical & health -- logistics or ordinary-English meanings
+    'appointment', 'appt', 'doctor', 'dr', 'nurse', 'hospital', 'memory',
+    'hearing', 'audiologist', 'sleep', 'weight', 'test', 'decline',
+    'assisted living', 'physical therapy', 'therapist', 'geriatric',
+    'fall', 'unsteady', 'wheelchair', 'walker',
+    # Medications -- errands and non-drug meanings
+    'pharmacy', 'tablet', 'supplement', 'vitamin',
+    # Dignity list -- common English words
+    'will', 'estate', 'confused', 'confusion',
+}
+
 
 def _sanitize_keyword(kw: str) -> str:
     """Strip whitespace and a trailing period -- several TOPIC_CATEGORIES
@@ -200,7 +233,7 @@ def _sanitize_keyword(kw: str) -> str:
     return kw.strip().rstrip('.')
 
 
-def _build_restricted_pattern() -> re.Pattern:
+def _build_restricted_pattern(exclude_soft: bool = True) -> re.Pattern:
     raw_keywords = (
         TOPIC_CATEGORIES['Medical & health']
         + TOPIC_CATEGORIES['Medications']
@@ -210,7 +243,7 @@ def _build_restricted_pattern() -> re.Pattern:
     seen = set()
     for kw in raw_keywords:
         clean = _sanitize_keyword(kw)
-        if not clean or clean in seen:
+        if not clean or clean in seen or (exclude_soft and clean in _GATE_SOFT_TERMS):
             continue
         seen.add(clean)
         escaped = re.escape(clean)
@@ -222,6 +255,9 @@ def _build_restricted_pattern() -> re.Pattern:
 
 
 _RESTRICTED_PATTERN = _build_restricted_pattern()
+# Hard + soft terms -- used only when the privacy review failed, so a
+# digest nobody judged sentence-by-sentence gets the original strict gate.
+_RESTRICTED_PATTERN_STRICT = _build_restricted_pattern(exclude_soft=False)
 
 # Matches blood-pressure-shaped numbers ("137/82") and heart-rate-shaped
 # numbers ("62 BPM", "62 beats per minute") -- vitals slip past keyword
@@ -233,7 +269,7 @@ _VITALS_RE = re.compile(
 )
 
 
-def _contains_restricted_content(text: str) -> list[str]:
+def _contains_restricted_content(text: str, strict: bool = False) -> list[str]:
     """
     Deterministic safety net over an already-generated outer-circle digest,
     checked before it is ever posted or treated as final. This is a second,
@@ -264,7 +300,8 @@ def _contains_restricted_content(text: str) -> list[str]:
     this check too, since both draw from the same list.
     """
     hits = []
-    for m in _RESTRICTED_PATTERN.finditer(text):
+    pattern = _RESTRICTED_PATTERN_STRICT if strict else _RESTRICTED_PATTERN
+    for m in pattern.finditer(text):
         matched = m.group(0).lower()
         if matched not in hits:
             hits.append(matched)
@@ -273,6 +310,73 @@ def _contains_restricted_content(text: str) -> list[str]:
         hits.append('vitals-pattern')
 
     return hits
+
+
+def _response_text(response) -> str:
+    """
+    Plain text from a ChatAnthropic response. Newer models can return
+    .content as a LIST of content blocks rather than a string; str() on that
+    list yields its Python repr (literal \\n, escaped quotes), which is what
+    broke the first reviewer test on 2026-10-15. Join only the text blocks.
+    """
+    content = response.content if hasattr(response, "content") else response
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return str(content)
+
+
+_REVISED_RE = re.compile(r"<revised_digest>\s*(.*?)\s*</revised_digest>", re.DOTALL)
+_CHANGES_RE = re.compile(r"<changes>\s*(.*?)\s*</changes>", re.DOTALL)
+
+
+def review_outer_digest(draft: str) -> Optional[dict]:
+    """
+    Privacy review of a generated outer-circle digest: one structured LLM
+    call (not a tool-using agent) that rewrites anything private and leaves
+    everything else untouched. Sees ONLY the draft and the rules -- never
+    the inner-circle conversation -- so it can remove or soften content but
+    has no source to add anything new from.
+
+    Returns {"revised_digest": str, "changes": list[dict]}, or None if the
+    call or parsing failed. On None the caller falls back to running the
+    hard gate on the unreviewed draft (fail closed, not open).
+    """
+    prompt_text = PRIVACY_REVIEW_PROMPT.format(privacy_rules=OUTER_PRIVACY_RULES, digest=draft)
+    try:
+        response = privacy_review_llm.invoke([HumanMessage(content=prompt_text)])
+    except Exception as e:
+        logger.error(f"[outer-review] Review call failed: {e}")
+        return None
+    text = _response_text(response)
+
+    m = _REVISED_RE.search(text)
+    if not m or not m.group(1).strip():
+        stop = (getattr(response, "response_metadata", None) or {}).get("stop_reason")
+        logger.error(
+            f"[outer-review] No <revised_digest> block in reviewer output "
+            f"(stop_reason={stop}, {len(text)} chars). Start: {text[:300]!r}"
+        )
+        return None
+
+    changes: list = []
+    c = _CHANGES_RE.search(text)
+    if c:
+        try:
+            parsed = json.loads(c.group(1))
+            if isinstance(parsed, list):
+                changes = parsed
+        except ValueError:
+            logger.warning("[outer-review] Could not parse <changes> JSON -- keeping revised digest, changes unrecorded")
+
+    return {"revised_digest": m.group(1).strip(), "changes": changes}
 
 
 def generate_outer_weekly_digest(
@@ -325,6 +429,7 @@ def generate_outer_weekly_digest(
         }
 
     prompt_text = OUTER_DIGEST_PROMPT.format(
+        privacy_rules=OUTER_PRIVACY_RULES,
         conversation_text=messages,
         roster_context=ctx.get_roster(),
         current_date=date.today().strftime("%A, %B %d, %Y"),
@@ -333,12 +438,33 @@ def generate_outer_weekly_digest(
     )
 
     response = outer_digest_llm.invoke([HumanMessage(content=prompt_text)])
-    digest_text = response.content if hasattr(response, "content") else str(response)
+    draft = response.content if hasattr(response, "content") else str(response)
 
-    flagged = _contains_restricted_content(digest_text)
+    review = review_outer_digest(draft)
+    if review:
+        digest_text = review["revised_digest"]
+        changes = review["changes"]
+        for ch in changes:
+            logger.info(f"[outer-review] circle {circle_id}: {ch}")
+    else:
+        digest_text = draft
+        changes = []
+        logger.warning(
+            f"[outer-review] Review failed for circle {circle_id} -- "
+            f"strict gate (hard + soft terms) will run on the unreviewed draft"
+        )
+
+    flagged = _contains_restricted_content(digest_text, strict=review is None)
     if flagged:
         logger.warning(
             f"[outer-digest] Restricted content detected for circle {circle_id}: {flagged}"
         )
 
-    return {"digest": digest_text, "blocked": bool(flagged), "flagged_terms": flagged}
+    return {
+        "digest": digest_text,
+        "draft": draft,
+        "reviewed": review is not None,
+        "changes": changes,
+        "blocked": bool(flagged),
+        "flagged_terms": flagged,
+    }

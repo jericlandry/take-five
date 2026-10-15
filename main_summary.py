@@ -10,6 +10,7 @@ Render cron schedule: 0 22 * * 0  (Sundays at 10pm UTC)
 import argparse
 import asyncio
 import logging
+import os
 from dotenv import load_dotenv
 
 from take_five.integrations.groupme import send_message
@@ -96,6 +97,54 @@ def send_senior_emails(circle: dict) -> None:
             logger.error(f"[senior-email] Failed for {senior['name']} in {circle['name']}: {e}")
 
 
+def alert_blocked_digest(circle: dict, result: dict) -> None:
+    """
+    Email Eric when an outer-circle digest is held back by the hard gate.
+    Before this (2026-10-15) a block only wrote a log line, so the Landry
+    F&F digest for 2026-10-11 went missing for four days unnoticed. A held
+    digest now costs a quick review instead of a silent missed week.
+
+    Recipient comes from DIGEST_ALERT_EMAIL (set on the take-five-summary
+    cron in Render). Never raises -- an alert failure must not stop the
+    run for the remaining circles.
+    """
+    to_email = os.getenv("DIGEST_ALERT_EMAIL")
+    if not to_email:
+        logger.error("[outer-digest] DIGEST_ALERT_EMAIL not set -- no alert sent for blocked digest")
+        return
+
+    changes = result.get("changes") or []
+    changes_text = "\n".join(
+        f"- \"{c.get('original', '')}\" -> \"{c.get('revised', '')}\" ({c.get('reason', '')})"
+        for c in changes if isinstance(c, dict)
+    ) or "(none)"
+    review_status = (
+        "ran" if result.get("reviewed")
+        else "FAILED -- strict gate ran on the unreviewed draft"
+    )
+
+    body = (
+        f"The weekly digest for **{circle['name']}** was held back and NOT posted.\n\n"
+        f"Flagged terms: {', '.join(result.get('flagged_terms') or [])}\n\n"
+        f"Privacy review: {review_status}\n\n"
+        f"Reviewer changes:\n\n{changes_text}\n\n"
+        f"Digest as it would have posted:\n\n```\n{result.get('digest', '')}\n```\n\n"
+        f"Circle id: {circle['id']}"
+    )
+
+    try:
+        asyncio.run(send_email(
+            to_email=to_email,
+            to_name="Take Five admin",
+            from_display_name="Take Five Alerts",
+            reply_to=to_email,
+            subject=f"Digest held for review: {circle['name']}",
+            body_text=body,
+        ))
+    except Exception as e:
+        logger.error(f"[outer-digest] Alert email failed for {circle['name']}: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate and send weekly care circle digests.")
     parser.add_argument("--circle-id", dest="circle_id", default=None, help="Internal UUID of a single care circle to process. Omit to process all active circles.")
@@ -154,6 +203,7 @@ def main():
                         f"[outer-digest] BLOCKED for {circle_name} -- flagged terms: "
                         f"{result['flagged_terms']}. Not posted, not logged. Manual review needed."
                     )
+                    alert_blocked_digest(circle, result)
                     continue
             else:
                 digest = generate_weekly_digest(str(circle["id"]), response_format=response_format)
