@@ -650,7 +650,7 @@ async def handle_groupme_webhook(data: dict):
                         # Parse doctor/appointment once and reuse it across every
                         # senior's packet (avoids a duplicate Haiku call per senior
                         # for the "mom and dad, same appointment" case).
-                        parsed = await parse_prep_request(question)
+                        parsed = await parse_prep_request(question, circle_id=circle_id)
                         doctor_name = parsed["doctor_name"]
                         appointment_desc = parsed["appointment_desc"]
 

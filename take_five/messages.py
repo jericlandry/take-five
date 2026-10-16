@@ -347,6 +347,40 @@ def _fmt_time(dt: datetime) -> str:
     return f"{dt.hour % 12 or 12}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
 
 
+DEFAULT_CIRCLE_TZ = "America/Chicago"
+
+
+def circle_timezone(circle_id) -> ZoneInfo:
+    """
+    The circle's local timezone: its first senior's people.timezone, falling
+    back to America/Chicago. Same source the care calendar already uses
+    (repo.get_circle_calendar_config). Render runs in UTC, so a bare
+    datetime.now() / date.today() puts "today" a day ahead every evening
+    from 7 PM Central (6 PM in winter).
+    """
+    name = DEFAULT_CIRCLE_TZ
+    if circle_id:
+        try:
+            name = repo.get_circle_calendar_config(circle_id)["timezone"]
+        except Exception:
+            logger.exception(
+                f"[tz] Timezone lookup failed for circle_id={circle_id}; using {DEFAULT_CIRCLE_TZ}"
+            )
+    try:
+        return ZoneInfo(name)
+    except Exception:
+        logger.warning(f"[tz] Unknown timezone {name!r}; using {DEFAULT_CIRCLE_TZ}")
+        return ZoneInfo(DEFAULT_CIRCLE_TZ)
+
+
+def _fmt_now(now: datetime) -> str:
+    """
+    'Thursday, October 15, 2026, 7:04 PM CDT'. Weekday and time are spelled
+    out so the model never has to derive them from the date.
+    """
+    return f"{now:%A, %B} {now.day}, {now.year}, {_fmt_time(now)} {now:%Z}"
+
+
 def _clean_notes(text, limit: int = 200) -> str:
     # Calendar descriptions can carry HTML and long pasted text; keep a short
     # plain-text excerpt so something like "Bring medication list" survives.
@@ -424,6 +458,9 @@ class ContextBuilder:
         self.repo = repo
         self.circle_id = circle_id
         self.question = question
+        # Circle-local timezone for "today", recency labels, and message
+        # timestamps. Never the server clock (UTC on Render).
+        self.tz = circle_timezone(circle_id)
         # Default for every construction path (including direct
         # ContextBuilder(...) use elsewhere); only create() and
         # create_for_digest() populate it.
@@ -738,12 +775,16 @@ class ContextBuilder:
         if not rows:
             return "## Recent Messages\n_No messages found._\n"
 
-        today = date.today()
+        today = datetime.now(self.tz).date()
         lines = ["## Recent Messages (most recent first)\n"]
         for row in rows:
             if row["sent_at"]:
-                ts = row["sent_at"].strftime("%A, %b %d, %Y %I:%M %p")
-                days_ago = (today - row["sent_at"].date()).days
+                sent = row["sent_at"]
+                if sent.tzinfo is None:
+                    sent = sent.replace(tzinfo=timezone.utc)
+                sent = sent.astimezone(self.tz)
+                ts = sent.strftime("%A, %b %d, %Y %I:%M %p")
+                days_ago = (today - sent.date()).days
                 if days_ago == 0:
                     recency = "today"
                 elif days_ago == 1:
@@ -909,7 +950,7 @@ async def ask_with_tools(
     combined_format    = f"{format_instruction} {channel_constraint}".strip()
 
     human_content = _build_human_message(
-        today            = datetime.now().strftime("%B %d, %Y"),
+        today            = _fmt_now(datetime.now(ctx.tz)),
         circle_context   = ctx.get_circle_context(),
         roster           = ctx.get_roster(),
         clinical_records = ctx.get_clinical_records(),
@@ -999,7 +1040,7 @@ _PREP_COLLECTIVE_PHRASES = [
 ]
 
 
-async def parse_prep_request(question: str) -> dict:
+async def parse_prep_request(question: str, circle_id: str = None) -> dict:
     """
     Extract the doctor name, appointment description, and a resolved
     appointment date from a free-text prep-packet request via Haiku, e.g.
@@ -1023,7 +1064,8 @@ async def parse_prep_request(question: str) -> dict:
     for it just adds a way for a safety-adjacent decision (whose meds show up
     in whose packet) to silently break if the model's JSON is malformed.
     """
-    today_str = datetime.now().strftime("%A, %B %d, %Y")
+    # circle_id only sets the timezone for "today"; without it, America/Chicago.
+    today_str = _fmt_now(datetime.now(circle_timezone(circle_id)))
     parse_prompt = f"""Today is {today_str}.
 
 Extract the doctor name, appointment description, and a resolved appointment date from this text.
@@ -1164,12 +1206,12 @@ async def generate_prep_packet(
     - packet_text is the full checklist to post to GroupMe and store in message history
     - followup_text is the short follow-up prompt asking for additions and who's accompanying
     """
-    today = datetime.now().strftime("%B %d, %Y")
+    today = _fmt_now(datetime.now(circle_timezone(circle_id)))
 
     # -- Step 1: Parse doctor name, appointment description, and appointment
     # date from the question -- Skip parsing for any field passed in directly.
     if doctor_name is None or appointment_desc is None or appointment_date is None:
-        parsed = await parse_prep_request(question)
+        parsed = await parse_prep_request(question, circle_id=circle_id)
         if doctor_name is None:
             doctor_name = parsed["doctor_name"]
         if appointment_desc is None:
