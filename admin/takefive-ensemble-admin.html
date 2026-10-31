@@ -470,7 +470,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         </div>
         <button class="btn btn-primary" id="btn-invite-person" onclick="openModal('modal-invite')" style="display:none;">
           <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
-          Invite person
+          Add person
         </button>
       </div>
       <div class="tabs">
@@ -916,10 +916,10 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
   </div>
 </div>
 
-<!-- MODAL: Invite Person -->
+<!-- MODAL: Add Person (function names still say invite) -->
 <div class="modal-backdrop" id="modal-invite">
   <div class="modal">
-    <div class="modal-title">Invite someone to the circle</div>
+    <div class="modal-title">Add someone to the circle</div>
     <div class="form-row-2">
       <div class="form-group">
         <label class="form-label">Name</label>
@@ -966,7 +966,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-invite')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveInvite()">Add &amp; copy invite link</button>
+      <button class="btn btn-primary" onclick="saveInvite()">Add person</button>
     </div>
   </div>
 </div>
@@ -1009,7 +1009,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <input type="checkbox" id="edit-clinical-access"/>
         Clinical access (medications, doctors, care team)
       </label>
-      <div class="form-hint">Independent of which circle they're in — see the Invite modal's hint for why.</div>
+      <div class="form-hint">Independent of which circle they're in — see the Add person dialog's hint for why.</div>
     </div>
     <div style="margin-top:0.5rem;">
       <div class="form-label" style="margin-bottom:6px;">App link</div>
@@ -1906,7 +1906,7 @@ function renderPeople(filter) {
   const isAdmin = state.userRole === 'admin';
   const tbody = document.getElementById('people-tbody');
   if (!people.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No people found</div><div class="empty-sub">Invite someone to get started</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-title">No people found</div><div class="empty-sub">Add someone to get started</div></div></td></tr>`;
     return;
   }
   tbody.innerHTML = people.map(p => {
@@ -2519,12 +2519,7 @@ async function saveInvite() {
     // Existing person reused (matched by email, phone, or name) vs. newly created
     const matched = data.person?.matched_by;
     const what = matched ? `${name} already existed (matched by ${matched}) and was added to the circle` : `${name} added`;
-    if (email) {
-      try { await navigator.clipboard.writeText(data.invite_url); toast(`${what} — invite link copied`); }
-      catch { toast(what); }
-    } else {
-      toast(what);
-    }
+    toast(what);
     closeModal('modal-invite');
 
     // Reset form
@@ -2538,7 +2533,7 @@ async function saveInvite() {
   } catch (e) {
     toast('Failed to add person: ' + e.message, true);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Add & copy invite link'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Add person'; }
   }
 }
 
