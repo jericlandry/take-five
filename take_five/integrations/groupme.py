@@ -201,6 +201,7 @@ async def handle_groupme_webhook(data: dict):
     # 2. Extract fields
     circle_ext_id = f"groupme:{data.get('group_id')}"
     person_ext_id = f"groupme:{data.get('sender_id')}"
+    sender_id     = str(data.get('sender_id'))  # raw id, as stored in person_channel_identities
     person_name   = data.get("name", "Unknown User")
     text          = data.get("text", "")
 
@@ -220,7 +221,22 @@ async def handle_groupme_webhook(data: dict):
 
         is_new_person = False
         if circle:
-            person = repo.get_person_by_external_id(person_ext_id)
+            # Identity lookup order: person_channel_identities (written by the
+            # GroupMe OAuth connect, the canonical store) -> legacy
+            # people.external_id -> name match. Checking the identities table
+            # first is what stops an admin who connected GroupMe and then posts
+            # under a differently-spelled display name from being duplicated
+            # (Rick Pignatero / Pignataro, Oct 2026).
+            person = repo.get_person_by_channel_identity('groupme', sender_id)
+            found_via_identity = person is not None
+            if person and not person.get('external_id'):
+                # Keep the legacy column in sync for code that still reads it.
+                try:
+                    repo.update_person(str(person['id']), external_id=person_ext_id)
+                except Exception as e:
+                    logger.warning(f"[groupme] Could not backfill external_id for {person['name']}: {e}")
+            if not person:
+                person = repo.get_person_by_external_id(person_ext_id)
             if not person:
                 # Fallback: look for an existing person in this ensemble with a matching
                 # name and no external_id yet (e.g. admin-created records, like Mona
@@ -244,6 +260,14 @@ async def handle_groupme_webhook(data: dict):
                     )
                     is_new_person = True
                     logger.info(f"[groupme] Created new person: {person_name} ({person_ext_id})")
+            if not found_via_identity:
+                # Record the identity so both stores agree going forward.
+                # ValueError = this GroupMe id is already linked to someone
+                # else; log it rather than fail message ingestion.
+                try:
+                    repo.upsert_person_channel_identity(str(person['id']), 'groupme', sender_id)
+                except ValueError as e:
+                    logger.warning(f"[groupme] Identity conflict for {person_name} ({sender_id}): {e}")
             # Check whether this person is already a circle member before
             # the upsert below -- ON CONFLICT DO NOTHING gives no signal on
             # its own about whether a row was actually inserted, and this is
@@ -327,7 +351,8 @@ async def handle_groupme_webhook(data: dict):
             ))
 
         # Resolve the sender's person_id for confirmed_by tracking
-        sender_person    = repo.get_person_by_external_id(person_ext_id)
+        sender_person    = (repo.get_person_by_channel_identity('groupme', sender_id)
+                            or repo.get_person_by_external_id(person_ext_id))
         sender_person_id = str(sender_person['id']) if sender_person else None
 
         # 3. Image detection — returns (reply, vision_result) tuple or None
