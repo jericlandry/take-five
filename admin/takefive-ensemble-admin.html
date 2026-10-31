@@ -1748,7 +1748,7 @@ function renderCircles() {
       </div>
       <div class="circle-footer">
         <span class="circle-footer-stat"><strong>${members.length}</strong> member${members.length !== 1 ? 's' : ''}</span>
-        <button class="btn btn-ghost btn-sm" onclick="openCircleDetail('${c.id}', '${c.name.replace(/'/g, "&#39;")}')">Open circle →</button>
+        <button class="btn btn-ghost btn-sm" onclick="openCircleDetail('${c.id}')">Open circle →</button>
       </div>
     </div>`;
   }).join('');
@@ -1896,7 +1896,7 @@ function renderPeople(filter) {
       <td style="font-size:12px;color:var(--g600);">${p.phone || p.email || '—'}</td>
       <td>${isAdmin ? `<div style="display:flex;gap:0.4rem;">
         <button class="btn btn-ghost btn-sm" onclick='openPersonModalById("${p.id}")'>Edit</button>
-        ${p.phone ? `<button class="btn btn-ghost btn-sm" onclick='sendSmsInvite("${p.id}", "${p.name}", "${p.phone}", "${firstCircleId}")' title="Send SMS invite">SMS invite</button>` : ''}
+        ${p.phone ? `<button class="btn btn-ghost btn-sm" onclick="sendSmsInvite('${p.id}', '${firstCircleId}')" title="Send SMS invite">SMS invite</button>` : ''}
       </div>` : ''}</td>
     </tr>`;
   }).join('');
@@ -2793,7 +2793,7 @@ function renderHealthCareTeam() {
         <td style="padding:0.65rem 0.75rem;vertical-align:top;">
           <div class="td-actions">
             ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openEditDoctorModal('${r.id}')">Edit</button>` : ''}
-            <button class="btn btn-ghost btn-sm" onclick="openPrepPacketModal('${r.id}', '${(d.name || '').replace(/'/g, "&#39;")}')">📋 Prep</button>
+            <button class="btn btn-ghost btn-sm" onclick="openPrepPacketModal('${r.id}')">📋 Prep</button>
           </div>
         </td>
       </tr>`;
@@ -3218,7 +3218,13 @@ async function updateDoctor() {
 }
 
 // ─── SMS INVITE ───
-async function sendSmsInvite(personId, personName, phone, circleId) {
+async function sendSmsInvite(personId, circleId) {
+  // Name and phone are looked up here rather than passed through onclick,
+  // so names with quotes/apostrophes can't break the button.
+  const person = (state.allPeople || []).find(p => p.id === personId);
+  if (!person) { toast('Person not found', true); return; }
+  const personName = person.name;
+  const phone = person.phone;
   // Take Five uses a single shared Twilio number for the whole platform,
   // so any active circle can send an SMS invite — no need to hunt for one
   // with its own twilio_number. circleId just supplies the name/context
@@ -3267,12 +3273,15 @@ function renderCirclesPanel() {
       <td><span class="pill ${c.status === 'active' ? 'pill-active' : 'pill-inactive'}">${capitalize(c.status)}</span></td>
       <td style="font-size:13px;color:var(--g600);">${members.length}</td>
       <td style="font-size:12px;color:var(--g600);">${integrations}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="openCircleDetail('${c.id}', '${c.name.replace(/'/g, "&#39;")}')">Open →</button></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openCircleDetail('${c.id}')">Open →</button></td>
     </tr>`;
   }).join('');
 }
 
-async function openCircleDetail(circleId, circleName) {
+async function openCircleDetail(circleId) {
+  // Name looked up from state rather than passed through onclick, so a
+  // circle name with an apostrophe (e.g. "Laurie's Circle") can't break it.
+  const circleName = (state.circles || []).find(c => c.id === circleId)?.name || '';
   circleState.currentCircleId = circleId;
   circleState.currentCircleName = circleName;
   document.getElementById('circle-detail-name').textContent = circleName;
@@ -3388,14 +3397,12 @@ function renderCircleRoster() {
     if (circleHasGroupMe) {
       if (m.chat_added_at) {
         const addedDate = new Date(m.chat_added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const safeName = (m.member_name || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
         chatCell = `<span class="integration-tag connected" title="Added ${addedDate}"><span class="integration-dot"></span>In GroupMe</span>`;
         if (isAdmin) {
-          chatCell += ` <button class="btn btn-ghost btn-sm" id="gm-remove-${m.id}" onclick='removePersonFromGroupMe("${m.id}", "${safeName}")' title="Remove from GroupMe chat (stays a circle member)">Remove</button>`;
+          chatCell += ` <button class="btn btn-ghost btn-sm" id="gm-remove-${m.id}" onclick="removePersonFromGroupMe('${m.id}')" title="Remove from GroupMe chat (stays a circle member)">Remove</button>`;
         }
       } else if (isAdmin) {
-        const safeName = (m.member_name || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
-        chatCell = `<button class="btn btn-ghost btn-sm" id="gm-add-${m.id}" onclick='addPersonToGroupMe("${m.id}", "${safeName}")'>Add to GroupMe</button>`;
+        chatCell = `<button class="btn btn-ghost btn-sm" id="gm-add-${m.id}" onclick="addPersonToGroupMe('${m.id}')">Add to GroupMe</button>`;
       } else {
         chatCell = `<span class="integration-tag">Not added</span>`;
       }
@@ -3409,7 +3416,7 @@ function renderCircleRoster() {
       <td style="font-size:12px;color:var(--g600);">${m.phone || '—'}</td>
       <td style="font-size:12px;color:var(--g600);">${lastActive}</td>
       <td>${chatCell}</td>
-      <td>${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick='openEditCircleMember("${m.id}", "${m.member_name?.replace(/"/g, '&quot;')}", "${m.person_role}")'>Edit role</button>` : ''}</td>
+      <td>${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openEditCircleMember('${m.id}')">Edit role</button>` : ''}</td>
     </tr>`;
   }).join('');
 }
@@ -3601,7 +3608,11 @@ async function saveCircleMember() {
   finally { btn.disabled = false; btn.textContent = 'Add to circle'; }
 }
 
-function openEditCircleMember(personId, name, currentRole) {
+function openEditCircleMember(personId) {
+  const m = circleState.roster.find(r => r.id === personId);
+  if (!m) { toast('Member not found', true); return; }
+  const name = m.member_name || '';
+  const currentRole = m.person_role;
   circleState.editingPersonId = personId;
   document.getElementById('ecm-title').textContent = `Edit role — ${name}`;
   document.getElementById('ecm-role').value = currentRole;
@@ -3650,7 +3661,8 @@ async function removeCircleMember() {
 // person's known GroupMe user_id (people.external_id) when one already
 // exists, and only falls back to a fresh phone invite otherwise. See
 // migration 009_chat_membership.sql and Trello #59, 2026-08-01.
-async function addPersonToGroupMe(personId, personName) {
+async function addPersonToGroupMe(personId) {
+  const personName = circleState.roster.find(m => m.id === personId)?.member_name || 'Member';
   const circleId = circleState.currentCircleId;
   const btn = document.getElementById(`gm-add-${personId}`);
   if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
@@ -3673,7 +3685,8 @@ async function addPersonToGroupMe(personId, personName) {
 // chat, unlike adding someone. Calls DELETE .../people/{person_id}/chat,
 // which mirrors addPersonToGroupMe() above. See migration
 // 009_chat_membership.sql and Trello #59, 2026-08-01.
-async function removePersonFromGroupMe(personId, personName) {
+async function removePersonFromGroupMe(personId) {
+  const personName = circleState.roster.find(m => m.id === personId)?.member_name || 'this member';
   if (!confirm(`Remove ${personName} from the GroupMe chat? They'll stay a member of this circle.`)) return;
   const circleId = circleState.currentCircleId;
   const btn = document.getElementById(`gm-remove-${personId}`);
@@ -3851,13 +3864,13 @@ function togglePrepPacket(i) {
 const prepState = { recordId: null, doctorName: null, circleId: null };
 let prepPacketsCache = [];
 
-function openPrepPacketModal(recordId, doctorName) {
+function openPrepPacketModal(recordId) {
   const rec = healthState.records.find(r => r.id === recordId);
   if (!rec) { toast('Record not found', true); return; }
   const d = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
 
   prepState.recordId   = recordId;
-  prepState.doctorName = d.name || doctorName;
+  prepState.doctorName = d.name || '';
 
   // Determine which circle this senior belongs to
   const seniorId = rec.person_id;
