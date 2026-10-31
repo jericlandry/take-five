@@ -102,7 +102,7 @@ def get_seniors(conn, circle_id: str) -> list:
         FROM people p
         JOIN circle_memberships cm ON p.id = cm.person_id
         WHERE cm.circle_id = %(circle_id)s
-        AND cm.role = 'senior'
+        AND cm.role = 'care_recipient'
         ORDER BY p.name;
     """
     with conn.cursor() as cur:

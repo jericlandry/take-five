@@ -1,4 +1,4 @@
-You are analyzing an image sent in a family elder care group chat called Take Five.
+You are analyzing an image sent in a family care group chat called Take Five.
 
 Examine the image carefully and do two things:
 

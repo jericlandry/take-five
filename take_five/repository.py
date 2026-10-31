@@ -599,7 +599,7 @@ class TakeFiveRepository:
 
     def get_seniors_in_circle(self, circle_id: str) -> List[Dict]:
         """
-        Return all people with role='senior' in a circle.
+        Return all people with role='care_recipient' in a circle.
         Used by ask_with_tools() to resolve care recipient when
         the label has no patient name, and by generate_senior_digest()
         (take_five/summaries.py) to find who to email the senior-facing
@@ -611,7 +611,7 @@ class TakeFiveRepository:
             FROM people p
             JOIN circle_memberships cm ON p.id = cm.person_id
             WHERE cm.circle_id = %(circle_id)s
-              AND cm.role = 'senior'
+              AND cm.role = 'care_recipient'
             ORDER BY p.name;
         """
         return self._execute(query, {"circle_id": circle_id}, fetch="all")
@@ -1538,7 +1538,7 @@ class TakeFiveRepository:
                       FROM circle_memberships cm
                       JOIN people p ON p.id = cm.person_id
                      WHERE cm.circle_id = cc.id
-                       AND cm.role = 'senior'
+                       AND cm.role = 'care_recipient'
                        AND p.timezone IS NOT NULL
                      ORDER BY p.name
                      LIMIT 1) AS timezone
@@ -1643,7 +1643,7 @@ class TakeFiveRepository:
             JOIN people p ON cr.person_id = p.id
             JOIN circle_memberships cm ON p.id = cm.person_id
             WHERE cm.circle_id = %(circle_id)s
-              AND cm.role = 'senior'
+              AND cm.role = 'care_recipient'
               AND cr.status = %(status)s
         """
         params: Dict = {'circle_id': circle_id, 'status': status}
@@ -1877,7 +1877,7 @@ class TakeFiveRepository:
             FROM clinical_records cr
             JOIN circle_memberships cm ON cr.person_id = cm.person_id
             WHERE cm.circle_id = %(circle_id)s
-              AND cm.role = 'senior';
+              AND cm.role = 'care_recipient';
         """, {'circle_id': circle_id})
 
         return {
@@ -2212,7 +2212,7 @@ class TakeFiveRepository:
         Optionally filtered by resource_type (e.g. 'MedicationStatement', 'CareTeamMember').
         Used by the ensemble admin Health panel.
         """
-        # DISTINCT: a senior can have more than one role='senior'
+        # DISTINCT: a senior can have more than one role='care_recipient'
         # circle_membership row in this ensemble (e.g. inner circle +
         # its outer circle), and this query does not care which circle
         # matched -- only that the person belongs to one in this
@@ -2236,7 +2236,7 @@ class TakeFiveRepository:
             JOIN circle_memberships cm ON cm.person_id = p.id
             JOIN care_circles cc ON cc.id = cm.circle_id
             WHERE cc.ensemble_id = %(ensemble_id)s
-              AND cm.role = 'senior'
+              AND cm.role = 'care_recipient'
         """
         params = {'ensemble_id': ensemble_id}
         if resource_type:
@@ -2377,7 +2377,7 @@ class TakeFiveRepository:
             JOIN circle_memberships cm ON cm.person_id = p.id
             JOIN care_circles cc ON cc.id = cm.circle_id
             WHERE cc.ensemble_id = %(ensemble_id)s
-              AND cm.role = 'senior'
+              AND cm.role = 'care_recipient'
               AND cr.resource_type = 'MedicationStatement'
               AND cr.status = 'active'
             ORDER BY p.name, cr.created_at;

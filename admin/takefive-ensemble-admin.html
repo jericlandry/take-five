@@ -107,7 +107,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .circle-meta-row svg { width: 13px; height: 13px; stroke: var(--g400); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .circle-members { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1rem; }
 .member-pip { width: 28px; height: 28px; border-radius: 50%; background: var(--t50); border: 1.5px solid var(--t100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 10px; color: var(--t800); cursor: default; }
-.member-pip.senior { background: var(--t500); border-color: var(--t300); color: var(--white); }
+.member-pip.care_recipient { background: var(--t500); border-color: var(--t300); color: var(--white); }
 .member-pip.more { background: var(--g200); border-color: var(--g400); color: var(--g600); font-family: 'Lato', sans-serif; font-size: 9px; font-weight: 700; }
 .circle-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--g200); }
 .circle-footer-stat { font-size: 11px; color: var(--g400); }
@@ -121,13 +121,13 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
 .people-table tr:hover td { background: var(--t50); }
 .person-name-cell { display: flex; align-items: center; gap: 10px; }
 .person-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--t50); border: 1.5px solid var(--t100); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 12px; color: var(--t800); flex-shrink: 0; }
-.person-avatar.senior { background: var(--t500); border-color: var(--t300); color: var(--white); }
+.person-avatar.care_recipient { background: var(--t500); border-color: var(--t300); color: var(--white); }
 .person-name { font-weight: 700; color: var(--t800); }
 .person-email { font-size: 11px; color: var(--g400); }
 
 /* ─── PILLS ─── */
 .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 100px; }
-.pill-care.senior { background: var(--t800); color: var(--t100); }
+.pill-care.care_recipient { background: var(--t800); color: var(--t100); }
 .pill-care.family { background: var(--t50); color: var(--t600); }
 .pill-care.caregiver { background: var(--amber-bg); color: var(--amber-dk); }
 .pill-care.friend { background: #EEF0FB; color: #3949AB; }
@@ -475,7 +475,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       </div>
       <div class="tabs">
         <button class="tab active" onclick="filterPeople('all', this)">All</button>
-        <button class="tab" onclick="filterPeople('senior', this)">Seniors</button>
+        <button class="tab" onclick="filterPeople('care_recipient', this)">Care recipients</button>
         <button class="tab" onclick="filterPeople('family', this)">Family</button>
         <button class="tab" onclick="filterPeople('friend', this)">Friends</button>
         <button class="tab" onclick="filterPeople('caregiver', this)">Caregivers</button>
@@ -594,7 +594,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <div class="page-header">
         <div>
           <div class="page-title">Health</div>
-          <div class="page-sub">Medications and care team for the seniors in your circle.</div>
+          <div class="page-sub">Medications and care team for the people being cared for in your circle.</div>
         </div>
       </div>
       <div class="tabs">
@@ -802,7 +802,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <label class="form-label">Role</label>
       <select class="form-input" id="acm-role">
         <option value="family">Family</option>
-        <option value="senior">Senior</option>
+        <option value="care_recipient">Care recipient</option>
         <option value="friend">Friend</option>
         <option value="caregiver">Caregiver</option>
       </select>
@@ -822,7 +822,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <label class="form-label">Role</label>
       <select class="form-input" id="ecm-role">
         <option value="family">Family</option>
-        <option value="senior">Senior</option>
+        <option value="care_recipient">Care recipient</option>
         <option value="friend">Friend</option>
         <option value="caregiver">Caregiver</option>
       </select>
@@ -877,7 +877,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
     <div class="form-group">
       <label class="form-label">Circle name</label>
       <input class="form-input" id="new-circle-name" type="text" placeholder="e.g. Mom's Circle"/>
-      <div class="form-hint">Typically named after the senior being cared for.</div>
+      <div class="form-hint">Typically named after the person being cared for.</div>
     </div>
     <div class="form-group">
       <label class="form-label">Parent circle</label>
@@ -939,7 +939,7 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <label class="form-label">Care role</label>
         <select class="form-input" id="invite-care-role">
           <option value="family">Family</option>
-          <option value="senior">Senior</option>
+          <option value="care_recipient">Care recipient</option>
           <option value="friend">Friend</option>
           <option value="caregiver">Caregiver</option>
         </select>
@@ -1740,8 +1740,8 @@ function renderCircles() {
   }
   grid.innerHTML = state.circles.map(c => {
     const members = state.allPeople.filter(p => p.circle_ids?.includes(c.id));
-    const seniors = members.filter(p => p.care_roles?.includes('senior'));
-    const others  = members.filter(p => !p.care_roles?.includes('senior'));
+    const seniors = members.filter(p => p.care_roles?.includes('care_recipient'));
+    const others  = members.filter(p => !p.care_roles?.includes('care_recipient'));
     const gm = c.integration_config?.groupme_bot_id;
     // Same Inner/Outer indicator as the Circles panel table — parent_circle_id
     // null/absent = inner (top-level); otherwise this is an outer circle
@@ -1914,7 +1914,7 @@ function renderPeople(filter) {
     const firstCircleId = (p.circle_ids || [])[0] || '';
     return `<tr>
       <td><div class="person-name-cell">
-        <div class="person-avatar ${p.care_roles?.includes('senior') ? 'senior' : ''}">${initials(p.name)}</div>
+        <div class="person-avatar ${p.care_roles?.includes('care_recipient') ? 'care_recipient' : ''}">${initials(p.name)}</div>
         <div><div class="person-name">${p.name}</div><div class="person-email">${p.email || '—'}</div></div>
       </div></td>
       <td><span class="pill pill-user ${p.user_role || 'member'}">${capitalize(p.user_role || 'member')}</span></td>
@@ -2554,12 +2554,12 @@ function loadDemo() {
     { id: 'c2', name: "Dad's Circle", status: 'active', integration_config: {} },
   ];
   state.allPeople = [
-    { id: 'p1', name: 'Dorothy Landry', email: null, phone: '(512) 555-0101', care_role: 'senior', user_role: 'member', circle_id: 'c1' },
+    { id: 'p1', name: 'Dorothy Landry', email: null, phone: '(512) 555-0101', care_role: 'care_recipient', user_role: 'member', circle_id: 'c1' },
     { id: 'p2', name: 'Eric Landry', email: 'jericlandry@gmail.com', phone: '(512) 555-0102', care_role: 'family', user_role: 'admin', circle_id: 'c1' },
     { id: 'p3', name: 'Marie Landry', email: 'marie@gmail.com', phone: '(512) 555-0103', care_role: 'family', user_role: 'member', circle_id: 'c1' },
     { id: 'p4', name: 'Rosa Gutierrez', email: 'rosa@care.com', phone: '(512) 555-0104', care_role: 'caregiver', user_role: 'member', circle_id: 'c1' },
     { id: 'p5', name: 'Dr. Patricia Yiou', email: 'pyiou@clinic.com', phone: null, care_role: 'caregiver', user_role: 'member', circle_id: 'c1' },
-    { id: 'p6', name: 'Robert Landry', email: 'robert@gmail.com', phone: '(512) 555-0105', care_role: 'senior', user_role: 'member', circle_id: 'c2' },
+    { id: 'p6', name: 'Robert Landry', email: 'robert@gmail.com', phone: '(512) 555-0105', care_role: 'care_recipient', user_role: 'member', circle_id: 'c2' },
   ];
   state.activity = [
     { id: 'm1', sender_name: 'Rosa Gutierrez', message: 'Good morning! Dorothy finished her mystery novel — seemed really satisfied. Good appetite, all meds taken.', author_type: 'human', created_at: new Date(Date.now() - 3600000).toISOString(), circle_id: 'c1' },
@@ -2669,14 +2669,14 @@ async function loadHealthPanel() {
 }
 
 function populateHealthPersonSelects() {
-  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('care_recipient'));
   const opts = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   ['med-person-id','ct-person-id'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = opts || '<option value="">No seniors found</option>';
+    if (el) el.innerHTML = opts || '<option value="">No care recipients found</option>';
   });
   // Update person labels
-  const label = seniors.length === 1 ? seniors[0].name : `${seniors.length} seniors`;
+  const label = seniors.length === 1 ? seniors[0].name : `${seniors.length} care recipients`;
   document.getElementById('meds-person-label').textContent = seniors.length ? `Medications for ${label}` : '';
   document.getElementById('ct-person-label').textContent   = seniors.length ? `Care team for ${label}` : '';
 }
@@ -2719,7 +2719,7 @@ function renderHealthMedications() {
     if (!byPerson[key]) byPerson[key] = { name: r.person_name, records: [] };
     byPerson[key].records.push(r);
   });
-  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('care_recipient'));
   const multiSenior = seniors.length > 1;
   let html = '';
 
@@ -2791,7 +2791,7 @@ function renderHealthCareTeam() {
     if (!byPerson[key]) byPerson[key] = { name: r.person_name, records: [] };
     byPerson[key].records.push(r);
   });
-  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('care_recipient'));
   const multiSenior = seniors.length > 1;
   let html = '';
   Object.values(byPerson).forEach(group => {
@@ -2837,7 +2837,7 @@ function printMedicationsForPerson(group) {
     { accent: '#085041', accentLight: '#E1F5EE', accentMid: '#5DCAA5' }, // teal
     { accent: '#633806', accentLight: '#FAEEDA', accentMid: '#FAC775' }, // amber
   ];
-  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior')).sort((a, b) => a.id.localeCompare(b.id));
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('care_recipient')).sort((a, b) => a.id.localeCompare(b.id));
   const seniorIdx = seniors.findIndex(s => s.id === group.records[0]?.person_id);
   const { accent, accentLight, accentMid } = PALETTE[seniorIdx >= 0 ? seniorIdx % PALETTE.length : 0];
 
@@ -3312,8 +3312,8 @@ async function openCircleDetail(circleId) {
   circleState.currentCircleName = circleName;
   document.getElementById('circle-detail-name').textContent = circleName;
   const circle = state.circles.find(c => c.id === circleId);
-  const seniors = (state.allPeople.filter(p => p.circle_ids?.includes(circleId) && p.care_roles?.includes('senior'))).map(s => s.name).join(' & ');
-  document.getElementById('circle-detail-sub').textContent = seniors || 'No seniors assigned';
+  const seniors = (state.allPeople.filter(p => p.circle_ids?.includes(circleId) && p.care_roles?.includes('care_recipient'))).map(s => s.name).join(' & ');
+  document.getElementById('circle-detail-sub').textContent = seniors || 'No care recipient assigned';
   // Inbound email address for this circle -- available to every circle
   // member regardless of admin/clinical-access status (see main.py's
   // app_get_circles docstring for why this one is deliberately ungated).
@@ -3436,10 +3436,10 @@ function renderCircleRoster() {
     }
     return `<tr>
       <td><div class="person-name-cell">
-        <div class="person-avatar ${m.person_role === 'senior' ? 'senior' : ''}">${initials(m.member_name || '?')}</div>
+        <div class="person-avatar ${m.person_role === 'care_recipient' ? 'care_recipient' : ''}">${initials(m.member_name || '?')}</div>
         <div class="person-name">${m.member_name || '—'}</div>
       </div></td>
-      <td><span class="pill pill-care ${m.person_role}"><span class="pill-dot"></span>${capitalize(m.person_role)}</span></td>
+      <td><span class="pill pill-care ${m.person_role}"><span class="pill-dot"></span>${roleLabel(m.person_role)}</span></td>
       <td style="font-size:12px;color:var(--g600);">${m.phone || '—'}</td>
       <td style="font-size:12px;color:var(--g600);">${lastActive}</td>
       <td>${chatCell}</td>
@@ -3916,7 +3916,7 @@ function openPrepPacketModal(recordId) {
   document.getElementById('prep-specialty-display').textContent = d.specialty || 'Specialty not on file';
 
   // Populate patient selector — only seniors
-  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('care_recipient'));
   const patientSelect = document.getElementById('prep-patient-id');
   patientSelect.innerHTML = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
@@ -3981,7 +3981,7 @@ function onPrepDoctorChange() {
   document.getElementById('prep-specialty-display').textContent = d.specialty || 'Specialty not on file';
 
   // Populate / update patient selector
-  const seniors = state.allPeople.filter(p => p.care_roles?.includes('senior'));
+  const seniors = state.allPeople.filter(p => p.care_roles?.includes('care_recipient'));
   const patientSelect = document.getElementById('prep-patient-id');
   patientSelect.innerHTML = seniors.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   patientSelect.value = seniorId;
@@ -4255,6 +4255,8 @@ async function saveCircleEdit() {
 
 // ─── UTILS ───
 function initials(name) { return (name||'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+// Display label for a circle role (stored value 'care_recipient').
+function roleLabel(r) { return r === 'care_recipient' ? 'Care recipient' : capitalize(r); }
 function capitalize(s) { return s ? s.charAt(0).toUpperCase()+s.slice(1).replace(/_/g,' ') : '—'; }
 function truncate(str, n) { return str && str.length > n ? str.slice(0,n)+'…' : (str||''); }
 function relativeTime(iso) {

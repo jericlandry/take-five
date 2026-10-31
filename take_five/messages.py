@@ -104,7 +104,7 @@ def save_clinical_record(
 
     Args:
         person_id:       UUID of the care recipient this record belongs to.
-                         Must be a senior in the circle — get this from the roster.
+                         Must be listed under Care Recipients in the roster.
         resource_type:   FHIR resource type. Use 'MedicationStatement' for all
                          medications and supplements.
         medication_name: Full medication name as confirmed.
@@ -571,9 +571,9 @@ class ContextBuilder:
         for row in rows:
             by_role.setdefault(row["person_role"], []).append(row)
 
-        role_order = ["senior", "subject", "coordinator", "caregiver", "family", "member"]
+        role_order = ["care_recipient", "subject", "coordinator", "caregiver", "family", "member"]
         role_labels = {
-            "senior":      "Seniors (care recipients)",
+            "care_recipient": "Care Recipients",
             "subject":     "Subjects (care recipients)",
             "coordinator": "Coordinators",
             "caregiver":   "Caregivers",
@@ -1284,7 +1284,7 @@ async def generate_prep_packet(
     # resolves it via parse_prep_request + resolve_prep_seniors before calling
     # here). We only fall back to guessing when it's missing.
     roster = repo.fetch_circle_roster(circle_id)
-    seniors = [r for r in roster if r.get("person_role") == "senior"]
+    seniors = [r for r in roster if r.get("person_role") == "care_recipient"]
 
     if senior_person_id:
         match = next((s for s in seniors if str(s["id"]) == str(senior_person_id)), None)

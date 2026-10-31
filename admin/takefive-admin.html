@@ -495,7 +495,7 @@ tbody tr:last-child td { border-bottom: none; }
 <!-- Add Member to Circle -->
 <div class="modal-backdrop" id="modal-add-member"><div class="modal"><div class="modal-header"><div class="modal-title">Add Member to Circle</div><button class="modal-close" onclick="closeModal('modal-add-member')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 <div class="field" style="margin-bottom:0.75rem;"><label>Select Person</label><div class="member-pick" id="member-pick-list"></div></div>
-<div class="field" style="margin-bottom:0;"><label>Role in this Circle *</label><select id="member-role"><option value="senior">Senior (care recipient)</option><option value="family">Family</option><option value="friend">Friend / neighbor</option><option value="caregiver">Caregiver</option></select></div>
+<div class="field" style="margin-bottom:0;"><label>Role in this Circle *</label><select id="member-role"><option value="care_recipient">Care recipient</option><option value="family">Family</option><option value="friend">Friend / neighbor</option><option value="caregiver">Caregiver</option></select></div>
 <div class="form-actions"><button class="btn btn-primary" id="btn-add-member" onclick="addMember()">Add to Circle</button><button class="btn btn-ghost" onclick="closeModal('modal-add-member')">Cancel</button></div>
 </div></div>
 
@@ -674,7 +674,7 @@ function showPage(name) {
 
 function avatarColor(type) { return { senior:'av-teal', family:'av-purple', friend:'av-teal', caregiver:'av-amber' }[type] || 'av-gray'; }
 function initials(name) { return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
-function rolePill(role) { const cls = { senior:'pill-senior', family:'pill-family', friend:'pill-friend', caregiver:'pill-caregiver' }[role] || 'pill-role'; return `<span class="pill ${cls}">${role}</span>`; }
+function rolePill(role) { const cls = { care_recipient:'pill-senior', family:'pill-family', friend:'pill-friend', caregiver:'pill-caregiver' }[role] || 'pill-role'; return `<span class="pill ${cls}">${(role || '').replace(/_/g, ' ')}</span>`; }
 function statusPill(s) { const cls = { active:'pill-active', trial:'pill-trial', archived:'pill-inactive' }[s] || 'pill-inactive'; return `<span class="pill ${cls}">${s}</span>`; }
 
 // ─── ENSEMBLES ───
@@ -1178,7 +1178,7 @@ async function loadCircleAnalytics() {
   });
 
   // Member participation bars — exclude seniors
-  const members = (data.members || []).filter(m => m.role !== 'senior');
+  const members = (data.members || []).filter(m => m.role !== 'care_recipient');
   const maxMsgs = Math.max(...members.map(m => m.msg_count || 0), 1);
   document.getElementById('an-member-bars').innerHTML = members.map(m => {
     const pct = Math.round(((m.msg_count || 0) / maxMsgs) * 100);
@@ -1383,7 +1383,7 @@ async function openPersonDetail(personId) {
   document.getElementById('dp-notes').value   = person.notes || '';
   document.getElementById('dp-user-role').value = person.user_role || 'member';
   switchPersonTab('profile');
-  const isSenior = person.care_role === 'senior';
+  const isSenior = person.care_role === 'care_recipient';
   document.getElementById('tab-clinical').style.display    = isSenior ? '' : 'none';
   document.getElementById('tab-medications').style.display = isSenior ? '' : 'none';
   showPage('person-detail');
@@ -1599,7 +1599,7 @@ function printMedications() {
     { accent: '#085041', accentLight: '#E1F5EE', accentMid: '#5DCAA5' }, // teal
     { accent: '#633806', accentLight: '#FAEEDA', accentMid: '#FAC775' }, // amber
   ];
-  const seniors = state.people.filter(p => (p.p_type || p.type) === 'senior').sort((a, b) => a.id.localeCompare(b.id));
+  const seniors = state.people.filter(p => (p.p_type || p.type) === 'care_recipient').sort((a, b) => a.id.localeCompare(b.id));
   const paletteIndex = Math.min(seniors.findIndex(p => p.id === state.detailPersonId), SENIOR_PALETTE.length - 1);
   const { accent, accentLight, accentMid } = SENIOR_PALETTE[paletteIndex];
 

@@ -1,4 +1,4 @@
-Message from {author} on {date_str} in a family elder care group:
+Message from {author} on {date_str} in a family care group:
 <message>
 {body}
 </message>

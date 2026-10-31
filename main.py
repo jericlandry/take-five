@@ -973,7 +973,7 @@ async def app_update_circle_role(
     """
     Update a person's role in a specific circle. Admin-only.
     """
-    if body.role not in ('senior', 'family', 'friend', 'caregiver'):
+    if body.role not in ('care_recipient', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid role")
     membership = repo.add_person_to_circle(
         circle_id=circle_id,
@@ -1034,7 +1034,7 @@ async def app_invite_person(
     """
     if body.user_role not in ('admin', 'member'):
         raise HTTPException(status_code=400, detail="user_role must be 'admin' or 'member'")
-    if body.care_role not in ('senior', 'family', 'friend', 'caregiver'):
+    if body.care_role not in ('care_recipient', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid care_role")
 
     invited = repo.invite_person_to_ensemble(
@@ -1142,7 +1142,7 @@ async def app_add_circle_member(
     Add an existing ensemble person to a circle with a role. Admin-only.
     person_id must be supplied in the request body.
     """
-    if body.role not in ('senior', 'family', 'friend', 'caregiver'):
+    if body.role not in ('care_recipient', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid role")
     membership = repo.add_person_to_circle(
         circle_id=circle_id,
@@ -1217,7 +1217,7 @@ async def app_generate_prep_packet(
     # frontend builds (or callers that don't send person_id) still work.
     if not senior_person_id:
         roster = repo.fetch_circle_roster(circle_id)
-        seniors = [r for r in roster if r.get("person_role") == "senior"]
+        seniors = [r for r in roster if r.get("person_role") == "care_recipient"]
         if len(seniors) == 1:
             senior_person_id = str(seniors[0]["id"])
 

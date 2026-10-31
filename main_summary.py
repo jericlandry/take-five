@@ -27,7 +27,7 @@ def send_senior_emails(circle: dict) -> None:
     """
     Send the senior-facing weekly email (see take_five/prompts/
     t5_week_summary_senior.md and generate_senior_digest()) to each
-    role='senior' person in this circle who has an email on file.
+    role='care_recipient' person in this circle who has an email on file.
 
     Independent of the GroupMe digest above -- runs regardless of whether
     this circle has a GroupMe bot configured, since email is its own
@@ -83,7 +83,7 @@ def send_senior_emails(circle: dict) -> None:
                     person_ext_id=None,
                     person_id=senior["id"],
                     body=body,
-                    msg_type="senior_digest",
+                    msg_type="care_recipient_digest",
                     direction="outbound",
                     channel="email",
                 )

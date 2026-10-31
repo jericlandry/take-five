@@ -583,7 +583,7 @@ async def handle_groupme_webhook(data: dict):
                 async def run_prep_followup():
                     try:
                         roster = repo.fetch_circle_roster(circle_id)
-                        seniors = [r for r in roster if r.get("person_role") == "senior"]
+                        seniors = [r for r in roster if r.get("person_role") == "care_recipient"]
 
                         packets = repo.get_prep_packets(circle_id, limit=20)
                         if not packets:
@@ -652,7 +652,7 @@ async def handle_groupme_webhook(data: dict):
                         # malformed model response can't silently misroute a
                         # medication-adjacent document to the wrong person.
                         roster = repo.fetch_circle_roster(circle_id)
-                        seniors = [r for r in roster if r.get("person_role") == "senior"]
+                        seniors = [r for r in roster if r.get("person_role") == "care_recipient"]
 
                         if not seniors:
                             # No senior on record at all — let generate_prep_packet's

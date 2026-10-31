@@ -133,7 +133,7 @@ def _format_reply_footer(other_seniors: List[Dict]) -> str:
 async def generate_senior_digest(circle_id: str, senior: Dict, other_seniors: List[Dict]) -> Optional[str]:
     """
     Generate the senior-facing weekly email body for one senior in a circle.
-    other_seniors: any other role='senior' people in the same circle (e.g. a
+    other_seniors: any other role='care_recipient' people in the same circle (e.g. a
     spouse sharing the circle) -- included only to phrase the closing
     invitation ("how you and Mom are doing"), not fed any additional data.
 
