@@ -549,6 +549,9 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
         <button class="btn btn-ghost btn-sm" id="btn-calendar" onclick="openCalendarModal()" style="display:none;">
           Calendar
         </button>
+        <button class="btn btn-ghost btn-sm" id="btn-edit-circle" onclick="openEditCircleModal()" style="display:none;">
+          Edit circle
+        </button>
         <button class="btn btn-primary btn-sm" id="btn-add-circle-member" onclick="openAddCircleMemberModal()" style="display:none;">
           <svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12"/></svg>
           Add member
@@ -886,6 +889,29 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-circle')">Cancel</button>
       <button class="btn btn-primary" onclick="createCircle()">Add circle</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Circle (admin-only; name + status) -->
+<div class="modal-backdrop" id="modal-edit-circle">
+  <div class="modal">
+    <div class="modal-title">Edit circle</div>
+    <div class="form-group">
+      <label class="form-label">Circle name</label>
+      <input class="form-input" id="edit-circle-name" type="text"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-input" id="edit-circle-status">
+        <option value="active">Active</option>
+        <option value="archived">Archived</option>
+      </select>
+      <div class="form-hint">Archiving stops weekly digests, engagement check-ins, and message intake for this circle. You can make it active again any time.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-circle')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-edit-circle" onclick="saveCircleEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -3334,6 +3360,7 @@ async function openCircleDetail(circleId) {
   document.getElementById('groupme-connected-tag').style.display = hasGroupMe ? '' : 'none';
   const hasCalendar = (circle?.integration_config?.calendar?.calendar_ids || []).length > 0;
   document.getElementById('btn-calendar').style.display = isAdmin ? '' : 'none';
+  document.getElementById('btn-edit-circle').style.display = isAdmin ? '' : 'none';
   document.getElementById('calendar-connected-tag').style.display = hasCalendar ? '' : 'none';
   // References is an admin-only action, same gate as add-member and
   // medications — the content it logs (facility correspondence, clinical
@@ -4187,6 +4214,42 @@ async function createCircle() {
     await loadData();
   } catch (e) {
     toast('Failed to create circle: ' + e.message, true);
+  }
+}
+
+function openEditCircleModal() {
+  const circle = (state.circles || []).find(c => c.id === circleState.currentCircleId);
+  if (!circle) { toast('Circle not found', true); return; }
+  document.getElementById('edit-circle-name').value = circle.name || '';
+  document.getElementById('edit-circle-status').value = circle.status === 'archived' ? 'archived' : 'active';
+  openModal('modal-edit-circle');
+}
+
+async function saveCircleEdit() {
+  const circleId = circleState.currentCircleId;
+  const prev = (state.circles || []).find(c => c.id === circleId);
+  const name = document.getElementById('edit-circle-name').value.trim();
+  const status = document.getElementById('edit-circle-status').value;
+  if (!name) { toast('Circle name is required', true); return; }
+  if (status === 'archived' && prev?.status !== 'archived'
+      && !confirm(`Archive "${name}"? Weekly digests, check-ins, and message intake will stop for this circle.`)) return;
+  const btn = document.getElementById('btn-save-edit-circle');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await apiFetch(`/app/circles/${circleId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, status }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    toast('Circle updated');
+    closeModal('modal-edit-circle');
+    await loadData();
+    await openCircleDetail(circleId);  // refresh header with the new name
+  } catch (e) {
+    toast('Failed to update circle: ' + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
   }
 }
 

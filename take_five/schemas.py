@@ -45,6 +45,14 @@ class UpdateCareCircleRequest(BaseModel):
     integration_config: Optional[dict] = None
 
 
+class AppUpdateCircleRequest(BaseModel):
+    # Family-admin circle edit: name and status only. external_id and
+    # integration_config are platform config and stay superadmin-only
+    # (UpdateCareCircleRequest / PUT /circles/{circle_id}).
+    name: Optional[str] = None
+    status: Optional[str] = None  # active | archived
+
+
 class CreateEnsembleRequest(BaseModel):
     name: str
     plan: str

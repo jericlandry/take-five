@@ -23,7 +23,7 @@ from take_five.pipeline import run_post_storage_pipeline
 from take_five.repository import repo
 from take_five.schemas import (
     CreatePersonRequest, UpdatePersonRequest,
-    CreateCareCircleRequest, UpdateCareCircleRequest,
+    CreateCareCircleRequest, UpdateCareCircleRequest, AppUpdateCircleRequest,
     CreateCircleMembershipRequest,
     CreateEnsembleRequest, UpdateEnsembleRequest,
     CreateClinicalRecordRequest, UpdateClinicalRecordRequest,
@@ -787,6 +787,35 @@ async def app_create_circle(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {"circle": row_to_dict(circle)}
+
+
+@open_router.put("/app/circles/{circle_id}")
+async def app_update_circle(
+    circle_id: str,
+    body: AppUpdateCircleRequest,
+    person: dict = Depends(require_ensemble_scope([("circle", "circle_id")], admin_only=True)),
+):
+    """
+    Rename a circle or archive/unarchive it. Admin-only. Deliberately limited
+    to name and status; external_id and integration_config stay
+    superadmin-only (PUT /circles/{circle_id}). Archived circles still show
+    in the family app (list_circles_for_person doesn't filter on status), so
+    an admin can unarchive their own circle.
+    """
+    updates = {}
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Circle name can't be empty")
+        updates["name"] = name
+    if body.status is not None:
+        if body.status not in ("active", "archived"):
+            raise HTTPException(status_code=400, detail="status must be 'active' or 'archived'")
+        updates["status"] = body.status
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    circle = repo.update_care_circle(circle_id, updates)
     return {"circle": row_to_dict(circle)}
 
 
