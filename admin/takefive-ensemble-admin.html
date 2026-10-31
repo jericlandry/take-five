@@ -1011,14 +1011,6 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       </label>
       <div class="form-hint">Independent of which circle they're in — see the Add person dialog's hint for why.</div>
     </div>
-    <div style="margin-top:0.5rem;">
-      <div class="form-label" style="margin-bottom:6px;">App link</div>
-      <div style="display:flex;gap:0.5rem;align-items:center;">
-        <input class="form-input" id="edit-invite-link" readonly style="font-size:11px;font-family:monospace;background:var(--cream);"/>
-        <button class="btn btn-ghost btn-sm" onclick="copyInviteLink()">Copy</button>
-      </div>
-      <div class="form-hint">Share this link — they'll sign in with their own phone number.</div>
-    </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" onclick="toast('Person removed');closeModal('modal-person')">Remove</button>
       <div style="display:flex;gap:0.75rem;">
@@ -2417,17 +2409,11 @@ function openPersonModal(p) {
   // non-admin viewers rather than showing something that would 403 on save.
   document.getElementById('edit-clinical-access-group').style.display =
     state.userRole === 'admin' ? '' : 'none';
-  document.getElementById('edit-invite-link').value = `${window.location.origin}${window.location.pathname}`;
   // Store person id for save
   document.getElementById('modal-person').dataset.personId   = p.id;
   document.getElementById('modal-person').dataset.circleId   = (p.circle_ids || [])[0] || '';
   document.getElementById('modal-person').dataset.ensembleId = state.ensemble.id;
   openModal('modal-person');
-}
-
-function copyInviteLink() {
-  navigator.clipboard.writeText(document.getElementById('edit-invite-link').value)
-    .then(() => toast('Invite link copied'));
 }
 
 async function savePersonModal() {
