@@ -2489,14 +2489,16 @@ function populateInviteCircleSelect() {
 
 async function saveInvite() {
   const name      = document.getElementById('invite-name').value.trim();
-  const email     = document.getElementById('invite-email').value.trim();
+  const email     = document.getElementById('invite-email').value.trim() || null;
   const phone     = document.getElementById('invite-phone').value.trim() || null;
   const care_role = document.getElementById('invite-care-role').value;
   const user_role = document.getElementById('invite-user-role').value;
   const circle_id = document.getElementById('invite-circle').value;
   const clinical_access = document.getElementById('invite-clinical-access').checked;
   if (!name)  { toast('Name is required', true); return; }
-  if (!email) { toast('Email is required', true); return; }
+  // Email is only required for admins (they log in by emailed code). A care
+  // recipient or anyone who won't log in can be added with no email.
+  if (!email && user_role === 'admin') { toast('Admins need an email address to log in', true); return; }
   if (!circle_id) { toast('Select a circle', true); return; }
 
   const btn = document.querySelector('#modal-invite .btn-primary');
@@ -2511,12 +2513,18 @@ async function saveInvite() {
         body: JSON.stringify({ name, email, phone, care_role, user_role, circle_id, clinical_access }),
       }
     );
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
     const data = await res.json();
 
-    // Copy invite URL to clipboard
-    await navigator.clipboard.writeText(data.invite_url);
-    toast(`${name} added — invite link copied`);
+    // Existing person reused (matched by email, phone, or name) vs. newly created
+    const matched = data.person?.matched_by;
+    const what = matched ? `${name} already existed (matched by ${matched}) and was added to the circle` : `${name} added`;
+    if (email) {
+      try { await navigator.clipboard.writeText(data.invite_url); toast(`${what} — invite link copied`); }
+      catch { toast(what); }
+    } else {
+      toast(what);
+    }
     closeModal('modal-invite');
 
     // Reset form

@@ -2250,16 +2250,28 @@ class TakeFiveRepository:
         ensemble_id: str,
         circle_id: str,
         name: str,
-        email: str,
+        email: Optional[str],
         phone: Optional[str],
         care_role: str,
         user_role: str,
         clinical_access: bool = False,
     ) -> Dict:
         """
-        Idempotent invite: if a person with this email already exists in the
-        ensemble, update their memberships rather than creating a duplicate.
-        Returns the person row.
+        Idempotent invite: if this person already exists in the ensemble,
+        update their memberships rather than creating a duplicate. Returns the
+        person row, plus a 'matched_by' key ('email' | 'phone' | 'name' | None).
+
+        Existing-person lookup, in order (email is optional, so the first two
+        can both be absent):
+          1. email, case-insensitive
+          2. phone, digits only (invites historically stored phones as typed)
+          3. exact name, case-insensitive -- ONLY when no email and no phone
+             were given, so a care recipient added twice without contact info
+             isn't duplicated. A name match is weak evidence, so it never
+             changes the existing person's ensemble user_role (re-inviting
+             "Rick" as a member must not demote an admin named Rick).
+        On a match, a missing email/phone is filled in; existing values are
+        never overwritten.
 
         clinical_access: decided here, at invite time, independent of
         care_role/circle_id — being invited to the inner circle does not by
@@ -2276,23 +2288,49 @@ class TakeFiveRepository:
             with conn:
                 with conn.cursor() as cur:
 
-                    # 1. Check for existing person with this email in the ensemble
-                    cur.execute("""
-                        SELECT id FROM people
-                        WHERE ensemble_id = %(ensemble_id)s
-                          AND LOWER(email) = LOWER(%(email)s)
-                        LIMIT 1;
-                    """, {'ensemble_id': ensemble_id, 'email': email})
-                    existing = cur.fetchone()
+                    # 1. Look for an existing person: email -> phone -> name
+                    existing, matched_by = None, None
+                    if email:
+                        cur.execute("""
+                            SELECT id FROM people
+                            WHERE ensemble_id = %(ensemble_id)s
+                              AND LOWER(email) = LOWER(%(email)s)
+                            LIMIT 1;
+                        """, {'ensemble_id': ensemble_id, 'email': email})
+                        existing = cur.fetchone()
+                        matched_by = 'email' if existing else None
+                    if not existing and phone:
+                        cur.execute("""
+                            SELECT id FROM people
+                            WHERE ensemble_id = %(ensemble_id)s
+                              AND phone IS NOT NULL
+                              -- last 10 digits: US-only pilot; tolerates legacy
+                              -- as-typed phones with or without the leading 1
+                              AND right(regexp_replace(phone, '\\D', '', 'g'), 10)
+                                  = right(regexp_replace(%(phone)s, '\\D', '', 'g'), 10)
+                            LIMIT 1;
+                        """, {'ensemble_id': ensemble_id, 'phone': phone})
+                        existing = cur.fetchone()
+                        matched_by = 'phone' if existing else None
+                    if not existing and not email and not phone:
+                        cur.execute("""
+                            SELECT id FROM people
+                            WHERE ensemble_id = %(ensemble_id)s
+                              AND LOWER(TRIM(name)) = LOWER(TRIM(%(name)s))
+                            LIMIT 1;
+                        """, {'ensemble_id': ensemble_id, 'name': name})
+                        existing = cur.fetchone()
+                        matched_by = 'name' if existing else None
 
                     if existing:
                         person_id = existing['id']
-                        # Update phone if provided
-                        if phone:
-                            cur.execute("""
-                                UPDATE people SET phone = %(phone)s
-                                WHERE id = %(id)s;
-                            """, {'phone': phone, 'id': person_id})
+                        # Fill in contact details the record is missing; never overwrite.
+                        cur.execute("""
+                            UPDATE people
+                               SET phone = COALESCE(phone, %(phone)s),
+                                   email = COALESCE(email, %(email)s)
+                             WHERE id = %(id)s;
+                        """, {'phone': phone, 'email': email, 'id': person_id})
                     else:
                         # 2. Create the person
                         cur.execute("""
@@ -2308,13 +2346,14 @@ class TakeFiveRepository:
                         })
                         person_id = cur.fetchone()['id']
 
-                    # 3. Upsert ensemble membership (user role)
+                    # 3. Upsert ensemble membership (user role). A name-only
+                    # match leaves an existing user_role alone (see docstring).
                     cur.execute("""
                         INSERT INTO ensemble_memberships (ensemble_id, person_id, user_role)
                         VALUES (%(ensemble_id)s, %(person_id)s, %(user_role)s)
-                        ON CONFLICT (ensemble_id, person_id) DO UPDATE
-                            SET user_role = EXCLUDED.user_role;
-                    """, {'ensemble_id': ensemble_id, 'person_id': person_id, 'user_role': user_role})
+                        ON CONFLICT (ensemble_id, person_id) DO """
+                        + ("NOTHING;" if matched_by == 'name' else "UPDATE SET user_role = EXCLUDED.user_role;"),
+                        {'ensemble_id': ensemble_id, 'person_id': person_id, 'user_role': user_role})
 
                     # Check whether this is a genuine new circle membership
                     # (not a role change) before the upsert below -- same
@@ -2337,7 +2376,8 @@ class TakeFiveRepository:
 
                     # 5. Return full person row
                     cur.execute("SELECT * FROM people WHERE id = %(id)s;", {'id': person_id})
-                    person = cur.fetchone()
+                    person = dict(cur.fetchone())
+                    person['matched_by'] = matched_by
         finally:
             self._pool.putconn(conn)
 

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, Response
 
 from take_five.auth import (
     auth_router, verify_admin_token, get_current_person, require_admin,
-    require_ensemble_scope, person_payload, ensemble_payload,
+    require_ensemble_scope, person_payload, ensemble_payload, normalize_phone,
 )
 from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply, get_groupme_user_id
 from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat
@@ -1037,12 +1037,22 @@ async def app_invite_person(
     if body.care_role not in ('care_recipient', 'family', 'friend', 'caregiver'):
         raise HTTPException(status_code=400, detail="Invalid care_role")
 
+    # Blank -> None, never '': an empty-string email would match every other
+    # empty-email person in the dedupe lookup. Admins need an email to log in.
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    email = (body.email or "").strip() or None
+    if body.user_role == "admin" and not email:
+        raise HTTPException(status_code=400, detail="Admins need an email address to log in")
+    phone = normalize_phone(body.phone) if (body.phone or "").strip() else None
+
     invited = repo.invite_person_to_ensemble(
         ensemble_id=ensemble_id,
         circle_id=body.circle_id,
-        name=body.name,
-        email=body.email,
-        phone=body.phone,
+        name=name,
+        email=email,
+        phone=phone,
         care_role=body.care_role,
         user_role=body.user_role,
         clinical_access=body.clinical_access,

@@ -81,7 +81,7 @@ class CreateClinicalRecordRequest(BaseModel):
 
 class InvitePersonRequest(BaseModel):
     name: str
-    email: str
+    email: Optional[str] = None  # required for admins (login); optional otherwise, e.g. a care recipient who won't log in
     phone: Optional[str] = None
     care_role: str = 'family'   # senior | family | friend | caregiver
     user_role: str = 'member'   # admin | member
