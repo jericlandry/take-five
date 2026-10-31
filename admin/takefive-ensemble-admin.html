@@ -1012,7 +1012,8 @@ body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--crea
       <div class="form-hint">Independent of which circle they're in — see the Add person dialog's hint for why.</div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" onclick="toast('Person removed');closeModal('modal-person')">Remove</button>
+      <!-- Hidden: no remove-person endpoint exists yet; this only showed a toast. -->
+      <button class="btn btn-danger btn-sm" style="display:none;" onclick="toast('Person removed');closeModal('modal-person')">Remove</button>
       <div style="display:flex;gap:0.75rem;">
         <button class="btn btn-ghost" onclick="closeModal('modal-person')">Cancel</button>
         <button class="btn btn-primary" id="btn-save-person-modal" onclick="savePersonModal()">Save changes</button>
