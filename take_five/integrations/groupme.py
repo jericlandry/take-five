@@ -1194,6 +1194,31 @@ async def setup_groupme_circle(circle_id: str, admin_person_id: Optional[str] = 
     })
     logger.info(f"[groupme-setup] Circle {circle_id} updated with groupme config")
 
+    # 6. The account that created the group is its owner and already in the
+    # chat. If that's this admin (their linked GroupMe identity matches the
+    # group's creator -- not the case on the env-var fallback) and they're a
+    # member of this circle, record it on their circle_membership so the
+    # admin app doesn't offer "Add to GroupMe" for someone already there.
+    if admin_person_id:
+        try:
+            group_json = group_resp.json()['response']
+            creator_uid = str(group_json.get('creator_user_id') or '')
+            admin_uids = {
+                str(i['external_id'])
+                for i in (repo.get_person_channel_identities(admin_person_id) or [])
+                if i.get('channel') == 'groupme'
+            }
+            if creator_uid and creator_uid in admin_uids and repo.get_circle_membership(circle_id, admin_person_id):
+                membership_id = next(
+                    (str(m['id']) for m in group_json.get('members', [])
+                     if str(m.get('user_id')) == creator_uid and m.get('id')),
+                    None,
+                )
+                repo.record_chat_membership(circle_id, admin_person_id, chat_membership_id=membership_id)
+                logger.info(f"[groupme-setup] Recorded creating admin {admin_person_id} as in-chat (membership_id={membership_id})")
+        except Exception as e:
+            logger.warning(f"[groupme-setup] Could not record creating admin's chat membership: {e}")
+
     return {
         'group_id': group_id,
         'bot_id': bot_id,
