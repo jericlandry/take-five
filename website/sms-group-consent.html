@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Take Five · Care Circle Group Texting Consent</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-M9QJJVBSFV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-M9QJJVBSFV');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Carlito:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --teal-900: #04342C; --teal-800: #085041; --teal-600: #0F6E56;
+    --teal-500: #1D9E75; --teal-300: #5DCAA5; --teal-100: #C9D6C9;
+    --teal-50: #E1F5EE; --cream: #FBF9F4; --white: #FFFFFF;
+    --gray-200: #E2DFD3; --gray-400: #B0ADA6; --gray-600: #6B6763; --text: #1A1A18;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Carlito', Calibri, sans-serif; font-weight: 300; background: var(--cream); color: var(--text); overflow-x: hidden; max-width: 680px; margin: 0 auto; padding: 0 1.5rem 5rem; }
+
+  .top-bar { display: flex; align-items: center; gap: 10px; padding: 1.75rem 0 2rem; border-bottom: 1px solid var(--gray-200); margin-bottom: 3rem; }
+  .top-bar a { text-decoration: none; display: flex; align-items: center; gap: 10px; }
+  .nav-logo { width: 28px; height: 28px; }
+  .nav-name { font-family: 'PT Serif', serif; font-size: 1.1rem; font-weight: 700; color: var(--teal-800); letter-spacing: -0.02em; }
+
+  h1 { font-family: 'PT Serif', serif; font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 400; color: var(--teal-900); line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+  h1 em { font-style: italic; color: var(--teal-500); }
+  h2 { font-family: 'PT Serif', serif; font-size: 1.25rem; font-weight: 400; color: var(--teal-900); margin: 2.5rem 0 0.75rem; }
+  p { font-size: 1rem; line-height: 1.8; color: var(--gray-600); margin-bottom: 1.1rem; }
+  p strong { color: var(--teal-800); font-weight: 700; }
+  a { color: var(--teal-500); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  hr { border: none; border-top: 1px solid var(--gray-200); margin: 2.5rem 0; }
+
+  .meta { font-size: 0.82rem; color: var(--gray-400); margin-bottom: 2.5rem; }
+
+  .callout { background: var(--teal-50); border-left: 3px solid var(--teal-500); border-radius: 0 10px 10px 0; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+  .callout p { font-size: 0.95rem; color: var(--teal-800); margin: 0; }
+
+  /* Form */
+  .form-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 14px; padding: 2rem; margin-top: 2rem; }
+  .form-group { margin-bottom: 1.25rem; }
+  .form-label { display: block; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--teal-800); margin-bottom: 0.5rem; }
+  .form-input { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--gray-200); border-radius: 8px; font-family: 'Carlito', Calibri, sans-serif; font-size: 0.95rem; color: var(--text); background: var(--cream); outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--teal-300); }
+
+  .consent-box { background: var(--teal-50); border: 1px solid var(--teal-100); border-radius: 10px; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+  .consent-check { display: flex; gap: 0.85rem; align-items: flex-start; }
+  .consent-check input[type="checkbox"] { width: 18px; height: 18px; margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--teal-500); cursor: pointer; }
+  .consent-check label { font-size: 0.88rem; line-height: 1.65; color: var(--teal-800); cursor: pointer; }
+  .consent-check label a { color: var(--teal-500); }
+
+  .consent-details { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--teal-100); }
+  .consent-details p { font-size: 0.82rem; line-height: 1.6; color: var(--gray-600); margin-bottom: 0.5rem; }
+  .consent-details p:last-child { margin-bottom: 0; }
+
+  .consent-hint { display: none; font-size: 0.82rem; font-style: italic; color: var(--teal-600); margin-top: 0.6rem; }
+  .consent-hint.show { display: block; }
+
+  .btn-submit { display: inline-block; padding: 0.85rem 2rem; background: var(--teal-500); color: var(--white); border: none; border-radius: 100px; font-family: 'Carlito', Calibri, sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.15s; margin-top: 0.5rem; }
+  .btn-submit:hover { background: var(--teal-600); transform: translateY(-1px); }
+  .btn-submit:disabled { background: var(--gray-400); cursor: not-allowed; transform: none; }
+
+  .success { display: none; background: var(--teal-50); border: 1px solid var(--teal-300); border-radius: 10px; padding: 1.25rem 1.5rem; margin-top: 1.5rem; }
+  .success p { font-size: 0.95rem; color: var(--teal-800); margin: 0; }
+
+  .footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center; }
+  .footer-brand { font-family: 'PT Serif', serif; font-size: 0.95rem; color: var(--teal-300); }
+  .footer-note { font-size: 0.78rem; color: var(--gray-400); }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <a href="/">
+    <svg class="nav-logo" viewBox="0 0 56 56" fill="none">
+      <g stroke="#1D9E75" stroke-width="1.5" fill="none">
+        <line x1="28" y1="6" x2="50" y2="21"/><line x1="50" y1="21" x2="42" y2="47"/>
+        <line x1="42" y1="47" x2="14" y2="47"/><line x1="14" y1="47" x2="6" y2="21"/>
+        <line x1="6" y1="21" x2="28" y2="6"/>
+      </g>
+      <circle cx="28" cy="6" r="5" fill="#5DCAA5"/>
+      <circle cx="50" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="42" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="14" cy="47" r="5" fill="#5DCAA5"/>
+      <circle cx="6" cy="21" r="5" fill="#5DCAA5"/>
+      <circle cx="28" cy="28" r="6" fill="#085041" stroke="#5DCAA5" stroke-width="1.5"/>
+    </svg>
+    <span class="nav-name">Take Five</span>
+  </a>
+</div>
+
+<h1>Group Texting <em>Consent</em></h1>
+<p class="meta">Take Five Care · takefive.care</p>
+
+<p>When a family administrator adds you to a Take Five care circle that uses group texting, you may provide your mobile number to receive care circle text messages from Take Five Care. This page describes what you are agreeing to and how to opt out at any time.</p>
+
+<div class="callout">
+  <p>Take Five Care sends these messages only to people who have been added to a care circle by a family administrator and have explicitly consented below. We do not send marketing messages.</p>
+</div>
+
+<h2>What messages you'll receive</h2>
+<p>Messages come from the Take Five Care number for your care circle. They are limited to:</p>
+<p><strong>Welcome message</strong>: a one-time message when you are enrolled, explaining how group texting works for your circle.</p>
+<p><strong>Care circle updates</strong>: care updates, questions and photos shared by other members of your care circle, delivered to you by Take Five Care. Each one is labeled with the name of the member who shared it.</p>
+<p><strong>Care summaries</strong>: a periodic (typically weekly) summary of your circle's care activity.</p>
+<p><strong>Reminders and replies</strong>: reminders of appointments your circle has recorded, and Take Five Care's answers when you ask it a question.</p>
+<p>Message frequency varies with your care circle's activity. We will never send marketing or promotional messages.</p>
+
+<hr>
+
+<h2>Opt in to care circle group texting</h2>
+<p>If your family administrator has asked you to join by text, complete the form below to confirm your consent.</p>
+<p><strong>This step is optional.</strong> You can be part of your family's care circle without joining group texting. Declining does not affect your ability to take part in your care circle in other ways.</p>
+
+<div class="form-card">
+  <div class="form-group">
+    <label class="form-label" for="name">Your name</label>
+    <input class="form-input" type="text" id="name" placeholder="Rosa Martinez" autocomplete="name"/>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="phone">Mobile phone number</label>
+    <input class="form-input" type="tel" id="phone" placeholder="+1 (512) 555-0100" autocomplete="tel"/>
+  </div>
+
+  <div class="consent-box">
+    <div class="consent-check">
+      <input type="checkbox" id="consent" />
+      <label for="consent">
+        I agree to receive care circle text messages from <strong>Take Five Care</strong>, including updates shared by members of my care circle, care summaries, and reminders. Message frequency varies. Message and data rates may apply. Reply <strong>STOP</strong> to opt out at any time. Reply <strong>HELP</strong> for help.
+      </label>
+    </div>
+    <p class="consent-hint show">Leave this unchecked if you'd rather not receive texts. You can still continue, and you can opt in later by coming back to this page.</p>
+    <div class="consent-details">
+      <p>Mobile opt-in data and consent will not be shared with third parties or affiliates for marketing purposes.</p>
+      <p>To opt out at any time, reply <strong>STOP</strong> to any message. To get help, reply <strong>HELP</strong>. For support, visit <a href="https://takefive.care">takefive.care</a>.</p>
+      <p>This SMS program is separate from your Take Five account. See our <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms of Service</a>.</p>
+    </div>
+  </div>
+
+  <button class="btn-submit" id="submit-btn" disabled onclick="handleSubmit()">Continue</button>
+
+  <div class="success" id="success-msg">
+    <p id="success-text">Thank you. Your consent has been recorded. You'll receive a welcome message from Take Five Care shortly.</p>
+  </div>
+</div>
+
+<hr>
+
+<h2>Opting out</h2>
+<p>Reply <strong>STOP</strong> to any message from Take Five Care to stop receiving texts. You'll get one final confirmation that you've been unsubscribed. To re-subscribe, reply <strong>START</strong>.</p>
+<p>For help, reply <strong>HELP</strong> to any message or visit <a href="https://takefive.care">takefive.care</a>.</p>
+
+<div class="footer">
+  <span class="footer-brand">Take Five</span>
+  <span class="footer-note">takefive.care · © 2026</span>
+</div>
+
+<script>
+  const checkbox = document.getElementById('consent');
+  const submitBtn = document.getElementById('submit-btn');
+  const nameInput = document.getElementById('name');
+  const phoneInput = document.getElementById('phone');
+
+  function checkReady() {
+    // Button availability depends only on contact info, not the consent
+    // checkbox — SMS consent must stay a voluntary choice, never a gate
+    // on completing the form.
+    const ready = nameInput.value.trim() && phoneInput.value.trim();
+    submitBtn.disabled = !ready;
+  }
+
+  nameInput.addEventListener('input', checkReady);
+  phoneInput.addEventListener('input', checkReady);
+
+  function handleSubmit() {
+    // Submitting always succeeds, whether or not SMS consent was given —
+    // the checkbox records consent, it never blocks completing the form.
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Done';
+    const successText = document.getElementById('success-text');
+    if (checkbox.checked) {
+      successText.textContent = "Thank you. Your consent has been recorded. You'll receive a welcome message from Take Five Care shortly.";
+    } else {
+      successText.textContent = "You're all set. You've been added without group texting. You can opt in anytime by returning to this page.";
+    }
+    document.getElementById('success-msg').style.display = 'block';
+  }
+</script>
+
+</body>
+</html>
