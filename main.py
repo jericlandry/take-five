@@ -18,6 +18,7 @@ from take_five.integrations.npi import search_npi
 from take_five.integrations.google_calendar import get_events, get_service_account_email
 from take_five.integrations.twilio import handle_sms, send_sms
 from take_five.integrations.twilio_conversations import handle_conversations_webhook
+from take_five.sms_consent import consent_router
 from take_five.integrations.sendgrid_email import handle_inbound_email, circle_inbound_address
 from take_five.messages import ask_with_tools, generate_prep_packet
 from take_five.pipeline import run_post_storage_pipeline
@@ -548,6 +549,7 @@ async def twilio_conversations(request: Request):
 
 app.include_router(secure_router)
 app.include_router(auth_router)
+app.include_router(consent_router)
 
 @open_router.get("/health")
 async def health():

@@ -1996,6 +1996,53 @@ class TakeFiveRepository:
             "SELECT * FROM clinical_records WHERE id = %(id)s;", {'id': record_id}
         )
 
+    # --- SMS CONSENTS (migration 016) ---
+    # Append-only audit records; the latest row per (person, circle,
+    # program) is the current state. See migrations/016_sms_consents.sql.
+
+    def record_sms_consent(self, person_id: str, circle_id: str, phone: str,
+                           program: str, consented: bool, consent_version: str,
+                           consent_text_hash: str, verified_via: str = 'otp',
+                           page_url: Optional[str] = None, ip: Optional[str] = None,
+                           user_agent: Optional[str] = None) -> Dict:
+        return self._execute("""
+            INSERT INTO sms_consents
+                (person_id, circle_id, phone, program, consented, consent_version,
+                 consent_text_hash, verified_via, page_url, ip, user_agent)
+            VALUES (%(person_id)s, %(circle_id)s, %(phone)s, %(program)s, %(consented)s,
+                    %(consent_version)s, %(consent_text_hash)s, %(verified_via)s,
+                    %(page_url)s, %(ip)s, %(user_agent)s)
+            RETURNING *;
+        """, {
+            'person_id': str(person_id), 'circle_id': str(circle_id), 'phone': phone,
+            'program': program, 'consented': consented, 'consent_version': consent_version,
+            'consent_text_hash': consent_text_hash, 'verified_via': verified_via,
+            'page_url': page_url, 'ip': ip, 'user_agent': user_agent,
+        })
+
+    def get_current_sms_consents(self, circle_id: str, program: str) -> List[Dict]:
+        """Latest consent row per person for this circle's program, revoked
+        or not (callers check consented and revoked_at)."""
+        return self._execute("""
+            SELECT DISTINCT ON (person_id) *
+            FROM sms_consents
+            WHERE circle_id = %(circle_id)s AND program = %(program)s
+            ORDER BY person_id, created_at DESC;
+        """, {'circle_id': str(circle_id), 'program': program}, fetch='all') or []
+
+    def revoke_sms_consents_by_phone(self, phone: str, program: str,
+                                     circle_id: Optional[str] = None) -> List[Dict]:
+        """STOP: mark this phone's live consents revoked (optionally just one
+        circle). Returns the rows revoked."""
+        return self._execute("""
+            UPDATE sms_consents SET revoked_at = now()
+            WHERE phone = %(phone)s AND program = %(program)s
+              AND revoked_at IS NULL AND consented = true
+              AND (%(circle_id)s::uuid IS NULL OR circle_id = %(circle_id)s::uuid)
+            RETURNING *;
+        """, {'phone': phone, 'program': program,
+              'circle_id': str(circle_id) if circle_id else None}, fetch='all') or []
+
     # --- AUTH: OTP CODES ---
 
     def create_otp_code(self, phone: str, code_hash: str, expires_at: datetime) -> Dict:
