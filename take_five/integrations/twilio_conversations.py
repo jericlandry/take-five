@@ -194,6 +194,10 @@ async def on_conversation_added(event: ConversationEvent) -> None:
     of exactly one circle that has no group yet. Everything else is logged
     for now; the consent flow decides what to do with unknown creators."""
     creator = event.author_address
+    # Logged in full so we can see exactly what Twilio sends for group MMS
+    # autocreates (e.g. it may omit ProjectedAddress and include the Take
+    # Five number in the Address list instead).
+    logger.info(f"[sms-group] onConversationAdded fields: {event.raw}")
     logger.info(
         f"[sms-group] Conversation {event.conversation_sid} created by {creator} "
         f"with {len(event.addresses)} other participant(s)"
@@ -228,11 +232,20 @@ async def on_conversation_added(event: ConversationEvent) -> None:
         )
         return
 
+    # Twilio doesn't always send ProjectedAddress for an autocreated group
+    # MMS, and lists the Take Five number among the group's addresses. Fall
+    # back to the configured group number, and keep it out of participants:
+    # participants are the people who must consent, and Take Five isn't one.
+    projected = event.projected_address or os.getenv("TWILIO_GROUP_NUMBER")
+    if not projected:
+        logger.error("[sms-group] TWILIO_GROUP_NUMBER not set and no ProjectedAddress; @T5 replies won't work")
+    participants = sorted({creator, *event.addresses} - {projected})
+
     repo.update_care_circle(circle_id, {"integration_config": {"sms_group": {
         "conversation_sid": event.conversation_sid,
         "created_by": creator,
-        "projected_address": event.projected_address,
-        "participants": sorted({creator, *event.addresses}),
+        "projected_address": projected,
+        "participants": participants,
         "status": STATUS_PENDING,
         "linked_at": datetime.now(timezone.utc).isoformat(),
     }}})
