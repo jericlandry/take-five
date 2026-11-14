@@ -877,8 +877,8 @@ class TakeFiveRepository:
             )
         return self._execute(query, params)
 
-    def log_message_for_circle(self, circle_id: str, person_id: Optional[str],
-                               body: str, msg_type: str = 'inbound',
+    def log_message_for_circle(self, circle_id: str, person_id: Optional[str] = None,
+                               body: str = '', msg_type: str = 'inbound',
                                direction: str = 'inbound',
                                raw_data: Optional[Dict] = None,
                                channel: str = 'sms_group') -> Dict:

@@ -13,7 +13,7 @@ from take_five.repository import repo
 from take_five.pipeline import run_post_storage_pipeline
 from take_five.attachments import extract_sms_file, handle_pdf_attachment, format_pdf_failure_mailto
 from take_five.images import extract_sms_image, handle_image_message
-from take_five.integrations.groupme import groupme_reply, upload_image_to_groupme
+from take_five.integrations.chat import chat_ready, deliver_to_circle
 
 logger = logging.getLogger(__name__)
 
@@ -205,9 +205,8 @@ async def _process_caregiver_sms(
 
     logger.info(f"SMS received from {person['name']} ({From}) for circle {circle['name']}")
 
-    new_msg = repo.log_message(
-        circle_ext_id=circle_ext_id,
-        person_ext_id=None,
+    new_msg = repo.log_message_for_circle(
+        circle_id=circle_id,
         body=Body,
         raw_data={"from": From, "to": To, "body": Body},
         channel="sms",
@@ -257,18 +256,14 @@ async def _process_caregiver_sms(
     if not image_attachment and not pdf_attachment:
         finalize_pipeline(Body, person['name'], new_msg['sent_at'])
 
-    # Relay to GroupMe — raw text as written, no LLM paraphrasing. If there's an
-    # MMS image, it's re-hosted on GroupMe's Image Service and attached to the
-    # same message so it posts as one combined text+photo reply, same as if the
-    # sender had posted it in GroupMe directly. A PDF isn't re-hosted as an
-    # image (GroupMe's image service would reject the content type) -- the
-    # relay text just notes a document was attached, same treatment as the
-    # email relay fix (see chat history).
-    bot_id         = (circle.get('integration_config') or {}).get('groupme_bot_id')
-    groupme_ext_id = circle.get('external_id')  # groupme:{group_id}
-
-    if bot_id and groupme_ext_id:
-        async def relay_to_groupme():
+    # Relay into the circle's chat (GroupMe or group text, whichever it
+    # uses) — raw text as written, no LLM paraphrasing. An MMS image is
+    # fetched from Twilio and handed to deliver_to_circle(), which hosts it
+    # the way that chat needs and attaches it to the same post, so it lands
+    # as one combined text+photo message. A PDF isn't attached; the relay
+    # text just notes a document was shared.
+    if chat_ready(circle):
+        async def relay_to_chat():
             if pdf_attachment:
                 note = "[shared a document]"
                 relay_text = (
@@ -282,19 +277,16 @@ async def _process_caregiver_sms(
                 )
             else:
                 relay_text = f"{person['name']} (via Take Five): {Body}"
-            picture_url = None
+            image = None
             if image_attachment:
                 fetched = await fetch_twilio_media(MediaUrl0)
                 if fetched:
-                    image_bytes, content_type = fetched
-                    picture_url = await upload_image_to_groupme(image_bytes, content_type)
-                    if not picture_url:
-                        logger.error("[sms] Image upload to GroupMe failed — posting text only")
+                    image = fetched
                 else:
                     logger.error("[sms] Could not fetch media from Twilio — posting text only")
-            await groupme_reply(bot_id, relay_text, groupme_ext_id, picture_url=picture_url)
-            logger.info(f"[sms] Caregiver update relayed to GroupMe for circle {circle['name']}")
-        asyncio.create_task(relay_to_groupme())
+            await deliver_to_circle(circle, relay_text, image=image)
+            logger.info(f"[sms] Caregiver update relayed to {circle['name']}")
+        asyncio.create_task(relay_to_chat())
 
     # MMS image detection — separate clinical vision pipeline (medication extraction
     # etc.), independent of the raw relay above. Mirrors handle_groupme_webhook's
@@ -311,7 +303,7 @@ async def _process_caregiver_sms(
                 return
             reply, vision_result = result
             if reply:
-                await groupme_reply(bot_id, reply, groupme_ext_id)
+                await deliver_to_circle(circle, reply)
 
             classification = vision_result.get("classification")
 
@@ -371,9 +363,8 @@ async def _process_caregiver_sms(
                 if text_found:
                     parts.append(f"Text found: {text_found}.")
 
-            repo.log_message(
-                circle_ext_id=groupme_ext_id,
-                person_ext_id=None,
+            repo.log_message_for_circle(
+                circle_id=circle_id,
                 body=" ".join(parts),
                 raw_data=vision_result,
                 msg_type="agent_note",
@@ -433,9 +424,8 @@ async def _process_caregiver_sms(
     # TODO: personalize based on circle/context once the pipeline supports it.
     confirmation_text = f"Got it, {person['name']}. Thanks for the update."
     logger.info(f"[sms] Sending confirmation reply to {person['name']} ({From}): '{confirmation_text}'")
-    repo.log_message(
-        circle_ext_id=circle_ext_id,
-        person_ext_id=None,
+    repo.log_message_for_circle(
+        circle_id=circle_id,
         body=confirmation_text,
         raw_data={"from": To, "to": From, "body": confirmation_text},
         msg_type="agent_note",

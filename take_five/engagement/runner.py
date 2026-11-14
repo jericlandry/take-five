@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from take_five.engagement.checks import CHECKS
-from take_five.integrations.groupme import send_message
+from take_five.integrations.chat import chat_ready, circle_channel, deliver_to_circle
 from take_five.messages import ask_with_tools
 from take_five.repository import repo
 
@@ -49,11 +49,8 @@ async def run_circle(circle: Dict, dry_run: bool, force: bool = False,
     """
     checks = checks if checks is not None else CHECKS
     circle_name = circle["name"]
-    ext_id = circle.get("external_id")
-    bot_id = (circle.get("integration_config") or {}).get("groupme_bot_id")
-
-    if not ext_id or not bot_id:
-        logger.warning(f"Skipping {circle_name} — missing external_id or groupme_bot_id.")
+    if not chat_ready(circle):
+        logger.warning(f"Skipping {circle_name} — its {circle_channel(circle)} chat isn't ready.")
         return
 
     if force:
@@ -82,23 +79,17 @@ async def run_circle(circle: Dict, dry_run: bool, force: bool = False,
         question=hit["prompt"],
         circle_id=str(circle["id"]),
         response_format="text",
-        channel="groupme",
+        channel=circle_channel(circle),
     )
 
     if dry_run:
         logger.info(f"[DRY RUN] {circle_name} would receive:\n{reply}")
-        logger.info("[DRY RUN] Not sending to GroupMe, not writing to the DB.")
+        logger.info("[DRY RUN] Not posting to the circle's chat, not writing to the DB.")
         return
 
-    send_message(bot_id, reply)
-    repo.log_message(
-        circle_ext_id=ext_id,
-        person_ext_id=None,
-        body=reply,
-        msg_type="check_in",
-        direction="outbound",
-        channel="groupme",
-    )
+    if not await deliver_to_circle(circle, reply, msg_type="check_in"):
+        logger.error(f"{circle_name}: check-in NOT posted; leaving signal state unchanged.")
+        return
 
     if hit["check"] == "pending_corroboration":
         repo.mark_corroboration_requested(hit["signal_id"])

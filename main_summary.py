@@ -13,7 +13,7 @@ import logging
 import os
 from dotenv import load_dotenv
 
-from take_five.integrations.groupme import send_message
+from take_five.integrations.chat import chat_ready, circle_channel, deliver_to_circle_sync
 from take_five.integrations.sendgrid_email import send_email, circle_inbound_address
 from take_five.repository import repo
 from take_five.summaries import generate_weekly_digest, generate_outer_weekly_digest, generate_senior_digest
@@ -168,8 +168,8 @@ def main():
 
     for circle in circles:
         circle_name = circle["name"]
-        ext_id      = circle.get("external_id")
-        bot_id      = (circle.get("integration_config") or {}).get("groupme_bot_id")
+        ext_id      = circle.get("external_id") or ""
+        channel     = circle_channel(circle)
 
         logger.info(f"Processing: {circle_name}")
 
@@ -180,15 +180,11 @@ def main():
             logger.info(f"--email-only set -- skipping GroupMe digest for {circle_name}.")
             continue
 
-        if not ext_id:
-            logger.warning(f"Skipping {circle_name} — no external_id.")
+        if not chat_ready(circle):
+            logger.warning(f"Skipping {circle_name} — its {channel} chat isn't ready (no GroupMe bot / group text not active).")
             continue
 
-        if not bot_id:
-            logger.warning(f"Skipping {circle_name} — no groupme_bot_id in integration_config.")
-            continue
-
-        response_format = "text" if ext_id.startswith("groupme:") else "markdown"
+        response_format = "text" if (channel == "sms_group" or ext_id.startswith("groupme:")) else "markdown"
 
         try:
             if circle.get('parent_circle_id'):
@@ -208,16 +204,10 @@ def main():
             else:
                 digest = generate_weekly_digest(str(circle["id"]), response_format=response_format)
 
-            send_message(bot_id, digest)
-            repo.log_message(
-                circle_ext_id=ext_id,
-                person_ext_id=None,
-                body=digest,
-                msg_type='digest',
-                direction='outbound',
-                channel='groupme',
-            )
-            logger.info(f"Digest logged for {circle_name}")
+            if deliver_to_circle_sync(circle, digest, msg_type='digest'):
+                logger.info(f"Digest posted and logged for {circle_name} ({channel})")
+            else:
+                logger.error(f"Digest NOT posted for {circle_name} ({channel})")
         except Exception as e:
             logger.error(f"Failed for {circle_name}: {e}")
 

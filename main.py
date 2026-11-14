@@ -12,8 +12,8 @@ from take_five.auth import (
     auth_router, verify_admin_token, get_current_person, require_admin,
     require_ensemble_scope, person_payload, ensemble_payload, normalize_phone,
 )
-from take_five.integrations.groupme import handle_groupme_webhook, send_message_async, groupme_reply, get_groupme_user_id
-from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat
+from take_five.integrations.groupme import handle_groupme_webhook, get_groupme_user_id
+from take_five.integrations.chat import setup_chat_circle, add_person_to_chat, remove_person_from_chat, chat_ready, deliver_to_circle
 from take_five.integrations.npi import search_npi
 from take_five.integrations.google_calendar import get_events, get_service_account_email
 from take_five.integrations.twilio import handle_sms, send_sms
@@ -1257,21 +1257,17 @@ async def app_generate_prep_packet(
             senior_person_id=senior_person_id,
         )
 
-        # Post to GroupMe if the circle has a bot configured
+        # Post to the circle's chat (GroupMe or group text)
         circle = repo.get_circle_by_id(circle_id)
-        bot_id = (circle.get("integration_config") or {}).get("groupme_bot_id") if circle else None
-        circle_ext_id = circle.get("external_id") if circle else None
-
-        if bot_id and circle_ext_id:
-            import asyncio
-            # Post the packet directly — it's already logged as message_type='prep_packet'
-            # inside generate_prep_packet(), so don't double-log via groupme_reply()
-            await send_message_async(bot_id, packet_text)
+        if circle and chat_ready(circle):
+            # The packet is already logged as message_type='prep_packet'
+            # inside generate_prep_packet(), so post it without logging.
+            await deliver_to_circle(circle, packet_text, log=False)
             await asyncio.sleep(1.5)
-            # Follow-up prompt is fine to log normally as an agent_note
-            await groupme_reply(bot_id, followup_text, circle_ext_id)
+            # Follow-up prompt is logged normally as an agent_note
+            await deliver_to_circle(circle, followup_text)
         else:
-            logger.warning(f"[prep-packet] No GroupMe bot configured for circle {circle_id}")
+            logger.warning(f"[prep-packet] Circle {circle_id} has no ready chat; packet not posted")
 
         return {"packet": packet_text, "followup": followup_text}
 

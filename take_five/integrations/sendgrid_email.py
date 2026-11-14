@@ -53,7 +53,7 @@ from fastapi import Request
 from markdown_it import MarkdownIt
 
 from take_five.attachments import extract_email_file, handle_pdf_attachment
-from take_five.integrations.groupme import groupme_reply
+from take_five.integrations.chat import chat_ready, deliver_to_circle
 from take_five.pipeline import run_post_storage_pipeline
 from take_five.repository import repo
 
@@ -256,9 +256,8 @@ async def handle_inbound_email(request: Request) -> dict:
         logger.info(f"[sendgrid-email] Empty body (after cleanup) from {sender_email} to circle {circle_id} -- dropped")
         return {"status": "ok"}
 
-    row = repo.log_message(
-        circle_ext_id=circle["external_id"],
-        person_ext_id=None,
+    row = repo.log_message_for_circle(
+        circle_id=str(circle["id"]),
         person_id=person["id"],
         body=body_text,
         msg_type="inbound",
@@ -360,17 +359,16 @@ async def handle_inbound_email(request: Request) -> dict:
 
 def _relay_to_groupme(circle: dict, person: dict, text: str) -> None:
     """
-    Relay an inbound email update into the circle's GroupMe chat, same
-    treatment as an SMS caregiver update (see twilio.py's
-    _process_caregiver_sms). Factored out of handle_inbound_email since the
-    PDF-attachment path now needs this from three places (no attachment /
-    extraction success / extraction-failure fallback) instead of one.
+    Relay an inbound email update into the circle's chat (GroupMe or group
+    text, whichever it uses; see chat.deliver_to_circle), same treatment as
+    an SMS caregiver update (see twilio.py's _process_caregiver_sms).
+    Factored out of handle_inbound_email since the PDF-attachment path needs
+    this from three places (no attachment / extraction success /
+    extraction-failure fallback) instead of one.
     """
-    bot_id = (circle.get("integration_config") or {}).get("groupme_bot_id")
-    groupme_ext_id = circle.get("external_id")
-    if bot_id and groupme_ext_id and text:
+    if chat_ready(circle) and text:
         relay_text = f"{person['name']} (via Take Five): {text}"
-        asyncio.create_task(groupme_reply(bot_id, relay_text, groupme_ext_id))
+        asyncio.create_task(deliver_to_circle(circle, relay_text))
 
 
 # --- Outbound sending ---------------------------------------------------

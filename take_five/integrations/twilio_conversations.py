@@ -27,6 +27,8 @@ replies, and outbound posting can each plug in without touching the route.
 import asyncio
 import logging
 import os
+
+import httpx
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Awaitable, Callable, Optional
@@ -60,51 +62,51 @@ def _client() -> TwilioClient:
     return _twilio_client
 
 
-def _visible(text: str) -> str:
-    """Drop the [SAVED:]/[PATCHED:] sentinel lines, same as groupme_reply:
-    users never see them, but the logged body keeps them so Claude can read
-    its own state on later turns."""
-    return "\n".join(
-        line for line in (text or "").splitlines()
-        if not line.startswith("[SAVED:") and not line.startswith("[PATCHED:")
-    ).strip()
+async def _upload_media(conversation_sid: str, image: tuple) -> Optional[str]:
+    """Upload image bytes to the conversation's Media Content Service and
+    return a media SID (ME...) to attach to a message. Conversations media
+    lives per Chat Service, so look the service up from the conversation."""
+    data, content_type = image
+    try:
+        conv = await asyncio.to_thread(_client().conversations.v1.conversations(conversation_sid).fetch)
+        url = f"https://mcs.us1.twilio.com/v1/Services/{conv.chat_service_sid}/Media"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(
+                url, content=data, headers={"Content-Type": content_type},
+                auth=(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN")),
+            )
+        if r.status_code not in (200, 201):
+            logger.error(f"[sms-group] Media upload failed: {r.status_code} {r.text[:200]}")
+            return None
+        return r.json().get("sid")
+    except Exception as e:
+        logger.error(f"[sms-group] Media upload failed: {e}")
+        return None
 
 
-class ConversationReplier:
-    """take_five.t5_commands.Replier for a circle's native group text.
-    Posts into the Twilio Conversation as the Take Five number (for an
+async def send_to_conversation(conversation_sid: str, author: str, text: str,
+                               image: Optional[tuple] = None) -> bool:
+    """Post into a circle's native group text as the Take Five number (for an
     autocreated group MMS the projected address is the only valid author).
-    Our own posts come back through onMessageAdded and are skipped there."""
-
-    def __init__(self, circle_id: str, conversation_sid: str, author: str):
-        self.circle_id = circle_id
-        self.conversation_sid = conversation_sid
-        self.author = author
-
-    async def _send(self, text: str) -> None:
-        visible = _visible(text)
-        if not visible:
-            return
-        for chunk in split_for_groupme(visible, limit=SMS_GROUP_MAX_CHARS):
-            await asyncio.to_thread(
-                _client().conversations.v1.conversations(self.conversation_sid).messages.create,
-                author=self.author, body=chunk,
-            )
-
-    async def reply(self, text: str) -> None:
-        await self._send(text)
-        try:
-            repo.log_message_for_circle(
-                circle_id=self.circle_id, person_id=None, body=text,
-                msg_type="agent_note", direction="outbound",
-                raw_data={"source": "t5_bot", "conversation_sid": self.conversation_sid},
-                channel=CHANNEL,
-            )
-        except Exception as e:
-            logger.error(f"[sms-group] Failed to log T5 reply: {e}")
-
-    async def post(self, text: str) -> None:
-        await self._send(text)
+    Text is cleaned for SMS and split into chunks; an image, if any, rides on
+    the first chunk. Our own posts come back through onMessageAdded and are
+    skipped there."""
+    from take_five.integrations.chat import clean_for_sms_group  # avoid import cycle
+    visible = clean_for_sms_group(text)
+    media_sid = await _upload_media(conversation_sid, image) if image else None
+    if not visible and not media_sid:
+        return False
+    chunks = split_for_groupme(visible, limit=SMS_GROUP_MAX_CHARS) if visible else [""]
+    for i, chunk in enumerate(chunks):
+        kwargs = {"author": author}
+        if chunk:
+            kwargs["body"] = chunk
+        if media_sid and i == 0:
+            kwargs["media_sid"] = media_sid
+        await asyncio.to_thread(
+            _client().conversations.v1.conversations(conversation_sid).messages.create, **kwargs
+        )
+    return True
 
 
 # ─── Event model ───
@@ -220,6 +222,15 @@ async def on_conversation_added(event: ConversationEvent) -> None:
 
     circle_id = str(matches[0]["circle_id"])
     circle = repo.get_circle_by_id(circle_id)
+    channel = (circle.get("integration_config") or {}).get("channel") or "groupme"
+    if channel != CHANNEL:
+        # One chat per circle: a GroupMe circle doesn't get a group text
+        # attached. TODO: text the creator 1:1 offering to switch.
+        logger.info(
+            f"[sms-group] {matches[0]['circle_name']} uses {channel}, not group text; "
+            f"not linking {event.conversation_sid}"
+        )
+        return
     current = (circle.get("integration_config") or {}).get("sms_group") or {}
     if current.get("conversation_sid"):
         # Membership changed: a group text's participant set is fixed, so
@@ -258,8 +269,9 @@ async def on_message_added(event: ConversationEvent) -> None:
         logger.info(f"[sms-group] Message in unlinked conversation {event.conversation_sid}; not stored")
         return
 
-    sms_group = (circle.get("integration_config") or {}).get("sms_group") or {}
-    if sms_group.get("status") != STATUS_ACTIVE:
+    cfg = circle.get("integration_config") or {}
+    sms_group = cfg.get("sms_group") or {}
+    if (cfg.get("channel") or "groupme") != CHANNEL or sms_group.get("status") != STATUS_ACTIVE:
         logger.info(
             f"[sms-group] Message in {circle['name']} while {sms_group.get('status')}; "
             f"not stored until all participants consent"
@@ -308,13 +320,14 @@ async def on_message_added(event: ConversationEvent) -> None:
         # Background task: ask_with_tools can take longer than Twilio's
         # webhook timeout, and a timeout would trigger a retry.
         async def answer():
+            from take_five.integrations.chat import CircleReplier  # avoid import cycle
             try:
                 await handle_t5(
                     question=body.strip(),
                     circle_id=str(circle["id"]),
                     sender_person_id=str(person["id"]) if person else None,
                     channel=CHANNEL,
-                    replier=ConversationReplier(str(circle["id"]), event.conversation_sid, projected),
+                    replier=CircleReplier(circle),
                 )
             except Exception as e:
                 logger.error(f"[sms-group] @T5 failed in {circle['name']}: {e}", exc_info=True)

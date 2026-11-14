@@ -18,6 +18,10 @@ RESPONSE_FORMATS = {
 CHANNEL_CONSTRAINTS = {
     "groupme": "Keep your response under 600 characters. If the topic warrants more depth, give a focused answer and offer to continue.",
     "sms":     "Keep your response under 300 characters.",
+    # Native group text: same length budget as GroupMe (one MMS bubble),
+    # plain text only. chat.clean_for_sms_group() also strips these
+    # deterministically, since the model doesn't always comply.
+    "sms_group": "Keep your response under 600 characters. Plain text only: no markdown, no bullet symbols, no em dashes.",
 }
 
 
