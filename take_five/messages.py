@@ -1346,12 +1346,14 @@ async def generate_prep_packet(
     # -- Step 7: Log the packet to message history with its own type --
     # This allows retrieval later via /app/circles/{id}/prep-packets
     try:
-        circle = repo.get_circle_by_id(circle_id)
-        circle_ext_id = circle.get('external_id') if circle else None
-        if circle_ext_id:
-            repo.log_message(
-                circle_ext_id=circle_ext_id,
-                person_ext_id=None,
+        # Keyed by circle_id, not the GroupMe external_id: a circle that
+        # only uses the native group-text channel has no external_id, and
+        # skipping the log there would break "add to prep" follow-ups
+        # (they look the packet up via repo.get_prep_packets).
+        if circle_id:
+            repo.log_message_for_circle(
+                circle_id=circle_id,
+                person_id=None,
                 body=packet_text,
                 msg_type='prep_packet',
                 direction='outbound',

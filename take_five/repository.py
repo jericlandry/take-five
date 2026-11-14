@@ -877,6 +877,56 @@ class TakeFiveRepository:
             )
         return self._execute(query, params)
 
+    def log_message_for_circle(self, circle_id: str, person_id: Optional[str],
+                               body: str, msg_type: str = 'inbound',
+                               direction: str = 'inbound',
+                               raw_data: Optional[Dict] = None,
+                               channel: str = 'sms_group') -> Dict:
+        """
+        Same as log_message, keyed by the internal circle_id instead of the
+        circle's external_id. log_message's external_id lookup assumes every
+        circle has a GroupMe group; an SMS-group-only circle may not.
+        """
+        return self._execute("""
+            INSERT INTO messages (circle_id, person_id, message_type, direction, body, raw, channel)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING *;
+        """, (
+            str(circle_id), str(person_id) if person_id else None,
+            msg_type, direction, body,
+            Json(raw_data) if raw_data else None, channel,
+        ))
+
+    def find_circle_by_sms_group_conversation(self, conversation_sid: str) -> Optional[Dict]:
+        """The circle whose native group text (Twilio Conversation) is this one.
+        See take_five/integrations/twilio_conversations.py."""
+        return self._execute("""
+            SELECT * FROM care_circles
+            WHERE integration_config->'sms_group'->>'conversation_sid' = %s
+            LIMIT 1;
+        """, (conversation_sid,))
+
+    def sms_group_message_exists(self, message_sid: str) -> bool:
+        """Dedupe Twilio webhook retries for group-text messages."""
+        row = self._execute("""
+            SELECT 1 AS hit FROM messages
+            WHERE channel = 'sms_group' AND raw->>'message_sid' = %s
+            LIMIT 1;
+        """, (message_sid,))
+        return bool(row)
+
+    def find_circle_member_by_phone(self, circle_id: str, phone: str) -> Optional[Dict]:
+        """A member of this circle by phone (E.164), regardless of sms_active:
+        in a group text, the circle is already known from the conversation."""
+        return self._execute("""
+            SELECT p.*, cm.role
+            FROM people p
+            JOIN circle_memberships cm ON cm.person_id = p.id
+            WHERE cm.circle_id = %s AND p.phone = %s
+            ORDER BY p.name
+            LIMIT 1;
+        """, (str(circle_id), phone))
+
     def insert_reference_messages(self, circle_id: str, channel: str,
                                    thread_label: str, entries: List[Dict]) -> List[Dict]:
         """

@@ -8,12 +8,7 @@ from typing import Optional
 
 from take_five.repository import repo
 from take_five.pipeline import run_post_storage_pipeline, run_memory, run_signal_detection
-from take_five.messages import (
-    ask_with_tools,
-    generate_prep_packet,
-    parse_prep_request,
-    resolve_prep_seniors,
-)
+from take_five.t5_commands import handle_t5, is_t5_command
 from take_five.attachments import extract_groupme_file, handle_pdf_attachment, format_pdf_failure_mailto
 from take_five.images import extract_groupme_image, handle_image_message
 
@@ -187,6 +182,21 @@ async def groupme_reply(bot_id: Optional[str], text: Optional[str], circle_ext_i
             logger.info(f"[groupme] Bot reply logged to {circle_ext_id}")
         except Exception as e:
             logger.error(f"[groupme] Failed to log bot reply: {e}")
+
+
+class GroupMeReplier:
+    """take_five.t5_commands.Replier for a GroupMe circle: reply() is
+    groupme_reply (posts + logs), post() is send_message_async (posts only),
+    exactly the calls the @T5 code made before it moved to t5_commands.py."""
+    def __init__(self, bot_id: str, circle_ext_id: Optional[str]):
+        self.bot_id = bot_id
+        self.circle_ext_id = circle_ext_id
+
+    async def reply(self, text: str) -> None:
+        await groupme_reply(self.bot_id, text, self.circle_ext_id)
+
+    async def post(self, text: str) -> None:
+        await send_message_async(self.bot_id, text)
 
 
 async def handle_groupme_webhook(data: dict):
@@ -531,8 +541,7 @@ async def handle_groupme_webhook(data: dict):
             asyncio.create_task(process_pdf())
 
         # 4. T5 ask flow — ask_with_tools handles both Q&A and medication saves
-        t5_match = re.search(r'@T5', text, re.IGNORECASE)
-        if t5_match:
+        if is_t5_command(text):
             question = text.strip()
             if not question:
                 logger.warning("T5 command detected but no question found.")
@@ -544,173 +553,13 @@ async def handle_groupme_webhook(data: dict):
                 logger.error(f"No groupme_bot_id in integration_config for circle {circle_ext_id}.")
                 return {"status": "ok"}
 
-            # Detect prep packet trigger
-            question_lower = question.lower()
-            is_prep_trigger = any(phrase in question_lower for phrase in [
-                "prep for", "prep ", "pre-visit", "appointment prep",
-                "visit prep", "get ready for",
-            ]) and any(kw in question_lower for kw in [
-                "appointment", "appt", "visit", "dr.", "dr ", "doctor",
-            ])
-
-            # Follow-ups on an *existing* prep packet — "add to prep [note]"
-            # or asking to see/resend the updated pack. These don't carry
-            # doctor/appointment context themselves, so they can't go
-            # through parse_prep_request() like a fresh is_prep_trigger
-            # request would (Haiku would just fall back to "the doctor").
-            # Instead this looks up the most recent prep_packet message for
-            # the circle (repo.get_prep_packets) and reuses its
-            # doctor_name/appointment_desc/senior_person_id to regenerate.
-            # A full regen naturally re-scans the message window and picks
-            # up whatever was just said (e.g. "add to prep, inquire about a
-            # STEADI evaluation"), so this is a full repost, not an
-            # incremental patch — see 2026-08-01 Addams thread, where
-            # "add to prep"/"show me the updated prep pack" fell through to
-            # the general ask_with_tools() path, which has no tool for this
-            # and just confabulated a confirmation without changing anything.
-            # Checked before is_prep_trigger so "add to prep" (which also
-            # contains the substring "prep ") doesn't get misrouted into the
-            # fresh-request path with no doctor context.
-            is_prep_followup = "add to prep" in question_lower or (
-                ("prep pack" in question_lower or "prep packet" in question_lower)
-                and any(kw in question_lower for kw in [
-                    "show", "see", "updated", "latest", "again", "resend", "current",
-                ])
+            await handle_t5(
+                question=question,
+                circle_id=circle_id,
+                sender_person_id=sender_person_id,
+                channel="groupme",
+                replier=GroupMeReplier(bot_id, circle_ext_id),
             )
-
-            if is_prep_followup:
-                logger.info("[groupme] Prep packet follow-up trigger detected")
-                async def run_prep_followup():
-                    try:
-                        roster = repo.fetch_circle_roster(circle_id)
-                        seniors = [r for r in roster if r.get("person_role") == "care_recipient"]
-
-                        packets = repo.get_prep_packets(circle_id, limit=20)
-                        if not packets:
-                            await groupme_reply(
-                                bot_id,
-                                "I don't have a prep packet started for this circle yet — "
-                                "send @T5 prep for [name]'s appointment with [doctor] to start one.",
-                                circle_ext_id,
-                            )
-                            return
-
-                        # If the message names a specific senior, prefer that
-                        # senior's most recent packet; otherwise fall back to
-                        # the most recent packet overall (get_prep_packets is
-                        # already newest-first).
-                        target_senior_id = None
-                        if len(seniors) > 1:
-                            matched = resolve_prep_seniors(question, seniors)
-                            if len(matched) == 1:
-                                target_senior_id = str(matched[0]["id"])
-
-                        packet_row = None
-                        if target_senior_id:
-                            packet_row = next(
-                                (p for p in packets
-                                 if (p.get("raw") or {}).get("senior_person_id") == target_senior_id),
-                                None,
-                            )
-                        if packet_row is None:
-                            packet_row = packets[0]
-
-                        raw = packet_row.get("raw") or {}
-                        doctor_name       = raw.get("doctor_name") or "the doctor"
-                        appointment_desc  = raw.get("appointment_desc") or "upcoming appointment"
-                        senior_person_id  = raw.get("senior_person_id")
-
-                        packet_text, followup_text = await generate_prep_packet(
-                            question=question,
-                            circle_id=circle_id,
-                            sender_person_id=sender_person_id,
-                            doctor_name=doctor_name,
-                            appointment_desc=appointment_desc,
-                            senior_person_id=senior_person_id,
-                        )
-                        await send_message_async(bot_id, packet_text)
-                        await asyncio.sleep(1.5)
-                        await groupme_reply(bot_id, followup_text, circle_ext_id)
-                    except Exception as e:
-                        logger.error(f"[groupme] Prep packet follow-up failed: {e}", exc_info=True)
-                        await groupme_reply(
-                            bot_id,
-                            "Sorry, I ran into a problem updating the prep packet. Try again or ask @T5 directly.",
-                            circle_ext_id,
-                        )
-                asyncio.create_task(run_prep_followup())
-            elif is_prep_trigger:
-                logger.info("[groupme] Prep packet trigger detected")
-                async def run_prep():
-                    try:
-                        # Figure out which senior(s) this request is for before
-                        # generating anything. Circles with more than one senior
-                        # (e.g. a couple sharing a care circle) need this resolved
-                        # explicitly — see resolve_prep_seniors in
-                        # take_five/messages.py. This matches directly against the
-                        # roster, deliberately without going through the LLM, so a
-                        # malformed model response can't silently misroute a
-                        # medication-adjacent document to the wrong person.
-                        roster = repo.fetch_circle_roster(circle_id)
-                        seniors = [r for r in roster if r.get("person_role") == "care_recipient"]
-
-                        if not seniors:
-                            # No senior on record at all — let generate_prep_packet's
-                            # own "Mom" fallback handle it, same as before this fix.
-                            target_seniors = [{"id": None, "member_name": "Mom"}]
-                        elif len(seniors) == 1:
-                            target_seniors = seniors
-                        else:
-                            target_seniors = resolve_prep_seniors(question, seniors)
-                            if not target_seniors:
-                                names = " or ".join(s["member_name"] for s in seniors)
-                                await groupme_reply(
-                                    bot_id,
-                                    f"Prep pack for {names}? Send @T5 prep for [name]'s "
-                                    f"appointment with the doctor/appointment details and I'll put it together.",
-                                    circle_ext_id,
-                                )
-                                return
-
-                        # Parse doctor/appointment once and reuse it across every
-                        # senior's packet (avoids a duplicate Haiku call per senior
-                        # for the "mom and dad, same appointment" case).
-                        parsed = await parse_prep_request(question, circle_id=circle_id)
-                        doctor_name = parsed["doctor_name"]
-                        appointment_desc = parsed["appointment_desc"]
-
-                        for i, senior in enumerate(target_seniors):
-                            packet_text, followup_text = await generate_prep_packet(
-                                question=question,
-                                circle_id=circle_id,
-                                sender_person_id=sender_person_id,
-                                doctor_name=doctor_name,
-                                appointment_desc=appointment_desc,
-                                senior_person_id=str(senior["id"]) if senior["id"] else None,
-                            )
-                            await send_message_async(bot_id, packet_text)
-                            await asyncio.sleep(1.5)
-                            await groupme_reply(bot_id, followup_text, circle_ext_id)
-                            if i < len(target_seniors) - 1:
-                                await asyncio.sleep(1.5)
-                    except Exception as e:
-                        logger.error(f"[groupme] Prep packet failed: {e}", exc_info=True)
-                        await groupme_reply(
-                            bot_id,
-                            "Sorry, I ran into a problem generating the prep packet. Try again or ask @T5 directly.",
-                            circle_ext_id,
-                        )
-                asyncio.create_task(run_prep())
-            else:
-                logger.info("T5 question command detected, generating response...")
-                bot_response = await ask_with_tools(
-                    question=question,
-                    circle_id=circle_id,
-                    response_format="text",
-                    channel="groupme",
-                    confirmed_by_person_id=sender_person_id,
-                )
-                await groupme_reply(bot_id, bot_response, circle_ext_id)
 
         logger.info(f"Message stored. Internal ID: {new_msg['id']}")
 
